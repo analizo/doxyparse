@@ -1,0 +1,11 @@
+TEMPLATE     =	parse.t
+CONFIG       =	console warn_on debug
+HEADERS      =	
+SOURCES      =	doxyparse.cpp
+LIBS          += -L../../lib -L../../lib -ldoxygen -lqtools -lmd5 -ldoxycfg -lpng
+DESTDIR        = 
+OBJECTS_DIR    = ../../objects
+TARGET         = ../../bin/doxyparse
+INCLUDEPATH   += ../../qtools ../../src
+DEPENDPATH    += ../../src
+TARGETDEPS     = ../../lib/libdoxygen.a
