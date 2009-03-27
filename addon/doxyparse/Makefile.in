@@ -11,7 +11,7 @@ tmake:
 strip:
 	strip doxyparse
 
-Makefile.doxyapp: doxyparse.pro
+Makefile.doxyparse: doxyparse.pro
 	$(ENV) $(PERL) $(TMAKE) doxyparse.pro >Makefile.doxyparse
 
 install:

@@ -1,4 +1,4 @@
-TEMPLATE     =	parse.t
+TEMPLATE     =	app.t
 CONFIG       =	console warn_on debug
 HEADERS      =	
 SOURCES      =	doxyparse.cpp
