@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright (C) 1997-2006 by Dimitri van Heesch.
+ * Copyright (C) 2009 by Joenio Costa.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -14,7 +14,7 @@
  */
 
 /** @file
- *  @brief Example of how to use doxygen as part of another GPL applications
+ *  @brief Code parse based on doxyapp by Dimitri van Heesch
  *
  *  This example shows how to configure and run doxygen programmatically from
  *  within an application without generating the usual output.
@@ -31,11 +31,11 @@
 #include "outputgen.h"
 #include "parserintf.h"
 
-class XRefDummyCodeGenerator : public CodeOutputInterface
+class Doxyparse : public CodeOutputInterface
 {
   public:
-    XRefDummyCodeGenerator(FileDef *fd) : m_fd(fd) {}
-   ~XRefDummyCodeGenerator() {}
+    Doxyparse(FileDef *fd) : m_fd(fd) {}
+   ~Doxyparse() {}
 
     // these are just null functions, they can be used to produce a syntax highlighted
     // and cross-linked version of the source code, but who needs that anyway ;-)
@@ -102,10 +102,10 @@ static void findXRefSymbols(FileDef *fd)
   pIntf->resetCodeParserState();
 
   // create a new backend object 
-  XRefDummyCodeGenerator *xrefGen = new XRefDummyCodeGenerator(fd);
+  Doxyparse *parse = new Doxyparse(fd);
 
   // parse the source code
-  pIntf->parseCode(*xrefGen,
+  pIntf->parseCode(*parse,
                 0,
                 fileToString(fd->absFilePath()),
                 FALSE,
@@ -113,7 +113,7 @@ static void findXRefSymbols(FileDef *fd)
                 fd);
 
   // dismiss the object.
-  delete xrefGen;
+  delete parse;
 }
 
 static void listSymbol(Definition *d)
