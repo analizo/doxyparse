@@ -265,6 +265,9 @@ int main(int argc,char **argv)
   // to make doxygen gather the cross reference info
   Config_getBool("SOURCE_BROWSER")=TRUE;
 
+  // loop recusive over input files
+  Config_getBool("RECURSIVE")=TRUE;
+
   // set the input
   Config_getList("INPUT").append(argv[1]);
 
@@ -297,18 +300,6 @@ int main(int argc,char **argv)
   // clean up after us
   rmdir("/tmp/doxygen");
 
-  while (1)
-  {
-    printf("> Type a symbol name or\n> .list for a list of symbols or\n> .quit to exit\n> ");
-    fgets(cmd,256,stdin);
-    QCString s(cmd);
-    if (s.at(s.length()-1)=='\n') s=s.left(s.length()-1); // strip trailing \n
-    if (s==".list") 
-      listSymbols();
-    else if (s==".quit") 
-      exit(0);
-    else 
-      lookupSymbols(s);
-  }
+  exit(0);
 }
 
