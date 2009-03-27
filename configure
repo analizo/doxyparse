@@ -35,6 +35,7 @@ f_insttool=NO
 f_english=NO
 f_wizard=NO
 f_app=NO
+f_parse=NO
 f_thread=NO
 f_flex=NO
 f_bison=NO
@@ -93,6 +94,9 @@ while test -n "$1";  do
     --with-doxyapp | -with-doxyapp)
        f_app=YES
        ;;
+    --with-doxyparse | -with-doxyparse)
+       f_parse=YES
+       ;;
     -h | -help | --help)
        f_help=y
        ;;
@@ -111,7 +115,7 @@ Usage: $0 [--help] [--shared] [--static] [--release] [--debug]
           [--perl name] [--flex name] [--bison name] [--make name] 
           [--dot name] [--platform target] [--prefix dir] [--docdir dir] 
           [--install name] [--english-only] [----enable-langs list] 
-          [--with-doxywizard] [--with-doxyapp]
+          [--with-doxywizard] [--with-doxyapp] [--with-doxyparse]
 
 Options: 
 
@@ -146,6 +150,7 @@ Options:
   --with-doxywizard     Build the GUI frontend for doxygen. This
                         requires Qt 3.3.x
   --with-doxyapp        Example showing how to embed doxygen in an application.
+  --with-doxyparse      Parses source code and dumps the dependencies between the code elements.
 
 EOF
   test "$f_error" = y && exit 1
@@ -575,7 +580,7 @@ TMAKE_CXXFLAGS += -DENGLISH_ONLY
 EOF
 fi
 
-f_inmakefiles="Makefile.in qtools/Makefile.in src/Makefile.in examples/Makefile.in doc/Makefile.in addon/doxywizard/Makefile.in addon/doxmlparser/src/Makefile.in addon/doxmlparser/test/Makefile.in addon/doxmlparser/examples/metrics/Makefile.in libpng/Makefile.in libmd5/Makefile.in addon/doxyapp/Makefile.in"
+f_inmakefiles="Makefile.in qtools/Makefile.in src/Makefile.in examples/Makefile.in doc/Makefile.in addon/doxywizard/Makefile.in addon/doxmlparser/src/Makefile.in addon/doxmlparser/test/Makefile.in addon/doxmlparser/examples/metrics/Makefile.in libpng/Makefile.in libmd5/Makefile.in addon/doxyapp/Makefile.in addon/doxyparse/Makefile.in"
 
 for i in $f_inmakefiles ; do
      SRC=$i
@@ -601,6 +606,9 @@ EOF
        if test $f_app = YES; then
          echo "	\$(MAKE) -C addon/doxyapp" >> $DST
        fi
+       if test $f_parse = YES; then
+         echo "	\$(MAKE) -C addon/doxyparse" >> $DST
+       fi
        echo "" >> $DST
        echo "doxywizard_install:" >> $DST
        if test $f_wizard = YES; then
@@ -616,7 +624,7 @@ EOF
      echo "  Created $DST from $SRC..."
 done
 
-f_inprofiles="qtools/qtools.pro.in src/libdoxygen.pro.in src/libdoxycfg.pro.in src/doxygen.pro.in src/doxytag.pro.in addon/doxywizard/doxywizard.pro.in addon/doxmlparser/src/doxmlparser.pro.in addon/doxmlparser/test/xmlparse.pro.in addon/doxmlparser/examples/metrics/metrics.pro.in libpng/libpng.pro.in libmd5/libmd5.pro.in addon/doxyapp/doxyapp.pro.in" 
+f_inprofiles="qtools/qtools.pro.in src/libdoxygen.pro.in src/libdoxycfg.pro.in src/doxygen.pro.in src/doxytag.pro.in addon/doxywizard/doxywizard.pro.in addon/doxmlparser/src/doxmlparser.pro.in addon/doxmlparser/test/xmlparse.pro.in addon/doxmlparser/examples/metrics/metrics.pro.in libpng/libpng.pro.in libmd5/libmd5.pro.in addon/doxyapp/doxyapp.pro.in addon/doxyparse/doxyparse.pro.in" 
 
 for i in $f_inprofiles ; do
      SRC=$i
