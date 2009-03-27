@@ -616,7 +616,7 @@ EOF
      echo "  Created $DST from $SRC..."
 done
 
-f_inprofiles="qtools/qtools.pro.in src/libdoxygen.pro.in src/libdoxycfg.pro.in src/doxygen.pro.in src/doxytag.pro.in src/doxyparse.pro.in addon/doxywizard/doxywizard.pro.in addon/doxmlparser/src/doxmlparser.pro.in addon/doxmlparser/test/xmlparse.pro.in addon/doxmlparser/examples/metrics/metrics.pro.in libpng/libpng.pro.in libmd5/libmd5.pro.in addon/doxyapp/doxyapp.pro.in" 
+f_inprofiles="qtools/qtools.pro.in src/libdoxygen.pro.in src/libdoxycfg.pro.in src/doxygen.pro.in src/doxytag.pro.in addon/doxywizard/doxywizard.pro.in addon/doxmlparser/src/doxmlparser.pro.in addon/doxmlparser/test/xmlparse.pro.in addon/doxmlparser/examples/metrics/metrics.pro.in libpng/libpng.pro.in libmd5/libmd5.pro.in addon/doxyapp/doxyapp.pro.in" 
 
 for i in $f_inprofiles ; do
      SRC=$i
