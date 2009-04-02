@@ -116,41 +116,6 @@ static void findXRefSymbols(FileDef *fd)
   delete parse;
 }
 
-static void listSymbol(Definition *d)
-{
-  if (d!=Doxygen::globalScope && // skip the global namespace symbol
-      d->name().at(0)!='@'       // skip anonymous stuff
-     )      
-  {
-    printf("%s\n",
-        d->name().data());
-  }
-}
-
-static void listSymbols()
-{
-  QDictIterator<DefinitionIntf> sli(*Doxygen::symbolMap);
-  DefinitionIntf *di;
-  for (sli.toFirst();(di=sli.current());++sli)
-  {
-    if (di->definitionType()==DefinitionIntf::TypeSymbolList) // list of symbols
-      // with same name
-    {
-      DefinitionListIterator dli(*(DefinitionList*)di);
-      Definition *d;
-      // for each symbol
-      for (dli.toFirst();(d=dli.current());++dli)
-      {
-        listSymbol(d);
-      }
-    }
-    else // single symbol
-    {
-      listSymbol((Definition*)di);
-    }
-  }
-}
-
 static void lookupSymbol(Definition *d)
 {
   if (d!=Doxygen::globalScope && // skip the global namespace symbol
@@ -200,39 +165,32 @@ static void lookupSymbol(Definition *d)
   }
 }
 
-static void lookupSymbols(const QCString &sym)
+static void listSymbols()
 {
-  if (!sym.isEmpty())
+  QDictIterator<DefinitionIntf> sli(*Doxygen::symbolMap);
+  DefinitionIntf *di;
+  for (sli.toFirst();(di=sli.current());++sli)
   {
-    DefinitionIntf *di = Doxygen::symbolMap->find(sym);
-    if (di)
+    if (di->definitionType()==DefinitionIntf::TypeSymbolList) // list of symbols
+      // with same name
     {
-      if (di->definitionType()==DefinitionIntf::TypeSymbolList)
+      DefinitionListIterator dli(*(DefinitionList*)di);
+      Definition *d;
+      // for each symbol
+      for (dli.toFirst();(d=dli.current());++dli)
       {
-        DefinitionListIterator dli(*(DefinitionList*)di);
-        Definition *d;
-        // for each symbol with the given name
-        for (dli.toFirst();(d=dli.current());++dli)
-        {
-          lookupSymbol(d);
-        }
-      }
-      else
-      {
-        lookupSymbol((Definition*)di);
+        lookupSymbol(d);
       }
     }
-    else
+    else // single symbol
     {
-      printf("Unknown symbol\n");
+      lookupSymbol((Definition*)di);
     }
   }
 }
 
 int main(int argc,char **argv)
 {
-  char cmd[256];
-
   if (argc<2)
   {
     printf("Usage: %s [source_file | source_dir]\n",argv[0]);
@@ -245,7 +203,7 @@ int main(int argc,char **argv)
   // setup the non-default configuration options
 
   // we need a place to put intermediate files
-  Config_getString("OUTPUT_DIRECTORY")="/tmp/doxygen"; 
+  Config_getString("OUTPUT_DIRECTORY")="/tmp/doxyparse"; 
   // disable html output
   Config_getBool("GENERATE_HTML")=FALSE;
   // disable latex output
@@ -298,8 +256,9 @@ int main(int argc,char **argv)
   if (!Doxygen::objDBFileName.isEmpty()) unlink(Doxygen::objDBFileName);
   if (!Doxygen::entryDBFileName.isEmpty()) unlink(Doxygen::entryDBFileName);
   // clean up after us
-  rmdir("/tmp/doxygen");
+  rmdir(Config_getString("OUTPUT_DIRECTORY"));
+
+  listSymbols();
 
   exit(0);
 }
-
