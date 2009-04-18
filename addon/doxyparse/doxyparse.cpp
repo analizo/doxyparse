@@ -30,7 +30,6 @@
 #include "doxygen.h"
 #include "outputgen.h"
 #include "parserintf.h"
-#include <map>
 
 class Doxyparse : public CodeOutputInterface
 {
@@ -53,42 +52,12 @@ class Doxyparse : public CodeOutputInterface
 
     void linkableSymbol(int l, const char *sym, Definition *symDef, Definition *context)
     {
-      QCString ctx;
-      if (context)
-      // the context of the symbol is known
-      {
-        if (context->definitionType() == Definition::TypeMember)
-        // it is inside a member
-        {
-          Definition *parentContext = context->getOuterScope();
-          if (parentContext && parentContext->definitionType() == Definition::TypeClass)
-          // it is inside a member of a class
-          {
-            ctx.sprintf("inside %s %s of %s %s",
-              ((MemberDef *)context)->memberTypeName().data(),
-              context->name().data(),
-              ((ClassDef*)parentContext)->compoundTypeString().data(),
-              parentContext->name().data());
-          }
-          else if (parentContext==Doxygen::globalScope)
-          // it is inside a global member
-          {
-            ctx.sprintf("inside %s %s",
-              ((MemberDef *)context)->memberTypeName().data(),
-              context->name().data());
-          }
-        }
-        if (ctx.isEmpty()) // it is something else (class, or namespace member, ...)
-        {
-          ctx.sprintf("in %s", context->name().data());
-        }
+      if (!symDef) {
+        // in this case we have a local or external symbol
+
+        // TODO record use of external symbols
+        // TODO must have a way to differentiate external symbols from local variables
       }
-      printf("Found symbol %s at line %d of %s %s", sym, l, m_fd->getDefFileName().data(), ctx.data());
-      if (symDef && context) // in this case the definition of the symbol is known to doxygen.
-      {
-        printf(" -> defined at line %d of %s", symDef->getDefLine(), symDef->getDefFileName().data());
-      }
-      printf("\n");
     }
 
   private:
@@ -113,60 +82,57 @@ static void findXRefSymbols(FileDef *fd)
   delete parse;
 }
 
-static void lookupSymbol(Definition *d)
-{
-  if (d->definitionType() == Definition::TypeMember)
-  {
+static void printReferencesMembers(MemberDef *md) {
+  LockingPtr<MemberSDict> defDict = md->getReferencesMembers();
+  if (defDict != 0) {
+    MemberSDict::Iterator msdi(*defDict);
+    MemberDef *rmd;
+    for (msdi.toFirst(); (rmd=msdi.current()); ++msdi) {
+      if (rmd->isFunction())
+        printf("call function %s defined in %s\n", rmd->name().data(), rmd->getDefFileName().data());
+    }
+  }
+}
+
+static void lookupSymbol(Definition *d) {
+  if (d->definitionType() == Definition::TypeMember) {
     MemberDef *md = (MemberDef *)d;
-    printf("Name: %s\n", d->name().data());
-    printf("File: %s\n", d->getDefFileName().data());
-    printf("Line: %d\n", d->getDefLine());
-    printf("Kind: %s\n", md->memberTypeName().data());
+    if (!md->isPrototype()) {
+      printf("Name: %s\n", d->name().data());
+      printf("File: %s\n", d->getDefFileName().data());
+      printf("Line: %d\n", d->getDefLine());
+      printf("Kind: %s\n", md->memberTypeName().data());
+      if (md->isFunction())
+        printReferencesMembers(md);
+      printf("\n");
+    }
+  }
+}
 
-    if (md->isFunction()) {
-      LockingPtr<MemberSDict> defDict = md->getReferencesMembers();
-      if (defDict!=0) {
-        MemberSDict::Iterator msdi(*defDict);
-        MemberDef *rmd;
-        for (msdi.toFirst(); (rmd=msdi.current()); ++msdi) {
-          if (rmd->isFunction())
-            printf("call function %s defined in %s\n", rmd->name().data(), rmd->getDefFileName().data());
+static void listSymbols() {
+  // iterate over the input files
+  FileNameListIterator fnli(*Doxygen::inputNameList); 
+  FileName *fn;
+  // foreach file with a certain name
+  for (fnli.toFirst(); (fn=fnli.current()); ++fnli) {
+    FileNameIterator fni(*fn);
+    FileDef *fd;
+    for (; (fd=fni.current()); ++fni) {
+      MemberList *ml = fd->getMemberList(MemberList::allMembersList);
+        if (ml && ml->count() > 0) {
+          MemberListIterator mli(*ml);
+          MemberDef *md;
+          for (mli.toFirst(); (md=mli.current()); ++mli) {
+            lookupSymbol((Definition*) md);
+          }
         }
-      }
-    }
-    printf("\n");
-  }
-}
-
-static void listSymbols()
-{
-  QDictIterator<DefinitionIntf> sli(*Doxygen::symbolMap);
-  DefinitionIntf *di;
-  for (sli.toFirst();(di=sli.current());++sli)
-  {
-    if (di->definitionType() == DefinitionIntf::TypeSymbolList)
-    // list of symbols with same name
-    {
-      DefinitionListIterator dli(*(DefinitionList*)di);
-      Definition *d;
-      // for each symbol
-      for (dli.toFirst(); (d=dli.current()); ++dli)
-      {
-        lookupSymbol(d);
-      }
-    }
-    else
-    // single symbol
-    {
-      lookupSymbol((Definition*)di);
     }
   }
+  // TODO print external symbols referenced
 }
 
-int main(int argc,char **argv)
-{
-  if (argc<2)
-  {
+int main(int argc,char **argv) {
+  if (argc < 2) {
     printf("Usage: %s [source_file | source_dir]\n",argv[0]);
     exit(1);
   }
@@ -201,7 +167,9 @@ int main(int argc,char **argv)
   // loop recusive over input files
   Config_getBool("RECURSIVE")=TRUE;
   // set the input
-  Config_getList("INPUT").append(argv[1]);
+  for (int i = 1; i < argc; i++) {
+    Config_getList("INPUT").append(argv[i]);
+  }
 
   // check and finialize the configuration
   checkConfiguration();
