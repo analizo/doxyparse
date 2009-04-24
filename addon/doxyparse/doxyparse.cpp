@@ -89,7 +89,7 @@ static void printReferencesMembers(MemberDef *md) {
     MemberDef *rmd;
     for (msdi.toFirst(); (rmd=msdi.current()); ++msdi) {
       if (rmd->isFunction())
-        printf("call function %s defined in %s\n", rmd->name().data(), rmd->getDefFileName().data());
+        printf("call function %s defined in %s\n", rmd->name().data(), rmd->getFileDef()->getFileBase().data());
     }
   }
 }
@@ -99,7 +99,6 @@ static void lookupSymbol(Definition *d) {
     MemberDef *md = (MemberDef *)d;
     if (!md->isPrototype()) {
       printf("Name: %s\n", d->name().data());
-      printf("File: %s\n", d->getDefFileName().data());
       printf("Line: %d\n", d->getDefLine());
       printf("Kind: %s\n", md->memberTypeName().data());
       if (md->isFunction())
@@ -119,13 +118,14 @@ static void listSymbols() {
     FileDef *fd;
     for (; (fd=fni.current()); ++fni) {
       MemberList *ml = fd->getMemberList(MemberList::allMembersList);
-        if (ml && ml->count() > 0) {
-          MemberListIterator mli(*ml);
-          MemberDef *md;
-          for (mli.toFirst(); (md=mli.current()); ++mli) {
-            lookupSymbol((Definition*) md);
-          }
+      if (ml && ml->count() > 0) {
+        printf("Module: %s\n\n", fd->getFileBase().data());
+        MemberListIterator mli(*ml);
+        MemberDef *md;
+        for (mli.toFirst(); (md=mli.current()); ++mli) {
+          lookupSymbol((Definition*) md);
         }
+      }
     }
   }
   // TODO print external symbols referenced
