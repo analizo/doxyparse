@@ -145,8 +145,8 @@ int main(int argc,char **argv) {
 
   // we need a place to put intermediate files
   Config_getString("OUTPUT_DIRECTORY")="/tmp/doxyparse"; 
-  // disable html output
-  Config_getBool("GENERATE_HTML")=FALSE;
+  // enable HTML (fake) output to omit warning about missing output format
+  Config_getBool("GENERATE_HTML")=TRUE;
   // disable latex output
   Config_getBool("GENERATE_LATEX")=FALSE;
   // be quiet
@@ -168,6 +168,7 @@ int main(int argc,char **argv) {
   // loop recusive over input files
   Config_getBool("RECURSIVE")=TRUE;
   // set the input
+  Config_getList("INPUT").clear();
   for (int i = 1; i < argc; i++) {
     Config_getList("INPUT").append(argv[i]);
   }
