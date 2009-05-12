@@ -82,13 +82,31 @@ static void findXRefSymbols(FileDef *fd)
   delete parse;
 }
 
+static bool ignoreStaticExternalCall(MemberDef *context, MemberDef *md) {
+  if (md->isStatic()) {
+    if(md->getFileDef()) {
+      if(md->getFileDef()->getFileBase() == context->getFileDef()->getFileBase())
+        // TODO ignore prefix of file
+        return false;
+      else
+        return true;
+    }
+    else {
+      return false;
+    }
+  }
+  else {
+    return false;
+  }
+}
+
 static void printReferencesMembers(MemberDef *md) {
   LockingPtr<MemberSDict> defDict = md->getReferencesMembers();
   if (defDict != 0) {
     MemberSDict::Iterator msdi(*defDict);
     MemberDef *rmd;
     for (msdi.toFirst(); (rmd=msdi.current()); ++msdi) {
-      if (rmd->definitionType() == Definition::TypeMember) {
+      if (rmd->definitionType() == Definition::TypeMember && !ignoreStaticExternalCall(md, rmd)) {
         printf("      uses %s %s", rmd->memberTypeName().data(), rmd->name().data());
         if (rmd->getFileDef())
           printf(" defined in %s\n", rmd->getFileDef()->getFileBase().data());
