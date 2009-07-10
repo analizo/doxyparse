@@ -1,1 +1,6 @@
-This directory contains an "source parsing engine" based doxyapp code. 
+This directory contains an "source parsing engine" based on doxyapp code. 
+
+More info and source code repository: http://gitorious.org/doxygen/
+
+---
+Joenio Costa <joenio@perl.org.br>
