@@ -16,13 +16,6 @@
 /** @file
  *  @brief Code parse based on doxyapp by Dimitri van Heesch
  *
- *  This example shows how to configure and run doxygen programmatically from
- *  within an application without generating the usual output.
- *  The example should work on any Unix like OS (including Linux and Mac OS X).
- *  
- *  This example shows how to use to code parser to get cross-references information
- *  and it also shows how to look up symbols in a program parsed by doxygen and
- *  show some information about them.
  */
 
 #include <stdlib.h>
@@ -130,7 +123,7 @@ static void listSymbols() {
   // iterate over the input files
   FileNameListIterator fnli(*Doxygen::inputNameList); 
   FileName *fn;
-  // foreach file with a certain name
+  // for each file with a certain name
   for (fnli.toFirst(); (fn=fnli.current()); ++fnli) {
     FileNameIterator fni(*fn);
     FileDef *fd;
@@ -183,7 +176,7 @@ int main(int argc,char **argv) {
   Config_getBool("SOURCE_BROWSER")=TRUE;
   // find functions call between modules
   Config_getBool("CALL_GRAPH")=TRUE;
-  // loop recusive over input files
+  // loop recursive over input files
   Config_getBool("RECURSIVE")=TRUE;
   // set the input
   Config_getList("INPUT").clear();
@@ -191,7 +184,7 @@ int main(int argc,char **argv) {
     Config_getList("INPUT").append(argv[i]);
   }
 
-  // check and finialize the configuration
+  // check and finalize the configuration
   checkConfiguration();
   adjustConfiguration();
 
@@ -201,7 +194,7 @@ int main(int argc,char **argv) {
   // iterate over the input files
   FileNameListIterator fnli(*Doxygen::inputNameList); 
   FileName *fn;
-  // foreach file with a certain name
+  // for each file with a certain name
   for (fnli.toFirst();(fn=fnli.current());++fnli) {
     FileNameIterator fni(*fn);
     FileDef *fd;
