@@ -158,12 +158,7 @@ static void listSymbols() {
       MemberList *ml = fd->getMemberList(MemberList::allMembersList);
       if (ml && ml->count() > 0) {
         printf("module %s\n", fd->getFileBase().data());
-        MemberListIterator mli(*ml);
-        MemberDef *md;
-        for (mli.toFirst(); (md=mli.current()); ++mli) {
-          lookupSymbol((Definition*) md);
-        }
-        printf("\n");
+        listMembers(ml);
       }
     }
   }
