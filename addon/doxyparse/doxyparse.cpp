@@ -101,10 +101,14 @@ static void printReferencesMembers(MemberDef *md) {
     for (msdi.toFirst(); (rmd=msdi.current()); ++msdi) {
       if (rmd->definitionType() == Definition::TypeMember && !ignoreStaticExternalCall(md, rmd)) {
         printf("      uses %s %s", rmd->memberTypeName().data(), rmd->name().data());
-        if (rmd->getFileDef())
+        if (rmd->getClassDef()) {
+          printf(" defined in %s\n", rmd->getClassDef()->name().data());
+        } else if (rmd->getFileDef()) {
           printf(" defined in %s\n", rmd->getFileDef()->getFileBase().data());
-        else
+        }
+        else {
           printf("\n");
+        }
       }
     }
   }
@@ -128,6 +132,23 @@ static void listSymbols() {
     FileNameIterator fni(*fn);
     FileDef *fd;
     for (; (fd=fni.current()); ++fni) {
+      ClassSDict *classes = fd->getClassSDict();
+      if (classes) {
+        ClassSDict::Iterator cli(*classes);
+        ClassDef *cd;
+        for (cli.toFirst(); (cd = cli.current()); ++cli) {
+          printf("module %s\n", cd->name().data());
+          MemberList *ml = cd->getMemberList(MemberList::functionMembers);
+          if (ml) {
+            MemberListIterator mli(*ml);
+            MemberDef *md;
+            for (mli.toFirst(); (md=mli.current()); ++mli) {
+              lookupSymbol((Definition*) md);
+            }
+          }
+        }
+      }
+
       MemberList *ml = fd->getMemberList(MemberList::allMembersList);
       if (ml && ml->count() > 0) {
         printf("module %s\n", fd->getFileBase().data());
