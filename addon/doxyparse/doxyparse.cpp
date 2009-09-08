@@ -123,6 +123,16 @@ static void lookupSymbol(Definition *d) {
   }
 }
 
+void listMembers(MemberList *ml) {
+  if (ml) {
+    MemberListIterator mli(*ml);
+    MemberDef *md;
+    for (mli.toFirst(); (md=mli.current()); ++mli) {
+      lookupSymbol((Definition*) md);
+    }
+  }
+}
+
 static void listSymbols() {
   // iterate over the input files
   FileNameListIterator fnli(*Doxygen::inputNameList); 
@@ -138,14 +148,10 @@ static void listSymbols() {
         ClassDef *cd;
         for (cli.toFirst(); (cd = cli.current()); ++cli) {
           printf("module %s\n", cd->name().data());
-          MemberList *ml = cd->getMemberList(MemberList::functionMembers);
-          if (ml) {
-            MemberListIterator mli(*ml);
-            MemberDef *md;
-            for (mli.toFirst(); (md=mli.current()); ++mli) {
-              lookupSymbol((Definition*) md);
-            }
-          }
+          // methods
+          listMembers(cd->getMemberList(MemberList::functionMembers));
+          // attributes
+          listMembers(cd->getMemberList(MemberList::variableMembers));
         }
       }
 
