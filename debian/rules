@@ -7,3 +7,6 @@ configure/doxyparse::
 
 build/doxyparse::
 	make
+
+clean::
+	[ ! -f Makefile ] || $(MAKE) distclean
