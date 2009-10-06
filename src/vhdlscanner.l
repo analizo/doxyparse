@@ -400,7 +400,7 @@ static void parseProcessProto()
 
 static void parseFunctionProto()
 {
-  QCString name,ret,qcs;
+  QCString name,ret,qcs,temp;
   bool sem=FALSE;
   QList<Argument> ql;
   ql.setAutoDelete(TRUE);
@@ -409,14 +409,22 @@ static void parseFunctionProto()
     return; // function without a prototype 
   if (qcs.contains("function",FALSE)==0 && qcs.contains("procedure",FALSE)==0) 
     return; 
-  while (qcs.stripPrefix(" "));
-  if (qcs.stripPrefix("impure"))
+  qcs=qcs.stripWhiteSpace();
+  temp=qcs.lower();
+  if (temp.stripPrefix("impure"))
+  {
     current->exception="impure";
-  else if (qcs.stripPrefix("pure")) 
+    qcs=qcs.remove(0,6);
+  }
+  else if (temp.stripPrefix("pure")) 
+  {
     current->exception="pure";
+    qcs=qcs.remove(0,4);
+  }
 
   VhdlDocGen::parseFuncProto(qcs.data(),ql,name,ret); 
   //printf("parseFuncProto(%s)=%s,%s\n",qcs.data(),name.data(),ret.data());
+  VhdlDocGen::deleteAllChars(name,';');
   current->name=name;
   current->startLine=iFuncLine;
   current->bodyLine=iFuncLine;
@@ -639,6 +647,11 @@ BRACECLOSE              [)]{1}
 
 ALLID                   [^;()\t ]
 
+/* VHDL 2001 */
+ENDPROTECTED            ("end"{BR}+"protected"{BR}+{NAME}{BR}*";")|("end"{BR}+"protected"{BR}*";")
+ENDPROTECEDBODY         "end"{BR}+"protected"{BR}+"body"{BR}+{NAME}
+
+
 %option noyywrap
 
   /* language parsing states */
@@ -660,6 +673,12 @@ ALLID                   [^;()\t ]
 %x FindBegin
 
 %%
+
+<Start>{ENDPROTECTED}|{ENDPROTECEDBODY}  {
+ lineCount();
+}
+
+
 
 <Start>{CONFIG} { // found configuration
  
@@ -985,6 +1004,21 @@ ALLID                   [^;()\t ]
   current->name=QCString(yytext);
   BEGIN(ParseType);
 }
+
+
+<ParseType>("is"){BR}+("protected"){BR}+("body") {lineCount(); BEGIN(Start); }
+
+<ParseType>("is"){BR}+("protected"){BR}+ { 
+ lineCount();
+ current->section=Entry::VARIABLE_SEC;
+ current->spec=VhdlDocGen::TYPE;
+ current->type="protected"; 
+ newEntry(); 
+  BEGIN(Start);
+}
+
+
+
 
 <ParseType>("is"){BR}*("record") { // find record
   lineCount();
@@ -1764,6 +1798,7 @@ static void mergeGrouping(const Entry* ce,int)
 
 void mapLibPackage(const Entry* ce)
 {
+  Entry *lastComp=0;
   while (TRUE)
   {
     bool found = FALSE;
@@ -1786,9 +1821,18 @@ void mapLibPackage(const Entry* ce)
 	    found=TRUE;
 	    rt->spec=-1; //nullify entry
 	    rt->section=0;
+	    lastComp=temp;
 	    break;
 	  }
 	}//for
+	if (lastComp && rt->spec!=-1)
+	{
+	  Entry *ee=new Entry(*rt); //append a copy to entries sublist
+	  lastComp->addSubEntry(ee);
+	  found=TRUE;
+	  rt->spec=-1; //nullify entry
+	  rt->section=0;
+	}
       }//if
     }//for
     if (!found) // nothing left to do

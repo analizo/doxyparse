@@ -410,22 +410,22 @@ static void popScope()
 
 static void setCurrentDoc(const QCString &name,const QCString &base,const QCString &anchor="")
 {
-  static bool searchEngineEnabled=Config_getBool("SEARCHENGINE") &&
-                                  Config_getBool("SOURCE_BROWSER");
-  if (searchEngineEnabled)
-  {
-    Doxygen::searchIndex->setCurrentDoc(name,base,anchor);
-  }
+  //static bool searchEngineEnabled=Config_getBool("SEARCHENGINE") &&
+  //                                Config_getBool("SOURCE_BROWSER");
+  //if (searchEngineEnabled)
+  //{
+  //  Doxygen::searchIndex->setCurrentDoc(name,base,anchor);
+  //}
 }
 
 static void addToSearchIndex(const char *text)
 {
-  static bool searchEngineEnabled=Config_getBool("SEARCHENGINE") &&
-                                  Config_getBool("SOURCE_BROWSER");
-  if (searchEngineEnabled)
-  {
-    Doxygen::searchIndex->addWord(text,FALSE);
-  }
+  //static bool searchEngineEnabled=Config_getBool("SEARCHENGINE") &&
+  //                                Config_getBool("SOURCE_BROWSER");
+  //if (searchEngineEnabled)
+  //{
+  //  Doxygen::searchIndex->addWord(text,FALSE);
+  //}
 }
 
 static void setClassScope(const QCString &name)
@@ -1711,7 +1711,7 @@ TEMPLIST "<"[^\"\}\{\(\)\/\n\>]*">"
 SCOPETNAME ((({ID}{TEMPLIST}?){BN}*"::"{BN}*)*)((~{BN}*)?{ID})
 SCOPEPREFIX ({ID}{TEMPLIST}?{BN}*"::"{BN}*)+
 KEYWORD_OBJC ("@public"|"@private"|"@protected"|"@class"|"@implementation"|"@interface"|"@end"|"@selector"|"@protocol"|"@optional"|"@required"|"@throw"|"@synthesize")
-KEYWORD ("add"|"asm"|"__assume"|"auto"|"class"|"const"|"delete"|"enum"|"explicit"|"extern"|"false"|"friend"|"gcnew"|"gcroot"|"get"|"inline"|"internal"|"mutable"|"namespace"|"new"|"nullptr"|"override"|"operator"|"pin_ptr"|"private"|"protected"|"public"|"raise"|"register"|"remove"|"self"|"set"|"sizeof"|"static"|"struct"|"__super"|"template"|"generic"|"this"|"true"|"typedef"|"typeid"|"typename"|"union"|"using"|"virtual"|"volatile"|"abstract"|"final"|"import"|"synchronized"|"transient"|{KEYWORD_OBJC})
+KEYWORD ("asm"|"__assume"|"auto"|"class"|"const"|"delete"|"enum"|"explicit"|"extern"|"false"|"friend"|"gcnew"|"gcroot"|"get"|"inline"|"internal"|"mutable"|"namespace"|"new"|"nullptr"|"override"|"operator"|"pin_ptr"|"private"|"protected"|"public"|"raise"|"register"|"remove"|"self"|"set"|"sizeof"|"static"|"struct"|"__super"|"template"|"generic"|"this"|"true"|"typedef"|"typeid"|"typename"|"union"|"using"|"virtual"|"volatile"|"abstract"|"final"|"import"|"synchronized"|"transient"|{KEYWORD_OBJC})
 FLOWKW  ("break"|"case"|"catch"|"continue"|"default"|"do"|"else"|"finally"|"for"|"foreach"|"for each"|"goto"|"if"|"return"|"switch"|"throw"|"throws"|"try"|"while"|"@try"|"@catch"|"@finally")
 TYPEKW  ("bool"|"char"|"double"|"float"|"int"|"long"|"object"|"short"|"signed"|"unsigned"|"void"|"wchar_t"|"size_t"|"boolean"|"id"|"SEL"|"string")
 CASTKW ("const_cast"|"dynamic_cast"|"reinterpret_cast"|"static_cast")
@@ -1928,7 +1928,7 @@ OPERATOR {ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP}
 					  endFontClass();
 					  BEGIN( Body );
   					}
-<Body>^[ \t]*"#"			{ 
+<Body,Bases>^[ \t]*"#"			{ 
   					  startFontClass("preprocessor");
 					  g_lastSkipCppContext = YY_START;
   					  g_code->codify(yytext);

@@ -98,6 +98,8 @@ void XmlDocVisitor::visit(DocSymbol *s)
     case DocSymbol::Ring:    m_t << "<ring char=\"" << s->letter() << "\"/>"; break;
     case DocSymbol::Slash:   m_t << "<slash char=\"" << s->letter() << "\"/>"; break;
     case DocSymbol::Nbsp:    m_t << "<nonbreakablespace/>"; break;
+    case DocSymbol::Aelig:   m_t << "<aelig/>"; break;
+    case DocSymbol::AElig:   m_t << "<AElig/>"; break;
     default:
                              err("Error: unknown symbol found\n");
   }
@@ -319,6 +321,11 @@ void XmlDocVisitor::visit(DocIndexEntry *ie)
   m_t << "</primaryie>"
            "<secondaryie></secondaryie>"
          "</indexentry>";
+}
+
+void XmlDocVisitor::visit(DocSimpleSectSep *)
+{
+  m_t << "<simplesectsep/>";
 }
 
 //--------------------------------------
@@ -681,7 +688,7 @@ void XmlDocVisitor::visitPre(DocImage *img)
       inImage.readBlock(buffer,inImage.size());
       outImage.writeBlock(buffer,inImage.size());
       outImage.flush();
-      delete buffer;
+      delete[] buffer;
     }
   }
 }

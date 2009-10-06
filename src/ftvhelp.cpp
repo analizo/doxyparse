@@ -18,6 +18,7 @@
 #include "message.h"
 #include "doxygen.h"
 #include "language.h"
+#include "htmlgen.h"
 
 #define MAX_INDENT 1024
 
@@ -293,7 +294,7 @@ unsigned char ftv2vertline_png[] = {
 
 FTVImageInfo image_info[] =
 {
-  { "&nbsp;", "ftv2blank.png",ftv2blank_png,174,16,22 },
+  { "&#160;", "ftv2blank.png",ftv2blank_png,174,16,22 },
   { "*",  "ftv2doc.png",ftv2doc_png,255,24,22 },
   { "+",  "ftv2folderclosed.png",ftv2folderclosed_png,259,24,22 },
   { "-",  "ftv2folderopen.png",ftv2folderopen_png,261,24,22 },
@@ -566,6 +567,7 @@ void FTVHelp::generateTreeView(QString* OutString)
 {
   QCString fileName;
   QFile f;
+  static bool searchEngine = Config_getBool("SEARCHENGINE");
   
   generateTreeViewImages();
   
@@ -585,9 +587,10 @@ void FTVHelp::generateTreeView(QString* OutString)
 #if QT_VERSION >= 200
       t.setEncoding(QTextStream::UnicodeUTF8);
 #endif
-      t << "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Frameset//EN\">\n";
-      t << "<html><head>";
-      t << "<meta http-equiv=\"Content-Type\" content=\"text/html;charset=UTF-8\">\n";
+      //t << "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Frameset//EN\">\n";
+      t << "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Frameset//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-frameset.dtd\">\n";
+      t << "<html xmlns=\"http://www.w3.org/1999/xhtml\">\n<head>\n";
+      t << "<meta http-equiv=\"Content-Type\" content=\"text/html;charset=UTF-8\"/>\n";
       t << "<title>"; 
       if (Config_getString("PROJECT_NAME").isEmpty())
       {
@@ -597,12 +600,14 @@ void FTVHelp::generateTreeView(QString* OutString)
       {
         t << Config_getString("PROJECT_NAME");
       }
-      t << "</title></head>" << endl;
+      t << "</title>\n</head>" << endl;
       t << "<frameset cols=\"" << Config_getInt("TREEVIEW_WIDTH") << ",*\">" << endl;
-      t << "  <frame src=\"tree" << Doxygen::htmlFileExtension << "\" name=\"treefrm\">" << endl;
-      t << "  <frame src=\"main" << Doxygen::htmlFileExtension << "\" name=\"basefrm\">" << endl;
+      t << "  <frame src=\"tree" << Doxygen::htmlFileExtension << "\" name=\"treefrm\"/>" << endl;
+      t << "  <frame src=\"main" << Doxygen::htmlFileExtension << "\" name=\"basefrm\"/>" << endl;
       t << "  <noframes>" << endl;
+      t << "    <body>" << endl;
       t << "    <a href=\"main" << Doxygen::htmlFileExtension << "\">Frames are disabled. Click here to go to the main page.</a>" << endl;
+      t << "    </body>" << endl;
       t << "  </noframes>" << endl;
       t << "</frameset>" << endl;
       t << "</html>" << endl;
@@ -618,11 +623,21 @@ void FTVHelp::generateTreeView(QString* OutString)
 
   if (m_topLevelIndex)
   {
+    if (searchEngine)
+    {
+      t << "<!-- This comment will put IE 6, 7 and 8 in quirks mode -->" << endl;
+    }
+    t << "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n";
     t << "<html xmlns=\"http://www.w3.org/1999/xhtml\" xml:lang=\"en\" lang=\"en\">\n";
     t << "  <head>\n";
-    t << "    <meta http-equiv=\"Content-Type\" content=\"text/xhtml;charset=UTF-8\" />\n";
+    t << "    <meta http-equiv=\"Content-Type\" content=\"text/xhtml;charset=UTF-8\"/>\n";
     t << "    <meta http-equiv=\"Content-Style-Type\" content=\"text/css\" />\n";
     t << "    <meta http-equiv=\"Content-Language\" content=\"en\" />\n";
+    if (searchEngine)
+    {
+      t << "    <link href=\"search/search.css\" rel=\"stylesheet\" type=\"text/css\"/>" << endl;
+      t << "    <script type=\"text/javaScript\" src=\"search/search.js\"></script>" << endl;
+    }
     t << "    <link rel=\"stylesheet\" href=\"";
     QCString cssname=Config_getString("HTML_STYLESHEET");
     if (cssname.isEmpty())
@@ -638,7 +653,7 @@ void FTVHelp::generateTreeView(QString* OutString)
       }
       t << cssfi.fileName();
     }
-    t << "\">" << endl;
+    t << "\"/>" << endl;
     t << "    <title>TreeView</title>\n";
   }
   t << "    <script type=\"text/javascript\">\n";
@@ -703,7 +718,32 @@ void FTVHelp::generateTreeView(QString* OutString)
   {
     t << "  </head>\n";
     t << "\n";
-    t << "  <body class=\"ftvtree\">\n";
+    t << "  <body class=\"ftvtree\"";
+    if (searchEngine)
+    {
+      t << " onload='searchBox.OnSelectItem(0);'";
+    }
+    t << ">\n";
+    if (searchEngine)
+    {
+      t << "      <script type=\"text/javascript\"><!--\n";
+      t << "      var searchBox = new SearchBox(\"searchBox\", \"search\", true);\n";
+      t << "      --></script>\n";
+      t << "      <div id=\"MSearchBox\" class=\"MSearchBoxInactive\">\n";
+      t << "      <div class=\"MSearchBoxRow\"><span class=\"MSearchBoxLeft\">\n";
+      t << "      <input type=\"text\" id=\"MSearchField\" value=\"Search\" \n";
+      t << "           onfocus=\"searchBox.OnSearchFieldFocus(true)\" \n";
+      t << "           onblur=\"searchBox.OnSearchFieldFocus(false)\" \n";
+      t << "           onkeyup=\"searchBox.OnSearchFieldChange()\"/>\n";
+      t << "      </span><span class=\"MSearchBoxRight\">\n";
+      t << "      <img id=\"MSearchSelect\" src=\"search/search.png\"\n";
+      t << "           onmouseover=\"return searchBox.OnSearchSelectShow()\"\n";
+      t << "           onmouseout=\"return searchBox.OnSearchSelectHide()\"\n";
+      t << "           alt=\"\"/>\n";
+      t << "      </span></div><div class=\"MSearchBoxSpacer\">&nbsp;</div>\n";
+      t << "      </div>\n";
+      HtmlGenerator::writeSearchFooter(t,QCString());
+    }
     t << "    <div class=\"directory\">\n";
     t << "      <h3 class=\"swap\"><span>";
     QCString &projName = Config_getString("PROJECT_NAME");
@@ -720,7 +760,7 @@ void FTVHelp::generateTreeView(QString* OutString)
   else
   {
     t << "    <div class=\"directory-alt\">\n";
-    t << "      <br>\n";
+    t << "      <br/>\n";
   }
   t << "      <div style=\"display: block;\">\n";
 
@@ -729,7 +769,7 @@ void FTVHelp::generateTreeView(QString* OutString)
   t << "      </div>\n";
   t << "    </div>\n";
   
-  if (!m_topLevelIndex)
+  if (m_topLevelIndex)
   {
     t << "  </body>\n";
     t << "</html>\n";

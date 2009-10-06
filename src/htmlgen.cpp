@@ -48,9 +48,11 @@ static const char defaultStyleSheet[] =
 #include "doxygen_css.h"
 ;
 
+#if 0 // old PHP based search engine
 static const char search_script[]=
 #include "search_php.h"
 ;
+#endif
 
 static QCString g_header;
 static QCString g_footer;
@@ -347,6 +349,141 @@ static unsigned char tab_r_gif[] = {
 };
 static unsigned int tab_r_gif_len = 2585;
 
+static unsigned char search_png[] = {
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+  0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x14, 0x00, 0x00, 0x00, 0x10,
+  0x08, 0x02, 0x00, 0x00, 0x00, 0x99, 0x7a, 0xc8, 0x4c, 0x00, 0x00, 0x01,
+  0xd6, 0x49, 0x44, 0x41, 0x54, 0x28, 0x15, 0x8d, 0x92, 0xbb, 0xae, 0x41,
+  0x51, 0x10, 0x86, 0xcf, 0x66, 0x0b, 0x22, 0x44, 0x23, 0x4a, 0xb7, 0xd0,
+  0x11, 0x09, 0x71, 0x49, 0xbc, 0x82, 0xc2, 0x2b, 0xa0, 0xd6, 0x29, 0x74,
+  0x1e, 0x42, 0xeb, 0x11, 0x44, 0x41, 0x43, 0x45, 0x27, 0x48, 0x08, 0x91,
+  0x10, 0x51, 0xba, 0x14, 0x42, 0x21, 0x91, 0x10, 0x97, 0xf3, 0xb1, 0x9c,
+  0x9d, 0x13, 0x97, 0x93, 0x33, 0xc5, 0xda, 0xb3, 0x66, 0xfe, 0xff, 0x9f,
+  0x59, 0x33, 0x5b, 0xba, 0x5e, 0xaf, 0x5f, 0x77, 0xbb, 0x5c, 0x2e, 0xd2,
+  0xdd, 0xc4, 0xf5, 0x3f, 0xa7, 0xac, 0x30, 0x3b, 0x9d, 0x4e, 0xbf, 0xdf,
+  0x9f, 0x4e, 0xa7, 0x44, 0xdc, 0x6e, 0xb7, 0xdf, 0xef, 0x0f, 0x87, 0xc3,
+  0x7f, 0x4b, 0x48, 0xa7, 0xd3, 0x89, 0x7a, 0xd5, 0x6a, 0xb5, 0x5c, 0x2e,
+  0x9f, 0xcf, 0x67, 0xea, 0x43, 0x50, 0xa9, 0x54, 0x6a, 0xb5, 0x3a, 0x91,
+  0x48, 0xc4, 0xe3, 0x71, 0xb2, 0x9f, 0x24, 0x64, 0x70, 0xad, 0x56, 0xab,
+  0x54, 0x2a, 0x19, 0x0c, 0x86, 0x50, 0x28, 0xe4, 0xf5, 0x7a, 0x81, 0x0e,
+  0x87, 0xc3, 0x76, 0xbb, 0x4d, 0xd0, 0x62, 0xb1, 0x44, 0xa3, 0xd1, 0x8f,
+  0x64, 0x12, 0xdd, 0x6e, 0x97, 0xfa, 0x91, 0x48, 0x84, 0x3a, 0x5a, 0xad,
+  0x96, 0x52, 0x4e, 0xa7, 0x13, 0xd1, 0x5a, 0xad, 0x46, 0x8a, 0xe6, 0xf1,
+  0xdf, 0xf2, 0x55, 0x0c, 0x6c, 0x32, 0x99, 0x70, 0x52, 0xd6, 0x68, 0x34,
+  0xea, 0xf5, 0x7a, 0x9d, 0x4e, 0x87, 0xc3, 0x55, 0xa4, 0xde, 0xd2, 0x44,
+  0x50, 0x06, 0x21, 0xde, 0x49, 0x4d, 0x59, 0x7e, 0xcc, 0x8f, 0x07, 0x23,
+  0x01, 0x82, 0x14, 0x36, 0x1a, 0x8d, 0x8a, 0xc5, 0xe2, 0x6f, 0x95, 0x54,
+  0x2a, 0xc5, 0x03, 0x6f, 0xfd, 0xd0, 0x24, 0x67, 0xaf, 0xd7, 0x43, 0x48,
+  0x41, 0x70, 0xc5, 0x77, 0xb9, 0x5c, 0x9c, 0xe0, 0x40, 0x2b, 0xd9, 0x64,
+  0x32, 0x29, 0x46, 0x73, 0x23, 0xfb, 0x7c, 0x3e, 0xce, 0x66, 0xb3, 0x59,
+  0xa9, 0x54, 0x56, 0xab, 0xd5, 0x72, 0xb9, 0xc4, 0x69, 0x34, 0x1a, 0x04,
+  0xd9, 0x99, 0x98, 0x36, 0xe8, 0x74, 0x3a, 0x4d, 0x04, 0xa6, 0xc0, 0xe3,
+  0x4b, 0x74, 0xb5, 0xdb, 0xed, 0xd8, 0x53, 0xbd, 0x5e, 0xa7, 0x6d, 0x1a,
+  0x26, 0xca, 0xce, 0x18, 0x21, 0xa5, 0x6c, 0x36, 0x5b, 0x2e, 0x97, 0x33,
+  0x99, 0x4c, 0x04, 0xb1, 0xc1, 0x60, 0xa0, 0x30, 0xb9, 0xaa, 0xf3, 0xf9,
+  0x3c, 0x1c, 0xbb, 0xdd, 0x6e, 0x36, 0x9b, 0x41, 0x23, 0x04, 0xdf, 0xe3,
+  0xf1, 0xb0, 0xa1, 0xed, 0x76, 0x4b, 0x17, 0xe3, 0xf1, 0x38, 0x18, 0x0c,
+  0x32, 0x11, 0xd0, 0x56, 0xab, 0xf5, 0xa6, 0xf1, 0x63, 0x92, 0x78, 0x09,
+  0x75, 0xf6, 0xfb, 0xfd, 0xe1, 0x70, 0x10, 0x05, 0x35, 0x1a, 0x0d, 0x8a,
+  0x9b, 0xcd, 0xa6, 0x50, 0x28, 0xac, 0xd7, 0x6b, 0x87, 0xc3, 0x91, 0xcd,
+  0x66, 0x59, 0xc1, 0x0f, 0xeb, 0xf1, 0xbd, 0xb5, 0x2d, 0x5e, 0x85, 0x0a,
+  0xa6, 0x5c, 0x09, 0xa2, 0xb5, 0x58, 0x2c, 0xe0, 0xa3, 0x92, 0xc9, 0x64,
+  0x02, 0x81, 0xc0, 0x33, 0x59, 0x70, 0x04, 0xff, 0x29, 0x47, 0x0a, 0xfe,
+  0x7c, 0x3e, 0x9f, 0xcd, 0x66, 0xb1, 0x58, 0x8c, 0x5f, 0xe0, 0x09, 0xf6,
+  0x68, 0x1b, 0xdc, 0x53, 0x42, 0x08, 0x11, 0x3f, 0x1e, 0x8f, 0xcc, 0x8f,
+  0xb5, 0xbf, 0xfe, 0x67, 0x0f, 0x32, 0xd0, 0xdf, 0x0d, 0xbf, 0xb6, 0xf0,
+  0x56, 0xfa, 0x1b, 0x21, 0x36, 0x05, 0xd3, 0x4d, 0xe6, 0x17, 0x7f, 0x00,
+  0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82
+};
+static unsigned int search_png_len = 527;
+
+static unsigned char close_png[] = {
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+  0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x0e, 0x00, 0x00, 0x00, 0x0f,
+  0x08, 0x02, 0x00, 0x00, 0x00, 0x5b, 0x76, 0x69, 0x23, 0x00, 0x00, 0x01,
+  0xa0, 0x49, 0x44, 0x41, 0x54, 0x28, 0x15, 0x8d, 0x91, 0x3b, 0xaf, 0x01,
+  0x51, 0x14, 0x85, 0xef, 0x3c, 0x5c, 0x42, 0xbc, 0x49, 0xbc, 0x12, 0x8d,
+  0x02, 0x85, 0x76, 0x42, 0x49, 0xa3, 0x95, 0xe8, 0xfd, 0x1e, 0x9d, 0x9f,
+  0x20, 0x51, 0xf2, 0x13, 0x24, 0x3a, 0x85, 0x82, 0x4a, 0xa2, 0x20, 0x9a,
+  0x29, 0x86, 0x10, 0xef, 0x47, 0x98, 0xe1, 0x7e, 0x73, 0x8f, 0xea, 0x56,
+  0xf7, 0x24, 0x8e, 0x73, 0xd6, 0x59, 0x7b, 0xed, 0xb5, 0xf6, 0x48, 0xcd,
+  0x66, 0xf3, 0xeb, 0x7f, 0x4b, 0x95, 0x24, 0x49, 0x30, 0x5f, 0xaf, 0x97,
+  0xae, 0xeb, 0xeb, 0xf5, 0xfa, 0x74, 0x3a, 0x01, 0xfa, 0x7c, 0xbe, 0x68,
+  0x34, 0x9a, 0x4c, 0x26, 0x65, 0x59, 0x16, 0x84, 0x0f, 0xf5, 0x7e, 0xbf,
+  0x4f, 0x26, 0x93, 0xdb, 0xed, 0xa6, 0xaa, 0xaa, 0xcb, 0xe5, 0xe2, 0xf9,
+  0xf9, 0x7c, 0x52, 0xb9, 0xd9, 0x6c, 0xf2, 0xf9, 0x3c, 0x08, 0x6c, 0xbb,
+  0x02, 0xbd, 0xf1, 0x78, 0x0c, 0xbb, 0x58, 0x2c, 0xa2, 0xf4, 0xfd, 0xbb,
+  0x50, 0xd5, 0x34, 0xcd, 0x34, 0xcd, 0xd9, 0x6c, 0x06, 0x01, 0x9a, 0xca,
+  0x8f, 0x6a, 0x78, 0xa5, 0x52, 0xa9, 0x5c, 0x2e, 0x1f, 0x0e, 0x87, 0x6e,
+  0xb7, 0x0b, 0x58, 0xab, 0xd5, 0xc2, 0xe1, 0x30, 0xf2, 0xa3, 0xd1, 0x68,
+  0xb5, 0x5a, 0xc5, 0xe3, 0x71, 0xdb, 0x00, 0xfe, 0x1c, 0x0e, 0xc7, 0x72,
+  0xb9, 0x84, 0xe7, 0xf7, 0xfb, 0xeb, 0xf5, 0xba, 0x65, 0x59, 0xf0, 0x2e,
+  0x97, 0xcb, 0x74, 0x3a, 0x7d, 0xbf, 0xdf, 0xfb, 0xfd, 0x3e, 0x91, 0x48,
+  0xc8, 0x50, 0xc9, 0x81, 0x45, 0x8c, 0xf6, 0x7a, 0xbd, 0xe3, 0xf1, 0x18,
+  0x0c, 0x06, 0x23, 0x91, 0x08, 0xbc, 0x4e, 0xa7, 0xb3, 0xdd, 0x6e, 0x11,
+  0xa6, 0x27, 0x34, 0xdb, 0x2b, 0x7f, 0x8a, 0xa2, 0x00, 0x71, 0xc0, 0x1c,
+  0x08, 0x8b, 0x58, 0x8f, 0xc7, 0x03, 0xdb, 0xa8, 0xf0, 0x0a, 0x62, 0x3f,
+  0x87, 0x42, 0x21, 0x4e, 0xc4, 0x14, 0xfe, 0xce, 0xe7, 0x33, 0x4e, 0xd0,
+  0x6e, 0x34, 0x1a, 0x84, 0x83, 0xe0, 0xf5, 0x7a, 0xd9, 0x6d, 0x55, 0x86,
+  0x47, 0xc6, 0x5c, 0x2e, 0x47, 0x8d, 0xe8, 0xdb, 0x6e, 0xb7, 0xf1, 0x17,
+  0x08, 0x04, 0x0a, 0x85, 0x02, 0x7d, 0x18, 0x0b, 0x34, 0xa5, 0x5a, 0xad,
+  0x72, 0x32, 0x0c, 0x83, 0x39, 0x90, 0xa0, 0xdf, 0xef, 0xef, 0x76, 0x3b,
+  0xcc, 0xcc, 0xe7, 0x73, 0x3c, 0x0c, 0x06, 0x03, 0x0a, 0xb2, 0xd9, 0x2c,
+  0x05, 0x52, 0xab, 0xd5, 0xa2, 0xc2, 0xe3, 0xf1, 0x0c, 0x87, 0xc3, 0xeb,
+  0xf5, 0x8a, 0x3c, 0x3c, 0xfc, 0x01, 0x32, 0x07, 0xb7, 0xdb, 0xcd, 0x10,
+  0xb1, 0xc4, 0xd5, 0x86, 0x58, 0x64, 0xac, 0x54, 0x2a, 0x8b, 0xc5, 0x82,
+  0xc1, 0x09, 0x55, 0xc4, 0x62, 0xb1, 0x58, 0x3a, 0x9d, 0xe6, 0x2a, 0x38,
+  0x9f, 0x0f, 0x8b, 0x18, 0x73, 0x49, 0xa5, 0x52, 0x99, 0x4c, 0xc6, 0xe9,
+  0x74, 0xf2, 0x46, 0x7c, 0xc6, 0x07, 0xc8, 0x99, 0x4c, 0xec, 0x1f, 0x55,
+  0x51, 0x47, 0x23, 0xd1, 0x4b, 0x5c, 0xff, 0xec, 0x3f, 0x83, 0x85, 0xe4,
+  0x1a, 0x44, 0x83, 0x01, 0xb3, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e,
+  0x44, 0xae, 0x42, 0x60, 0x82
+};
+static unsigned int close_png_len = 473;
+
+static unsigned char close_active_png[] = {
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+  0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x0e, 0x00, 0x00, 0x00, 0x0f,
+  0x08, 0x02, 0x00, 0x00, 0x00, 0x5b, 0x76, 0x69, 0x23, 0x00, 0x00, 0x01,
+  0xa0, 0x49, 0x44, 0x41, 0x54, 0x28, 0x15, 0x8d, 0x91, 0x3d, 0x8f, 0x01,
+  0x51, 0x14, 0x86, 0x77, 0x3e, 0xd6, 0x47, 0x22, 0xbe, 0x82, 0x10, 0x14,
+  0xa2, 0x21, 0x12, 0x09, 0x89, 0x0a, 0x85, 0x4a, 0x68, 0xf4, 0x12, 0x3f,
+  0x82, 0x52, 0xaf, 0x92, 0x68, 0x75, 0x5a, 0x7f, 0x41, 0x42, 0x47, 0xa3,
+  0xa0, 0x42, 0x68, 0x49, 0x44, 0x47, 0x10, 0xf1, 0x11, 0xec, 0x33, 0x7b,
+  0x67, 0xb7, 0xd8, 0x6a, 0x4f, 0x32, 0x33, 0x77, 0xee, 0x79, 0xce, 0x7b,
+  0xdf, 0x73, 0xae, 0xd4, 0xe9, 0x74, 0x3e, 0xfe, 0x17, 0xea, 0x2f, 0xf6,
+  0x7c, 0x3e, 0x17, 0x8b, 0xc5, 0x66, 0xb3, 0xd9, 0xef, 0xf7, 0x92, 0x24,
+  0x39, 0x9d, 0xce, 0x40, 0x20, 0x10, 0x8d, 0x46, 0x15, 0x45, 0x11, 0x8c,
+  0x8e, 0x9e, 0xcf, 0xe7, 0xc1, 0x60, 0xc0, 0x5b, 0x55, 0x55, 0xa3, 0xd1,
+  0x28, 0xcb, 0xf2, 0xe5, 0x72, 0x59, 0x2e, 0x97, 0x54, 0x66, 0xb3, 0x59,
+  0x8b, 0xc5, 0x02, 0x2d, 0xf3, 0xa0, 0xd7, 0xef, 0xf7, 0xc9, 0x55, 0x2a,
+  0x95, 0x70, 0x38, 0xfc, 0xf9, 0x1d, 0x7e, 0xbf, 0xbf, 0x5c, 0x2e, 0xdf,
+  0x6e, 0xb7, 0xd1, 0x68, 0x04, 0x00, 0xa6, 0x94, 0x4a, 0xa5, 0xf9, 0x7c,
+  0x4e, 0x35, 0x5c, 0xb1, 0x58, 0x4c, 0x26, 0x93, 0xb3, 0xd9, 0xcc, 0x6c,
+  0x36, 0xd7, 0x6a, 0xb5, 0x58, 0x2c, 0x66, 0xb5, 0x5a, 0x27, 0x93, 0x09,
+  0x1e, 0x5c, 0x2e, 0x97, 0x66, 0x60, 0xbd, 0x5e, 0x73, 0xee, 0x78, 0x3c,
+  0x4e, 0xa7, 0xd3, 0xe4, 0xaa, 0xd5, 0xea, 0xeb, 0xf5, 0x72, 0x38, 0x1c,
+  0x9c, 0x33, 0x1c, 0x0e, 0xdf, 0xef, 0xf7, 0x6e, 0xb7, 0x8b, 0x44, 0x22,
+  0x9a, 0x81, 0xc3, 0xe1, 0x00, 0xba, 0xdd, 0x6e, 0x5b, 0xad, 0xd6, 0xf1,
+  0x78, 0xb4, 0xd9, 0x6c, 0x82, 0x6b, 0x36, 0x9b, 0xd8, 0xa5, 0xc5, 0xd3,
+  0xe9, 0x04, 0xa6, 0xa1, 0x34, 0x21, 0x02, 0x4f, 0xc2, 0x16, 0x9b, 0x8f,
+  0xc7, 0x03, 0x55, 0x83, 0xc1, 0x80, 0x0a, 0xa1, 0xa3, 0x1e, 0x8f, 0x87,
+  0x15, 0x6f, 0xfc, 0x09, 0x3d, 0xa1, 0x5d, 0xaf, 0xd7, 0x83, 0xc1, 0x20,
+  0x29, 0x36, 0x75, 0x34, 0x14, 0x0a, 0x61, 0x2e, 0x97, 0xcb, 0xfd, 0x9e,
+  0xdb, 0x68, 0x34, 0x04, 0x9d, 0xcf, 0xe7, 0x39, 0x47, 0x14, 0x68, 0x13,
+  0xf0, 0x7a, 0xbd, 0x74, 0x36, 0x9d, 0x4e, 0xed, 0x76, 0x7b, 0xb7, 0xdb,
+  0x5d, 0xad, 0x56, 0xd7, 0xeb, 0x95, 0xb1, 0x30, 0xb4, 0x76, 0xbb, 0xed,
+  0x76, 0xbb, 0x53, 0xa9, 0x14, 0x05, 0x92, 0xb8, 0x58, 0xc6, 0xde, 0xeb,
+  0xf5, 0xb8, 0x27, 0xfa, 0xa5, 0x0f, 0x61, 0x8e, 0x34, 0xc5, 0x85, 0x42,
+  0x81, 0x4a, 0x0c, 0x68, 0xaa, 0x7c, 0x20, 0x12, 0x89, 0x84, 0xc9, 0x64,
+  0x62, 0x41, 0x37, 0x74, 0xe9, 0xf3, 0xf9, 0xe2, 0xf1, 0x78, 0x26, 0x93,
+  0xe1, 0x97, 0x4d, 0x18, 0xfd, 0x62, 0xf1, 0x8a, 0x24, 0x57, 0xc5, 0xd8,
+  0xe9, 0x9a, 0xc4, 0xfd, 0x7e, 0x47, 0x8c, 0x4d, 0xd6, 0x22, 0x74, 0x54,
+  0xfc, 0x20, 0x40, 0xfc, 0xa4, 0xfe, 0x7e, 0xbf, 0x00, 0xa8, 0x79, 0xe1,
+  0x90, 0xdb, 0x2c, 0x9e, 0xe1, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e,
+  0x44, 0xae, 0x42, 0x60, 0x82
+};
+static unsigned int close_active_png_len = 473;
 
 static const char tabs_css[] = 
 "/* tabs styles, based on http://www.alistapart.com/articles/slidingdoors */\n"
@@ -408,7 +545,7 @@ static const char tabs_css[] =
 "   white-space      : nowrap;\n"
 "}\n"
 "\n"
-"DIV.tabs INPUT\n"
+"DIV.tabs #MSearchBox\n"
 "{\n"
 "   float            : right;\n"
 "   display          : inline;\n"
@@ -456,25 +593,15 @@ static const char tabs_css[] =
 "}\n"
 ;
 
-struct tab_data_item
+struct img_data_item
 {
   const char *name;
   unsigned char *content;
   unsigned int len;
 };
 
-static tab_data_item tab_data[] =
+static void writeImgData(const char *dir,img_data_item *data)
 {
-  { "tab_b.gif", tab_b_gif, tab_b_gif_len },
-  { "tab_l.gif", tab_l_gif, tab_l_gif_len },
-  { "tab_r.gif", tab_r_gif, tab_r_gif_len },
-  { "tabs.css",  (unsigned char *)tabs_css, 0 }, 
-  { 0, 0, 0 }
-};
-
-static void writeTabData(const char *dir)
-{
-  tab_data_item *data = tab_data;
   while (data->name)
   {
     QCString fileName;
@@ -492,6 +619,34 @@ static void writeTabData(const char *dir)
     data++;
   }
 }
+
+static img_data_item tab_data[] =
+{
+  { "tab_b.gif", tab_b_gif, tab_b_gif_len },
+  { "tab_l.gif", tab_l_gif, tab_l_gif_len },
+  { "tab_r.gif", tab_r_gif, tab_r_gif_len },
+  { "tabs.css",  (unsigned char *)tabs_css, 0 }, 
+  { 0, 0, 0 }
+};
+
+static void writeTabData(const char *dir)
+{
+  writeImgData(dir,tab_data);
+}
+
+static img_data_item search_data[] =
+{
+  { "search.png",       search_png,       search_png_len },
+  { "close.png",        close_png,        close_png_len },
+  { "close_active.png", close_active_png, close_active_png_len },
+  { 0, 0, 0 }
+};
+
+void HtmlGenerator::writeSearchData(const char *dir)
+{
+  writeImgData(dir,search_data);
+}
+
 
 //------------------------------------------------------------------------
 
@@ -568,15 +723,26 @@ static void writeDefaultHeaderFile(QTextStream &t, const char *title,
   else
     relPathStr=relPath;
 
-  t << "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\">\n"
-    "<html><head>" 
-    "<meta http-equiv=\"Content-Type\" content=\"text/html;charset=UTF-8" 
-         //<< theTranslator->idLanguageCharset() 
-         << "\">\n"
-    "<title>"; 
+  static bool generateTreeView = Config_getBool("GENERATE_TREEVIEW");
+  static bool searchEngine = Config_getBool("SEARCHENGINE");
+  if (searchEngine && !generateTreeView)
+  {
+    t << "<!-- This comment will put IE 6, 7 and 8 in quirks mode -->" << endl;
+  }
+//  t << "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\">\n";
+//  t << "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Strict//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd\">\n";
+  t << "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n";
+  t << "<html xmlns=\"http://www.w3.org/1999/xhtml\">\n<head>\n"
+       "<meta http-equiv=\"Content-Type\" content=\"text/html;charset=UTF-8\"/>\n"
+       "<title>"; 
   t << convertToHtml(title);
   t << "</title>\n";
-  t << "<link href=\"" << relPathStr << "tabs.css\" rel=\"stylesheet\" type=\"text/css\">\n";
+  t << "<link href=\"" << relPathStr << "tabs.css\" rel=\"stylesheet\" type=\"text/css\"/>\n";
+  if (searchEngine && !generateTreeView)
+  {
+    t << "<link href=\"" << relPathStr << "search/search.css\" rel=\"stylesheet\" type=\"text/css\"/>\n";
+    t << "<script type=\"text/javaScript\" src=\"" << relPathStr << "search/search.js\"></script>\n";
+  }
   t << "<link ";
   t << "href=\"";
   if (Config_getString("HTML_STYLESHEET").isEmpty())
@@ -594,8 +760,16 @@ static void writeDefaultHeaderFile(QTextStream &t, const char *title,
     t << relPathStr << cssfi.fileName();
   }
   
-  t << "\" rel=\"stylesheet\" type=\"text/css\">\n";
-  t << "</head><body>\n";
+  t << "\" rel=\"stylesheet\" type=\"text/css\"/>\n";
+  t << "</head>\n";
+  if (searchEngine && !generateTreeView)
+  {
+    t << "<body onload='searchBox.OnSelectItem(0);'>\n";
+  }
+  else
+  {
+    t << "<body>\n";
+  }
 }
 
 
@@ -609,11 +783,10 @@ void HtmlGenerator::writeHeaderFile(QFile &file)
 void HtmlGenerator::writeFooterFile(QFile &file)
 {
   QTextStream t(&file);
-  t << "<hr size=\"1\"><address style=\"text-align: right;\"><small>\n";
+  t << "<hr size=\"1\"/><address style=\"text-align: right;\"><small>\n";
   t << theTranslator->trGeneratedAt( "$datetime", "$projectname" );
   t << "&nbsp;<a href=\"http://www.doxygen.org/index.html\">"
-    << "<img src=\"doxygen.png\" alt=\"doxygen\" " 
-    << "align=\"middle\" border=\"0\">"
+    << "<img class=\"footer\" src=\"doxygen.png\" alt=\"doxygen\"/>"
     << "</a> $doxygenversion";
   t << "</small></address>\n"
     << "</body>\n"
@@ -707,32 +880,71 @@ void HtmlGenerator::startFile(const char *name,const char *,
   }
   t << "<!-- " << theTranslator->trGeneratedBy() << " Doxygen " 
     << versionString << " -->" << endl;
+  static bool generateTreeView = Config_getBool("GENERATE_TREEVIEW");
+  static bool searchEngine = Config_getBool("SEARCHENGINE");
+  if (searchEngine && !generateTreeView)
+  {
+    t << "<script type=\"text/javascript\"><!--\n";
+    t << "var searchBox = new SearchBox(\"searchBox\", \""
+      << relPath<< "search\",false);\n";
+    t << "--></script>\n";
+  }
   generateDynamicSections(t,relPath);
+}
+
+void HtmlGenerator::writeSearchFooter(QTextStream &t,const QCString &relPath)
+{
+  t << "<!--- window showing the filter options -->\n";
+  t << "<div id=\"MSearchSelectWindow\"\n";
+  t << "     onmouseover=\"return searchBox.OnSearchSelectShow()\"\n";
+  t << "     onmouseout=\"return searchBox.OnSearchSelectHide()\">\n";
+  writeSearchCategories(t);
+  t << "</div>\n";
+  t << "\n";
+  t << "<!-- iframe showing the search results (closed by default) -->\n";
+  t << "<div id=\"MSearchResultsWindow\">\n";
+  t << "<a href=\"javascript:searchBox.CloseResultsWindow()\" \n";
+  t << "   id=\"MSearchResultsWindowClose\"\n";
+  t << "   onmouseover=\"return searchBox.OnCloseHighlight(true)\"\n";
+  t << "   onmouseout=\"return searchBox.OnCloseHighlight(false)\">"
+    << "<img border=\"0\" src=\"" << relPath << "search/close.png\" "
+    << "alt=\"\"/></a>\n";
+  t << "<iframe src=\"\" frameborder=\"0\" \n";
+  t << "        name=\"MSearchResults\" id=\"MSearchResults\">\n";
+  t << "</iframe>\n";
+  t << "</div>\n";
+  t << "\n";
 }
 
 static void writePageFooter(QTextStream &t,const QCString &lastTitle,
                             const QCString relPath)
 {
+  static bool generateTreeView = Config_getBool("GENERATE_TREEVIEW");
+  static bool searchEngine = Config_getBool("SEARCHENGINE");
+  if (searchEngine && !generateTreeView)
+  {
+    HtmlGenerator::writeSearchFooter(t,relPath);
+  }
   if (g_footer.isEmpty())
   {
-    t << "<hr size=\"1\"><address style=\"text-align: right;\"><small>";
+    t << "<hr size=\"1\"/><address style=\"text-align: right;\"><small>";
     t << theTranslator->trGeneratedAt(
         dateToString(TRUE),
         Config_getString("PROJECT_NAME")
         );
     t << "&nbsp;" << endl << "<a href=\"http://www.doxygen.org/index.html\">";
-    t << endl << "<img src=\"" << relPath << "doxygen.png\" alt=\"doxygen\" " 
-      << "align=\"middle\" border=\"0\">" << "</a> " << versionString << " ";
+    t << endl << "<img class=\"footer\" src=\"" << relPath << "doxygen.png\" alt=\"doxygen\"/>"
+      << "</a> " << versionString << " ";
     t << "</small></address>";
     if (Debug::isFlagSet(Debug::Validate))
     {
       t << "<p><a href=\"http://validator.w3.org/check/referer\">"
-           "<img border=\"0\" src=\"http://www.w3.org/Icons/valid-html401\""
+           "<img class=\"footer\" src=\"http://www.w3.org/Icons/valid-html401\""
            " height=\"31\" width=\"88\" alt=\"This page is Valid HTML 4.01 "
            "Transitional!\"></a><a href=\"http://jigsaw.w3.org/css-validator/\">"
-           "<img style=\"border:0;width:88px;height:31px\" "
+           "<img class=\"footer\" style=\"border:0;width:88px;height:31px\" "
            "src=\"http://jigsaw.w3.org/css-validator/images/vcss\" "
-           "alt=\"This page uses valid CSS!\"></a></p>";
+           "alt=\"This page uses valid CSS!\"/></a></p>";
     }
     t << "\n</body>\n</html>\n";
   }
@@ -754,7 +966,7 @@ void HtmlGenerator::endFile()
 
 void HtmlGenerator::startProjectNumber()
 {
-  t << "<h3 align=\"center\">";
+  t << "<h3>";
 }
 
 void HtmlGenerator::endProjectNumber()
@@ -806,7 +1018,7 @@ void HtmlGenerator::startDoxyAnchor(const char *,const char *,
                                     const char *anchor, const char *name,
                                     const char *args)
 {
-  t << "<a class=\"anchor\" name=\"" << anchor << "\"></a>";
+  t << "<a class=\"anchor\" id=\"" << anchor << "\"></a>";
   t << "<!-- doxytag: member=\"";
   docify(name,TRUE); 
   t << "\" ref=\""; 
@@ -820,10 +1032,10 @@ void HtmlGenerator::endDoxyAnchor(const char *,const char *)
 {
 }
 
-void HtmlGenerator::newParagraph()
-{
-  t << endl << "<p>" << endl;
-}
+//void HtmlGenerator::newParagraph()
+//{
+//  t << endl << "<p>" << endl;
+//}
 
 void HtmlGenerator::startParagraph()
 {
@@ -840,11 +1052,20 @@ void HtmlGenerator::writeString(const char *text)
   t << text;
 }
 
+void HtmlGenerator::startIndexListItem()
+{
+  t << "<li>";
+}
+
+void HtmlGenerator::endIndexListItem()
+{
+  t << "</li>" << endl;
+}
+
 void HtmlGenerator::startIndexItem(const char *ref,const char *f)
 {
   //printf("HtmlGenerator::startIndexItem(%s,%s)\n",ref,f);
   QCString *dest;
-  t << "<li>";
   if (ref || f)
   {
     if (ref) 
@@ -880,7 +1101,7 @@ void HtmlGenerator::endIndexItem(const char *ref,const char *f)
   //printf("HtmlGenerator::endIndexItem(%s,%s,%s)\n",ref,f,name);
   if (ref || f)
   {
-    t << "</a>" << endl;
+    t << "</a>";
   }
   else
   {
@@ -980,8 +1201,9 @@ void HtmlGenerator::endTextLink()
 
 void HtmlGenerator::startHtmlLink(const char *url)
 {
+  static bool generateTreeView = Config_getBool("GENERATE_TREEVIEW");
   t << "<a ";
-  if (usingTreeIndex()) t << "target=\"top\" ";
+  if (generateTreeView) t << "target=\"top\" ";
   t << "href=\"";
   if (url) t << url;
   t << "\">"; 
@@ -1006,14 +1228,14 @@ void HtmlGenerator::startSection(const char *lab,const char *,SectionInfo::Secti
 {
   switch(type)
   {
-    case SectionInfo::Page:          t << "<h1>"; break;
-    case SectionInfo::Section:       t << "<h2>"; break;
-    case SectionInfo::Subsection:    t << "<h3>"; break;
-    case SectionInfo::Subsubsection: t << "<h4>"; break;
-    case SectionInfo::Paragraph:     t << "<h5>"; break;
+    case SectionInfo::Page:          t << "\n\n<h1>"; break;
+    case SectionInfo::Section:       t << "\n\n<h2>"; break;
+    case SectionInfo::Subsection:    t << "\n\n<h3>"; break;
+    case SectionInfo::Subsubsection: t << "\n\n<h4>"; break;
+    case SectionInfo::Paragraph:     t << "\n\n<h5>"; break;
     default: ASSERT(0); break;
   }
-  t << "<a class=\"anchor\" name=\"" << lab << "\">";
+  t << "<a class=\"anchor\" id=\"" << lab << "\">";
 }
 
 void HtmlGenerator::endSection(const char *,SectionInfo::SectionType type)
@@ -1095,6 +1317,10 @@ void HtmlGenerator::codify(const char *str)
                    break;
         case '&':  t << "&amp;"; col++; 
                    break;
+        case '\'': t << "&apos;"; col++;
+                   break;
+        case '"':  t << "&quot;"; col++;
+                   break;
         //case ' ':  t << "&nbsp;"; col++;
         //           break;
         case '\\':
@@ -1133,10 +1359,15 @@ void HtmlGenerator::endClassDiagram(const ClassDiagram &d,
 {
   t << "</div>" << endl;
   t << "<div class=\"dynsection\">" << endl;
-  t << "\n<p><center><img src=\""
-    << relPath << fileName << ".png\" usemap=\"#" << name << "_map\""
-    << " border=\"0\" alt=\"\"></center>" << endl
-    << "<map name=\"" << name << "_map\">" << endl;
+  t << "<img class=\"center\" src=\"";
+  t << relPath << fileName << ".png\" usemap=\"#";
+  docify(name);
+  t << "_map\" alt=\"\"/>" << endl;
+  t << "<map id=\"";
+  docify(name);
+  t << "_map\" name=\"";
+  docify(name);
+  t << "_map\">" << endl;
 
   d.writeImage(t,dir,relPath,fileName);
   t << "</div>" << endl;
@@ -1179,10 +1410,10 @@ void HtmlGenerator::startMemberItem(int annoType)
     t << "<tr>";
     switch(annoType)
     {
-      case 0:  t << "<td class=\"memItemLeft\" nowrap align=\"right\" valign=\"top\">"; break;
-      case 1:  t << "<td class=\"memItemLeft\" nowrap>"; break;
-      case 2:  t << "<td class=\"memItemLeft\" nowrap valign=\"top\">"; break;
-      default: t << "<td class=\"memTemplParams\" nowrap colspan=\"2\">"; break;
+      case 0:  t << "<td class=\"memItemLeft\" align=\"right\" valign=\"top\">"; break;
+      case 1:  t << "<td class=\"memItemLeft\" >"; break;
+      case 2:  t << "<td class=\"memItemLeft\" valign=\"top\">"; break;
+      default: t << "<td class=\"memTemplParams\" colspan=\"2\">"; break;
     }
   }
   else
@@ -1196,7 +1427,7 @@ void HtmlGenerator::endMemberItem()
   //DBG_HTML(t << "<!-- endMemberItem(" << (int)inGroup << "," << fileName << "," << headerName << " -->" << endl)
   if (Config_getBool("HTML_ALIGN_MEMBERS"))
   {
-    t << "</td></tr>\n"; 
+    t << "</td></tr>"; 
   }
   t << endl; 
 }
@@ -1210,7 +1441,7 @@ void HtmlGenerator::endMemberTemplateParams()
   if (Config_getBool("HTML_ALIGN_MEMBERS"))
   {
     t << "</td></tr>" << endl;
-    t << "<tr><td class=\"memTemplItemLeft\" nowrap align=\"right\" valign=\"top\">";
+    t << "<tr><td class=\"memTemplItemLeft\" align=\"right\" valign=\"top\">";
   }
 }
 
@@ -1243,11 +1474,11 @@ void HtmlGenerator::endMemberDescription()
   DBG_HTML(t << "<!-- endMemberDescription -->" << endl)
   if (Config_getBool("HTML_ALIGN_MEMBERS"))
   {
-    t << "<br></td></tr>" << endl; 
+    t << "<br/></td></tr>" << endl; 
   }
   else
   {
-    t << "<br></dl>";
+    t << "<br/></dl>";
   }
 }
 
@@ -1258,7 +1489,7 @@ void HtmlGenerator::startMemberSections()
   {
     t << "<table border=\"0\" cellpadding=\"0\" cellspacing=\"0\">" << endl;
     // HTML is not recursively decomposable, sorry
-    t << "<tr><td></td></tr>" << endl;
+    //t << "<tr><td></td></tr>" << endl;
   }
 }
 
@@ -1276,7 +1507,7 @@ void HtmlGenerator::startMemberHeader()
   DBG_HTML(t << "<!-- startMemberHeader -->" << endl)
   if (Config_getBool("HTML_ALIGN_MEMBERS"))
   {
-    t << "<tr><td colspan=\"2\"><br><h2>";
+    t << "<tr><td colspan=\"2\"><h2>";
   }
   else
   {
@@ -1306,7 +1537,7 @@ void HtmlGenerator::startMemberSubtitle()
 void HtmlGenerator::endMemberSubtitle()
 {
   DBG_HTML(t << "<!-- endMemberSubtitle -->" << endl)
-  if (Config_getBool("HTML_ALIGN_MEMBERS")) t << "<br><br></td></tr>" << endl;
+  if (Config_getBool("HTML_ALIGN_MEMBERS")) t << "<br/><br/></td></tr>" << endl;
 }
 
 void HtmlGenerator::startIndexList() 
@@ -1400,7 +1631,7 @@ void HtmlGenerator::startMemberDocName(bool /*align*/)
 void HtmlGenerator::endMemberDocName()
 {
   DBG_HTML(t << "<!-- endMemberDocName -->" << endl;)
-  t << "          </td>" << endl;
+  t << "</td>" << endl;
 }
 
 void HtmlGenerator::startParameterList(bool openBracket)
@@ -1449,7 +1680,7 @@ void HtmlGenerator::endParameterName(bool last,bool emptyList,bool closeBracket)
   {
     if (emptyList)
     {
-      t << "          </td>" << endl;
+      t << "</td>" << endl;
       t << "          <td>";
       if (closeBracket) t << "&nbsp;)";
       t << "&nbsp;</td>" << endl;
@@ -1507,11 +1738,11 @@ void HtmlGenerator::endDotGraph(const DotClassGraph &g)
   g.writeGraph(t,BITMAP,dir,relPath);
   if (Config_getBool("GENERATE_LEGEND"))
   {
-    t << "<center><font size=\"2\">[";
+    t << "<center><span class=\"legend\">[";
     startHtmlLink(relPath+"graph_legend"+Doxygen::htmlFileExtension);
     t << theTranslator->trLegend();
     endHtmlLink();
-    t << "]</font></center>";
+    t << "]</span></center>";
   }
   t << "</div>" << endl;
 }
@@ -1590,7 +1821,7 @@ void HtmlGenerator::startMemberGroupDocs()
 
 void HtmlGenerator::endMemberGroupDocs()
 {
-  t << "<br><br></div></td></tr>" << endl;
+  t << "<br/><br/></div></td></tr>" << endl;
 }
 
 void HtmlGenerator::startMemberGroup()
@@ -1611,7 +1842,7 @@ void HtmlGenerator::startIndent()
 void HtmlGenerator::endIndent()          
 { 
   DBG_HTML(t << "<!-- endIndent -->" << endl;)
-  t << endl << "</div>" << endl << "</div><p>" << endl; 
+  t << endl << "</div>" << endl << "</div>" << endl; 
 }
 
 void HtmlGenerator::addIndexItem(const char *,const char *)
@@ -1653,7 +1884,7 @@ void HtmlGenerator::startSimpleSect(SectionTypes,
                                 const char *filename,const char *anchor,
                                 const char *title)
 {
-  t << "<dl compact><dt><b>";
+  t << "<dl><dt><b>";
   if (filename)
   {
     writeObjectLink(0,filename,anchor,title);
@@ -1673,7 +1904,7 @@ void HtmlGenerator::endSimpleSect()
 void HtmlGenerator::startParamList(ParamListTypes,
                                 const char *title)
 {
-  t << "<dl compact><dt><b>";
+  t << "<dl><dt><b>";
   docify(title);
   t << "</b></dt>";
 }
@@ -1825,6 +2056,7 @@ static void renderQuickLinksAsTabs(QTextStream &t,const QCString &relPath,
       }
       if (hlEntry->parent()==LayoutDocManager::instance().rootNavEntry())
       {
+#if 0 // old PHP based search engine
         // last item of the top row -> special case for search engine
         if (Config_getBool("SEARCHENGINE"))
         {
@@ -1849,6 +2081,25 @@ static void renderQuickLinksAsTabs(QTextStream &t,const QCString &relPath,
         {
           endQuickIndexList(t,TRUE);
         }
+#endif
+        static bool generateTreeView = Config_getBool("GENERATE_TREEVIEW");
+        static bool searchEngine = Config_getBool("SEARCHENGINE");
+        if (searchEngine && !generateTreeView)
+        {
+            t << "      <li>\n";
+            t << "        <div id=\"MSearchBox\" class=\"MSearchBoxInactive\">\n";
+            t << "        <img id=\"MSearchSelect\" src=\"" << relPath << "search/search.png\"\n";
+            t << "             onmouseover=\"return searchBox.OnSearchSelectShow()\"\n";
+            t << "             onmouseout=\"return searchBox.OnSearchSelectHide()\"\n";
+            t << "             alt=\"\"/>\n";
+            t << "        <input type=\"text\" id=\"MSearchField\" value=\"Search\" \n";
+            t << "             onfocus=\"searchBox.OnSearchFieldFocus(true)\" \n";
+            t << "             onblur=\"searchBox.OnSearchFieldFocus(false)\" \n";
+            t << "             onkeyup=\"searchBox.OnSearchFieldChange()\"/>\n";
+            t << "        </div>\n";
+            t << "      </li>\n";
+        }
+        endQuickIndexList(t,TRUE);
       }
       else // normal case
       {
@@ -1938,6 +2189,7 @@ void HtmlGenerator::writeQuickLinks(bool compact,HighlightedItem hli)
   writeDefaultQuickLinks(t,compact,hli,relPath);
 }
 
+#if 0 // old PHP based search results page
 void HtmlGenerator::writeSearchPage()
 {
   if (Config_getBool("SEARCHENGINE") && Config_getBool("GENERATE_HTML"))
@@ -2015,6 +2267,7 @@ void HtmlGenerator::writeSearchPage()
     }
   }
 }
+#endif
 
 void HtmlGenerator::generateSectionImages()
 {
@@ -2041,7 +2294,7 @@ void HtmlGenerator::generateSectionImages()
 void HtmlGenerator::startConstraintList(const char *header)
 {
   t << "<div class=\"typeconstraint\">" << endl;
-  t << "<dl compact><dt><b>" << header << "</b><dt><dd>" << endl;
+  t << "<dl><dt><b>" << header << "</b><dt><dd>" << endl;
   t << "<table border=\"0\" cellspacing=\"2\" cellpadding=\"0\">" << endl;
 }
 
@@ -2086,11 +2339,11 @@ void HtmlGenerator::lineBreak(const char *style)
 {
   if (style)
   {
-    t << "<br class=\"" << style << "\">" << endl;
+    t << "<br class=\"" << style << "\"/>" << endl;
   }
   else
   {
-    t << "<br>" << endl;
+    t << "<br/>" << endl;
   }
 }
 

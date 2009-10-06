@@ -75,7 +75,7 @@ static const char* g_vhdlKeyWordMap0[] =
   "range", "record", "register", "reject", "report", "return","select", 
   "severity", "shared", "signal", "subtype", "then", "to", "transport", 
   "type","unaffected", "units", "until", "use","variable", "wait", "when", 
-  "while", "with","true","false",0
+  "while", "with","true","false","protected",0
 };
 
 // type
@@ -833,12 +833,13 @@ bool VhdlDocGen::compareString(const QCString& s1,const QCString& s2)
 
 bool VhdlDocGen::getSigTypeName(QList<QCString>& ql, const char* str,QCString& buffer)
 {
-  QCString temp(str);
-  QStringList qlist=QStringList::split(" is ",temp,FALSE);
-  if (qlist.count()!=2) return FALSE;
-  temp.resize(0);
-  temp+=(QCString)qlist[0]+":"+(QCString)qlist[1];
-  return VhdlDocGen::getSigName(ql,temp.data(),buffer);  
+  //QCString temp(str);
+  //QStringList qlist=QStringList::split(" is ",temp,FALSE);
+  //if (qlist.count()!=2) return FALSE;
+  //temp.resize(0);
+  //temp+=(QCString)qlist[0]+":"+(QCString)qlist[1];
+  //return VhdlDocGen::getSigName(ql,temp.data(),buffer);  
+  return VhdlDocGen::getSigName(ql,str,buffer);  
 }
 
 /*!
@@ -1356,7 +1357,7 @@ bool VhdlDocGen::isNumber(const QCString& s)
   #endif 
 }// isNumber
 
-void VhdlDocGen::startFonts(const QCString& q, char *keyword,OutputList& ol)
+void VhdlDocGen::startFonts(const QCString& q, const char *keyword,OutputList& ol)
 {
   ol.startFontClass(keyword);
   ol.docify(q.data());
@@ -1650,10 +1651,12 @@ bool VhdlDocGen::isFunctionProto(QCString& ss)
   QCString proc("procedure");
   QCString func("function");
   name=name.stripWhiteSpace();
-  QStringList ql=QStringList::split(" ",name,FALSE);
+  QStringList ql=QStringList::split(QRegExp("[\\s]"),name,FALSE);
   int j=ql.count();
   if (j<2) return FALSE;
-  QCString tt=(QCString)ql[0];
+  QCString tt=(QCString)ql[0].lower();
+
+  if (tt=="impure" || tt=="pure") tt=ql[1];
 
   if (VhdlDocGen::compareString(tt,proc)!=0 && VhdlDocGen::compareString(tt,func)!=0) 
     return FALSE;
@@ -1742,7 +1745,7 @@ void VhdlDocGen::writeVhdlDeclarations(MemberList* ml,
   VhdlDocGen::writeVHDLDeclarations(ml,ol,cd,0,fd,gd,theTranslator_vhdlType(VhdlDocGen::CONFIG,FALSE),0,FALSE,VhdlDocGen::CONFIG);
 }
 
-static void setConfigurationType(MemberList *ml)
+static void setGlobalType(MemberList *ml)
 {
   if (ml==0) return;
   MemberDef *mdd=0;
@@ -1753,6 +1756,14 @@ static void setConfigurationType(MemberList *ml)
     {
       mdd->setMemberSpecifiers(VhdlDocGen::CONFIG);        
     }
+    else if (strcmp(mdd->typeString(),"library")==0)
+    {
+      mdd->setMemberSpecifiers(VhdlDocGen::LIBRARY);        
+    }
+    else if (strcmp(mdd->typeString(),"package")==0)
+    {
+      mdd->setMemberSpecifiers(VhdlDocGen::USE);        
+    } 
   }
 }
 
@@ -1811,8 +1822,28 @@ void VhdlDocGen::writeVHDLDeclaration(MemberDef* mdef,OutputList &ol,
   LockingPtr<MemberDef> lock(mdef,mdef);
 
   Definition *d=0;
-  ASSERT (cd!=0 || nd!=0 || fd!=0 || gd!=0); // member should belong to something
-  if (cd) d=cd; else if (nd) d=nd; else if (fd) d=fd; else d=gd;
+
+  /* some vhdl files contain only a configuration  description
+
+     library work;
+     configuration cfg_tb_jtag_gotoBackup of tb_jtag_gotoBackup is
+     for RTL
+     end for;
+     end cfg_tb_jtag_gotoBackup;
+
+     in this case library work does not belong to an entity, package ...
+
+   */
+
+  ASSERT(cd!=0 || nd!=0 || fd!=0 || gd!=0 || 
+         mdef->getMemberSpecifiers()==VhdlDocGen::LIBRARY || 
+         mdef->getMemberSpecifiers()==VhdlDocGen::USE   
+        ); // member should belong to something
+  if (cd) d=cd; 
+  else if (nd) d=nd; 
+  else if (fd) d=fd; 
+  else if (gd) d=gd; 
+  else d=(Definition*)mdef;
 
   // write tag file information of this member
   if (!Config_getString("GENERATE_TAGFILE").isEmpty())
@@ -1859,12 +1890,12 @@ void VhdlDocGen::writeVHDLDeclaration(MemberDef* mdef,OutputList &ol,
   }
 
   // write search index info
-  if (Config_getBool("SEARCHENGINE"))
-  {
-    Doxygen::searchIndex->setCurrentDoc(mdef->qualifiedName(),mdef->getOutputFileBase(),mdef->anchor());
-    Doxygen::searchIndex->addWord(mdef->localName(),TRUE);
-    Doxygen::searchIndex->addWord(mdef->qualifiedName(),FALSE);
-  }
+  //if (Config_getBool("SEARCHENGINE"))
+  //{
+  //  Doxygen::searchIndex->setCurrentDoc(mdef->qualifiedName(),mdef->getOutputFileBase(),mdef->anchor());
+  //  Doxygen::searchIndex->addWord(mdef->localName(),TRUE);
+  //  Doxygen::searchIndex->addWord(mdef->qualifiedName(),FALSE);
+  //}
 
   QCString cname  = d->name();
   QCString cfname = mdef->getOutputFileBase();
@@ -2184,7 +2215,7 @@ void VhdlDocGen::writeVHDLDeclarations(MemberList* ml,OutputList &ol,
     ClassDef *cd,NamespaceDef *nd,FileDef *fd,GroupDef *gd,
     const char *title,const char *subtitle,bool /*showEnumValues*/,int type) 
 {
-  setConfigurationType(ml);
+  setGlobalType(ml);
   if (!membersHaveSpecificType(ml,type)) return;
 
   if (title) 

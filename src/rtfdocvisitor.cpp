@@ -219,6 +219,8 @@ void RTFDocVisitor::visit(DocSymbol *s)
                              break;
     case DocSymbol::Szlig:   m_t << "\337"; break;
     case DocSymbol::Nbsp:    m_t << "\\~ "; break;
+    case DocSymbol::Aelig:   m_t << "\346"; break;
+    case DocSymbol::AElig:   m_t << "\306"; break;
     default:
                              err("Error: unknown symbol found\n");
   }
@@ -533,6 +535,10 @@ void RTFDocVisitor::visit(DocIndexEntry *i)
   DBG_RTF("{\\comment RTFDocVisitor::visit(DocIndexEntry)}\n");
   m_t << "{\\xe \\v " << i->entry() << "}" << endl;
   m_lastIsPara=FALSE;
+}
+
+void RTFDocVisitor::visit(DocSimpleSectSep *)
+{
 }
 
 //--------------------------------------

@@ -140,9 +140,14 @@ static bool writeDefArgumentList(OutputList &ol,ClassDef *cd,
 
   //if (!md->isDefine()) ol.startParameter(TRUE); else ol.docify(" ");
   bool first=TRUE;
+  bool paramTypeStarted=FALSE;
   while (a)
   {
-    if (md->isDefine() || first) ol.startParameterType(first,md->isObjCMethod()?"dummy":0);
+    if (md->isDefine() || first) 
+    {
+      ol.startParameterType(first,md->isObjCMethod()?"dummy":0);
+      paramTypeStarted=TRUE;
+    }
     QRegExp re(")("),res("(.*\\*");
     int vp=a->type.find(re);
     int wp=a->type.find(res);
@@ -179,7 +184,11 @@ static bool writeDefArgumentList(OutputList &ol,ClassDef *cd,
     }
     if (!md->isDefine())
     {
-      ol.endParameterType();
+      if (paramTypeStarted) 
+      {
+        ol.endParameterType();
+        paramTypeStarted=FALSE;
+      }
       ol.startParameterName(defArgList->count()<2);
     }
     if (hasFuncPtrType)
@@ -236,7 +245,16 @@ static bool writeDefArgumentList(OutputList &ol,ClassDef *cd,
           if (key!=",") key+=":"; // for normal keywords add colon
         }
         ol.endParameterName(FALSE,FALSE,!md->isObjCMethod());
+        if (paramTypeStarted) 
+        {
+          ol.endParameterType();
+        }
         ol.startParameterType(FALSE,key);
+        paramTypeStarted=TRUE;
+      }
+      else
+      {
+        ol.endParameterName(FALSE,FALSE,TRUE);
       }
     }
     first=FALSE;
@@ -431,6 +449,8 @@ class MemberDefImpl
     bool docsForDefinition;   // TRUE => documentation block is put before
                               //         definition.
                               // FALSE => block is put before declaration.
+
+    ClassDef *category;
 };
 
 MemberDefImpl::MemberDefImpl() :
@@ -442,7 +462,8 @@ MemberDefImpl::MemberDefImpl() :
     tArgList(0),
     typeConstraints(0),
     defTmpArgLists(0),
-    classSectionSDict(0)
+    classSectionSDict(0),
+    category(0)
 {
 }
 
@@ -615,6 +636,24 @@ MemberDef::MemberDef(const char *df,int dl,
   m_impl->init(this,t,a,e,p,v,s,r,mt,tal,al);
   m_flushPending = FALSE;
 }
+
+void MemberDef::moveTo(Definition *scope)
+{
+   setOuterScope(scope);
+   if (scope->definitionType()==Definition::TypeClass)
+   {
+     m_impl->classDef = (ClassDef*)scope;
+   }
+   else if (scope->definitionType()==Definition::TypeFile)
+   {
+     m_impl->fileDef = (FileDef*)scope;
+   }
+   else if (scope->definitionType()==Definition::TypeNamespace)
+   {
+     m_impl->nspace = (NamespaceDef*)scope;
+   }
+}
+
 
 /*! Destroys the member definition. */
 MemberDef::~MemberDef()
@@ -1158,12 +1197,12 @@ void MemberDef::writeDeclaration(OutputList &ol,
   }
 
   // write search index info
-  if (Config_getBool("SEARCHENGINE") && !isReference())
-  {
-    Doxygen::searchIndex->setCurrentDoc(qualifiedName(),getOutputFileBase(),anchor());
-    Doxygen::searchIndex->addWord(localName(),TRUE);
-    Doxygen::searchIndex->addWord(qualifiedName(),FALSE);
-  }
+  //if (Config_getBool("SEARCHENGINE") && !isReference())
+  //{
+  //  Doxygen::searchIndex->setCurrentDoc(qualifiedName(),getOutputFileBase(),anchor());
+  //  Doxygen::searchIndex->addWord(localName(),TRUE);
+  //  Doxygen::searchIndex->addWord(qualifiedName(),FALSE);
+  //}
 
   QCString cname  = d->name();
   QCString cfname = getOutputFileBase();
@@ -1478,7 +1517,9 @@ void MemberDef::writeDeclaration(OutputList &ol,
      )
   {
     ol.startMemberDescription();
-    ol.parseDoc(briefFile(),briefLine(),getOuterScope()?getOuterScope():d,this,briefDescription(),TRUE,FALSE);
+    ol.parseDoc(briefFile(),briefLine(),
+                getOuterScope()?getOuterScope():d,this,briefDescription(),
+                TRUE,FALSE,0,TRUE,FALSE);
     if (detailsVisible) 
     {
       ol.pushGeneratorState();
@@ -1497,7 +1538,6 @@ void MemberDef::writeDeclaration(OutputList &ol,
       //ol.startEmphasis();
       ol.popGeneratorState();
     }
-    //ol.newParagraph();
     ol.endMemberDescription();
   }
   warnIfUndocumented();
@@ -1926,10 +1966,11 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
   ol.endDoxyAnchor(cfname,memAnchor);
   ol.startIndent();
 
-  ol.pushGeneratorState();
-  ol.disable(OutputGenerator::RTF);
-  ol.newParagraph();
-  ol.popGeneratorState();
+  // FIXME:PARA
+  //ol.pushGeneratorState();
+  //ol.disable(OutputGenerator::RTF);
+  //ol.newParagraph();
+  //ol.popGeneratorState();
 
   /* write multi-line initializer (if any) */
   if (hasMultiLineInitializer()
@@ -1969,8 +2010,11 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
       ) 
      )  
   { 
-    ol.parseDoc(briefFile(),briefLine(),getOuterScope()?getOuterScope():container,this,brief,FALSE,FALSE);
-    ol.newParagraph();
+    ol.startParagraph();
+    ol.parseDoc(briefFile(),briefLine(),
+                getOuterScope()?getOuterScope():container,this,
+                brief,FALSE,FALSE,0,TRUE,FALSE);
+    ol.endParagraph();
   }
 
   /* write detailed description */
@@ -1980,8 +2024,9 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
     ol.parseDoc(docFile(),docLine(),getOuterScope()?getOuterScope():container,this,detailed+"\n",TRUE,FALSE);
     if (!inbodyDocumentation().isEmpty())
     {
-      ol.newParagraph();
+      ol.startParagraph();
       ol.parseDoc(inbodyFile(),inbodyLine(),getOuterScope()?getOuterScope():container,this,inbodyDocumentation()+"\n",TRUE,FALSE);
+      ol.endParagraph();
     }
   }
   else if (!brief.isEmpty() && (Config_getBool("REPEAT_BRIEF") ||
@@ -1989,7 +2034,6 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
   {
     if (!inbodyDocumentation().isEmpty())
     {
-      ol.newParagraph();
       ol.parseDoc(inbodyFile(),inbodyLine(),getOuterScope()?getOuterScope():container,this,inbodyDocumentation()+"\n",TRUE,FALSE);
     }
   }
@@ -2068,9 +2112,8 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
         {
           if (first)
           {
-            //ol.newParagraph();
             ol.startSimpleSect(BaseOutputDocInterface::EnumValues,0,0,theTranslator->trEnumerationValues()+": ");
-            ol.writeDescItem();
+            ol.startDescForItem();
             ol.startDescTable();
           }
 
@@ -2110,13 +2153,13 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
           if (!fmd->briefDescription().isEmpty())
           { 
             ol.parseDoc(fmd->briefFile(),fmd->briefLine(),getOuterScope()?getOuterScope():container,fmd,fmd->briefDescription(),TRUE,FALSE);
-            //ol.newParagraph();
           }
-          if (!fmd->briefDescription().isEmpty() && 
-              !fmd->documentation().isEmpty())
-          {
-            ol.newParagraph();
-          }
+          // FIXME:PARA
+          //if (!fmd->briefDescription().isEmpty() && 
+          //    !fmd->documentation().isEmpty())
+          //{
+          //  ol.newParagraph();
+          //}
           if (!fmd->documentation().isEmpty())
           { 
             ol.parseDoc(fmd->docFile(),fmd->docLine(),getOuterScope()?getOuterScope():container,fmd,fmd->documentation()+"\n",TRUE,FALSE);
@@ -2130,6 +2173,7 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
     { 
       //ol.endItemList(); 
       ol.endDescTable();
+      ol.endDescForItem();
       ol.endSimpleSect();
       ol.writeChar('\n'); 
     }
@@ -2269,9 +2313,9 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
   if (hasExamples())
   {
     ol.startSimpleSect(BaseOutputDocInterface::Examples,0,0,theTranslator->trExamples()+": ");
-    ol.writeDescItem();
+    ol.startDescForItem();
     writeExample(ol,m_impl->exampleSDict);
-    //ol.endDescItem();
+    ol.endDescForItem();
     ol.endSimpleSect();
   }
 
@@ -2296,10 +2340,11 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
     {
       msg("Generating call graph for function %s\n",qualifiedName().data());
       ol.disable(OutputGenerator::Man);
-      ol.newParagraph();
+      ol.startParagraph();
       ol.startCallGraph();
       ol.parseText(theTranslator->trCallGraph());
       ol.endCallGraph(callGraph);
+      ol.endParagraph(); 
       ol.enableAll();
     }
   }
@@ -2312,10 +2357,11 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
     {
       msg("Generating caller graph for function %s\n",qualifiedName().data());
       ol.disable(OutputGenerator::Man);
-      ol.newParagraph();
+      ol.startParagraph();
       ol.startCallGraph();
       ol.parseText(theTranslator->trCallerGraph());
       ol.endCallGraph(callerGraph);
+      ol.endParagraph();
       ol.enableAll();
     }
   }
@@ -2518,7 +2564,7 @@ void MemberDef::setAnchor(const char *a)
   QCString sigStr(33);
   MD5Buffer((const unsigned char *)memAnchor.data(),memAnchor.length(),md5_sig);
   MD5SigToString(md5_sig,sigStr.data(),33);
-  m_impl->anc = sigStr;
+  m_impl->anc = "a"+sigStr;
 }
 
 void MemberDef::setGroupDef(GroupDef *gd,Grouping::GroupPri_t pri,
@@ -3823,6 +3869,19 @@ void MemberDef::setMemberDeclaration(MemberDef *md)
   m_impl->memDec=md; 
 }
 
+ClassDef *MemberDef::category() const
+{
+  makeResident();
+  return m_impl->category;
+}
+
+void MemberDef::setCategory(ClassDef *def)
+{
+  makeResident();
+  m_impl->category = def;
+}
+
+
 void MemberDef::cacheTypedefVal(ClassDef*val, const QCString & templSpec, const QCString &resolvedType)
 {
   makeResident();
@@ -3915,6 +3974,7 @@ void MemberDef::flushToDisk() const
   marshalBool         (Doxygen::symbolStorage,m_impl->tspec);
   marshalBool         (Doxygen::symbolStorage,m_impl->groupHasDocs);
   marshalBool         (Doxygen::symbolStorage,m_impl->docsForDefinition);
+  marshalObjPointer   (Doxygen::symbolStorage,m_impl->category);
   marshalUInt(Doxygen::symbolStorage,END_MARKER);
 
   // function doesn't modify the object conceptually but compiler doesn't know this.
@@ -4012,6 +4072,7 @@ void MemberDef::loadFromDisk() const
   m_impl->tspec                   = unmarshalBool         (Doxygen::symbolStorage);
   m_impl->groupHasDocs            = unmarshalBool         (Doxygen::symbolStorage);
   m_impl->docsForDefinition       = unmarshalBool         (Doxygen::symbolStorage);
+  m_impl->category                = (ClassDef*)unmarshalObjPointer   (Doxygen::symbolStorage);
   marker = unmarshalUInt(Doxygen::symbolStorage);
   assert(marker==END_MARKER);
 }
@@ -4127,4 +4188,23 @@ void MemberDef::copyArgumentNames(MemberDef *bmd)
   }
 }
 
+static void invalidateCachedTypesInArgumentList(ArgumentList *al)
+{
+  if (al)
+  {
+    ArgumentListIterator ali(*al);
+    Argument *a;
+    for (ali.toFirst();(a=ali.current());++ali)
+    {
+      a->canType.resize(0);
+    }
+  }
+}
+
+void MemberDef::invalidateCachedArgumentTypes()
+{
+  makeResident();
+  invalidateCachedTypesInArgumentList(m_impl->defArgList);
+  invalidateCachedTypesInArgumentList(m_impl->declArgList);
+}
 

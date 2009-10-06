@@ -304,6 +304,7 @@ static void writeDefaultStyleSheetPart1(QTextStream &t)
   t << "\\ProvidesPackage{doxygen}\n";
   t << "\\RequirePackage{calc}\n";
   t << "\\RequirePackage{array}\n";
+  t << "\\RequirePackage{color}\n";
   t << "\\pagestyle{fancyplain}\n";
   //t << "\\addtolength{\\headwidth}{\\marginparsep}\n";
   //t << "\\addtolength{\\headwidth}{\\marginparwidth}\n";
@@ -411,6 +412,7 @@ static void writeDefaultStyleSheetPart3(QTextStream &t)
   t << "\\definecolor{vhdldigit}{rgb}{1.0,0.0,1.0}\n";
   t << "\\definecolor{vhdlkeyword}{rgb}{0.43,0.0,0.43}\n";
   t << "\\definecolor{vhdllogic}{rgb}{1.0,0.0,0.0}\n";
+  t << "\\definecolor{vhdlchar}{rgb}{0.0,0.0,0.0}\n";
 }
 
 void LatexGenerator::writeHeaderFile(QFile &f)
@@ -657,7 +659,7 @@ void LatexGenerator::endIndexSection(IndexSections is)
       break;
     case isMainPage:
       {
-        QCString indexName=usingTreeIndex()?"main":"index";
+        QCString indexName=Config_getBool("GENERATE_TREEVIEW")?"main":"index";
         t << "}\n\\label{index}";
         if (Config_getBool("PDF_HYPERLINKS")) t << "\\hypertarget{index}{}";
         t << "\\input{" << indexName << "}\n";

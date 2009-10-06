@@ -23,6 +23,7 @@
 #include <qstack.h>
 #include <qcstring.h>
 
+class DocNode;
 class QTextStream;
 class CodeOutputInterface;
 class QString;
@@ -51,6 +52,7 @@ class HtmlDocVisitor : public DocVisitor
     void visit(DocIncOperator *);
     void visit(DocFormula *);
     void visit(DocIndexEntry *);
+    void visit(DocSimpleSectSep *);
 
     //--------------------------------------
     // visitor functions for compound nodes
@@ -140,6 +142,9 @@ class HtmlDocVisitor : public DocVisitor
 
     void pushEnabled();
     void popEnabled();
+
+    void forceEndParagraph(DocNode *n);
+    void forceStartParagraph(DocNode *n);
 
     //--------------------------------------
     // state variables

@@ -611,7 +611,7 @@ void RTFGenerator::endIndexSection(IndexSections is)
         t << "{\\tc \\v " << substitute(Doxygen::mainPage->title(),"%","") << "}"<< endl;
       }
       t << "{\\field\\fldedit{\\*\\fldinst INCLUDETEXT \"";
-      if (usingTreeIndex()) t << "main"; else t << "index";
+      if (Config_getBool("GENERATE_TREEVIEW")) t << "main"; else t << "index";
       t << ".rtf\" \\\\*MERGEFORMAT}{\\fldrslt includedstuff}}\n";
       break;
     //case isPackageIndex:
@@ -972,9 +972,9 @@ void RTFGenerator::endItemList()
 //}
 
 /*! write bullet or enum item */
-void RTFGenerator::writeListItem()
+void RTFGenerator::startItemListItem()
 {
-  DBG_RTF(t << "{\\comment (writeListItem)}" << endl)
+  DBG_RTF(t << "{\\comment (startItemListItem)}" << endl)
   newParagraph();
   t << rtf_Style_Reset;
   if (rtf_listItemInfo[m_listLevel].isEnum)
@@ -988,6 +988,11 @@ void RTFGenerator::writeListItem()
     t << rtf_BList_DepthStyle() << endl;
   }
   m_omitParagraph = TRUE;
+}
+
+void RTFGenerator::endItemListItem()
+{
+  DBG_RTF(t << "{\\comment (endItemListItem)}" << endl)
 }
 
 void RTFGenerator::startIndexItem(const char *,const char *)
@@ -1582,9 +1587,14 @@ void RTFGenerator::startDescList(SectionTypes)
 //  t << rtf_Style_Reset << rtf_DList_DepthStyle();
 //}
 
-void RTFGenerator::writeDescItem()
+void RTFGenerator::startDescForItem()
 {
-  DBG_RTF(t << "{\\comment (writeDescItem) }"    << endl)
+  DBG_RTF(t << "{\\comment (startDescForItem) }"    << endl)
+}
+
+void RTFGenerator::endDescForItem()
+{
+  DBG_RTF(t << "{\\comment (endDescForItem) }"    << endl)
 }
 
 //void RTFGenerator::endDescList()

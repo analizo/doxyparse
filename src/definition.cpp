@@ -819,6 +819,7 @@ void Definition::writeInlineCode(OutputList &ol,const char *scopeName)
       //printf("Read:\n`%s'\n\n",codeFragment.data());
       MemberDef *thisMd = 0;
       if (definitionType()==TypeMember) thisMd = (MemberDef *)this;
+      ol.startParagraph();
       ol.startCodeFragment();
       pIntf->parseCode(ol,               // codeOutIntf
                        scopeName,        // scope
@@ -832,7 +833,7 @@ void Definition::writeInlineCode(OutputList &ol,const char *scopeName)
                        thisMd            // memberDef
                       );
       ol.endCodeFragment();
-      ol.newParagraph();
+      ol.endParagraph();
     }
   }
   ol.popGeneratorState();
@@ -844,7 +845,8 @@ void Definition::writeInlineCode(OutputList &ol,const char *scopeName)
 void Definition::_writeSourceRefList(OutputList &ol,const char *scopeName,
     const QCString &text,MemberSDict *members,bool /*funcOnly*/)
 {
-  ol.pushGeneratorState();
+static bool latexSourceCode = Config_getBool("LATEX_SOURCE_CODE"); 
+ ol.pushGeneratorState();
   if (/*Config_getBool("SOURCE_BROWSER") &&*/ members)
   {
     ol.startParagraph();
@@ -890,7 +892,14 @@ void Definition::_writeSourceRefList(OutputList &ol,const char *scopeName,
           //printf("md->getBodyDef()=%p global=%p\n",md->getBodyDef(),Doxygen::globalScope); 
           // for HTML write a real link
           ol.pushGeneratorState();
-          ol.disableAllBut(OutputGenerator::Html);
+          //ol.disableAllBut(OutputGenerator::Html);
+           
+         ol.disable(OutputGenerator::RTF); 
+         ol.disable(OutputGenerator::Man); 
+         if (!latexSourceCode)
+         {
+          ol.disable(OutputGenerator::Latex);
+        }
           QCString lineStr,anchorStr;
           anchorStr.sprintf("l%05d",md->getStartBodyLine());
           //printf("Write object link to %s\n",md->getBodyDef()->getSourceFileBase().data());
@@ -899,7 +908,11 @@ void Definition::_writeSourceRefList(OutputList &ol,const char *scopeName,
 
           // for the other output formats just mention the name
           ol.pushGeneratorState();
-          ol.disable(OutputGenerator::Html);
+           ol.disable(OutputGenerator::Html);
+           if (latexSourceCode)
+          {
+            ol.disable(OutputGenerator::Latex);
+           }
           ol.docify(name);
           ol.popGeneratorState();
         }
@@ -907,7 +920,14 @@ void Definition::_writeSourceRefList(OutputList &ol,const char *scopeName,
         {
           // for HTML write a real link
           ol.pushGeneratorState();
-          ol.disableAllBut(OutputGenerator::Html);
+          //ol.disableAllBut(OutputGenerator::Html); 
+          ol.disable(OutputGenerator::RTF); 
+          ol.disable(OutputGenerator::Man); 
+          if (!latexSourceCode)
+          {
+            ol.disable(OutputGenerator::Latex);
+           }
+     
           ol.writeObjectLink(md->getReference(),
                              md->getOutputFileBase(),
                              md->anchor(),name);
@@ -916,6 +936,10 @@ void Definition::_writeSourceRefList(OutputList &ol,const char *scopeName,
           // for the other output formats just mention the name
           ol.pushGeneratorState();
           ol.disable(OutputGenerator::Html);
+           if (latexSourceCode)
+           {
+            ol.disable(OutputGenerator::Latex);
+           }
           ol.docify(name);
           ol.popGeneratorState();
         }

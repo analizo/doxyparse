@@ -126,7 +126,7 @@ class DocNode
                 Kind_Formula        = 38,
                 Kind_SecRefItem     = 39,
                 Kind_SecRefList     = 40,
-                //Kind_Language       = 41,
+                Kind_SimpleSectSep  = 41,
                 Kind_LinkedWord     = 42,
                 Kind_ParamSect      = 43,
                 Kind_ParamList      = 44,
@@ -326,7 +326,7 @@ class DocSymbol : public DocNode
     enum SymType { Unknown=0, BSlash,At,Less,Greater,Amp,Dollar,Hash,Percent, 
                    Copy, Tm, Reg, Apos, Quot, Uml, Acute, Grave, Circ, Tilde, 
                    Szlig, Cedil, Ring, Nbsp, Slash, Lsquo, Rsquo, Ldquo, Rdquo, 
-                   Ndash, Mdash
+                   Ndash, Mdash, Aelig, AElig
                  };
     DocSymbol(DocNode *parent,SymType s,char letter='\0') : 
       m_parent(parent), m_symbol(s), m_letter(letter) {}
@@ -473,6 +473,7 @@ class DocFormula : public DocNode
     int id() const             { return m_id; }
     DocNode *parent() const    { return m_parent; }
     void accept(DocVisitor *v) { v->visit(this); }
+    bool isInline()            { return text().at(0)!='\\'; }
 
   private:
     DocNode *m_parent;
@@ -574,6 +575,7 @@ class DocXRefItem : public CompAccept<DocXRefItem>, public DocNode
     QString key() const        { return m_key; }
     void accept(DocVisitor *v) { CompAccept<DocXRefItem>::accept(this,v); }
     bool parse();
+    const QList<DocNode> &children() const { return m_children; }
 
   private:
     DocNode *m_parent;
@@ -838,6 +840,7 @@ class DocSecRefItem : public CompAccept<DocSecRefItem>, public DocNode
     DocNode *parent() const    { return m_parent; }
     void accept(DocVisitor *v) { CompAccept<DocSecRefItem>::accept(this,v); }
     void parse();
+    const QList<DocNode> &children() const { return m_children; }
 
   private:
     DocNode *m_parent;
@@ -925,15 +928,31 @@ class DocSimpleSect : public CompAccept<DocSimpleSect>, public DocNode
     QCString typeString() const;
     DocNode *parent() const { return m_parent; }
     void accept(DocVisitor *v);
-    int parse(bool userTitle);
+    int parse(bool userTitle,bool needsSeparator);
     int parseRcs();
     int parseXml();
     void appendLinkWord(const QString &word);
+    const QList<DocNode> &children() const { return m_children; }
 
   private:
     DocNode *       m_parent;
     Type            m_type;
     DocTitle *      m_title;
+};
+
+/*! Node representing a separator between two simple sections of the
+ *  same type. 
+ */
+class DocSimpleSectSep : public DocNode
+{
+  public:
+    DocSimpleSectSep(DocNode *parent) : m_parent(parent) {}
+    Kind kind() const { return Kind_SimpleSectSep; }
+    DocNode *parent() const { return m_parent; }
+    void accept(DocVisitor *v) { v->visit(this); }
+
+  private:
+    DocNode *m_parent;
 };
 
 /*! Node representing a parameter section */
@@ -1104,6 +1123,7 @@ class DocHtmlListItem : public CompAccept<DocHtmlListItem>, public DocNode
     void accept(DocVisitor *v) { CompAccept<DocHtmlListItem>::accept(this,v); }
     int parse();
     int parseXml();
+    const QList<DocNode> &children() const { return m_children; }
 
   private:
     DocNode *      m_parent;
@@ -1122,6 +1142,7 @@ class DocHtmlDescData : public CompAccept<DocHtmlDescData>, public DocNode
     DocNode *parent() const               { return m_parent; }
     void accept(DocVisitor *v) { CompAccept<DocHtmlDescData>::accept(this,v); }
     int parse();
+    const QList<DocNode> &children() const { return m_children; }
 
   private:
     DocNode *     m_parent;
