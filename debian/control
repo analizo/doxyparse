@@ -14,9 +14,9 @@ Description: multi-language source code analyzer
  provides a command-line tool that can be used to obtain informatin from source
  code, such as:
  .
- * which functions/methods and variables/attributes a module/class contains
- * which functions/methods calls/uses which functions/methods/variables
- * etc
+  * which functions/methods and variables/attributes a module/class contains
+  * which functions/methods calls/uses which functions/methods/variables
+  * etc
  .
  doxyparses's main goal is to be used by higher-level source code analyzis
  tools.
