@@ -1,0 +1,22 @@
+Source: doxyparse
+Section: devel
+Priority: extra
+Maintainer: Antonio Terceiro <terceiro@softwarelivre.org>
+Build-Depends: cdbs, debhelper (>= 7), autotools-dev, flex, bison
+Standards-Version: 3.8.3
+Homepage: http://gitorious.org/doxygen/mainline
+
+Package: doxyparse
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: multi-language source code analyzer
+ doxyparse builts on doxygen's great source code parsing infrastructure and
+ provides a command-line tool that can be used to obtain informatin from source
+ code, such as:
+ .
+ * which functions/methods and variables/attributes a module/class contains
+ * which functions/methods calls/uses which functions/methods/variables
+ * etc
+ .
+ doxyparses's main goal is to be used by higher-level source code analyzis
+ tools.

@@ -1,0 +1,8 @@
+doxyparse for Debian
+--------------------
+
+doxyparse is to be included in doxygen, so probably in a near future this
+package will be superseded by something like doxygen-doxyparse, built from
+the doxygen source package.
+
+ -- Antonio Terceiro <terceiro@softwarelivre.org>  Tue, 06 Oct 2009 15:51:21 -0300

@@ -1,0 +1,29 @@
+This work was packaged for Debian by:
+
+    Antonio Terceiro <terceiro@softwarelivre.org> on Tue, 06 Oct 2009 15:51:21 -0300
+
+It was downloaded from <http://gitorious.org/~terceiro/doxygen/packaging>
+
+Upstream Author(s):
+
+    Dimitri van Heesch <dimitri@stack.nl> (original doxygen author)
+    Joenio Costa <joenio@perl.org.br>
+    Antonio Terceiro <terceiro@softwarelivre.org>
+
+Copyright:
+
+    Copyright (C) 2009 Dimitri van Heesch <dimitri@stack.nl>
+    Copyright (C) 2009 Joenio Costa <joenio@perl.org.br>
+    Copyright (C) 2009 Antonio Terceiro <terceiro@softwarelivre.org>
+
+License:
+
+    GNU General Public License, version 2
+
+The Debian packaging is:
+
+    Copyright (C) 2009 Antonio Terceiro <terceiro@softwarelivre.org>
+
+and is licensed under the GPL version 2, 
+see `/usr/share/common-licenses/GPL-2'.
+

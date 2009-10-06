@@ -1,0 +1,5 @@
+doxyparse (1.5.8-1) unstable; urgency=low
+
+  * Initial release (Closes: #nnnn)  <nnnn is the bug number of your ITP>
+
+ -- Antonio Terceiro <terceiro@softwarelivre.org>  Tue, 06 Oct 2009 15:51:21 -0300
