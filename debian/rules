@@ -2,4 +2,8 @@
 
 include /usr/share/cdbs/1/rules/debhelper.mk
 
+configure/doxyparse::
+	./configure --with-doxyparse
 
+build/doxyparse::
+	make
