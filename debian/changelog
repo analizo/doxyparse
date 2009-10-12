@@ -1,4 +1,4 @@
-doxyparse (1.5.8-2) UNRELEASED; urgency=low
+doxyparse (1.5.8-2) unstable; urgency=low
 
   [ João M. Miranda ]
   * Extracting more information from source code
