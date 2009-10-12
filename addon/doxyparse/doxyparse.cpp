@@ -172,6 +172,8 @@ static void listSymbols() {
           printInheritance(cd);
           // methods
           listMembers(cd->getMemberList(MemberList::functionMembers));
+          // constructors
+          listMembers(cd->getMemberList(MemberList::constructors));
           // attributes
           listMembers(cd->getMemberList(MemberList::variableMembers));
         }
