@@ -114,12 +114,22 @@ static void printReferencesMembers(MemberDef *md) {
   }
 }
 
+static void printProtection(MemberDef* def) {
+  if (def->protection() == Public) {
+    printf("      protection public\n");
+  }
+}
+
 static void lookupSymbol(Definition *d) {
   if (d->definitionType() == Definition::TypeMember) {
     MemberDef *md = (MemberDef *)d;
       printf("   %s %s in line %d\n", md->memberTypeName().data(), d->name().data(), d->getDefLine());
-      if (md->isFunction())
+      printProtection(md);
+      if (md->isFunction()) {
+        int size = md->getEndBodyLine() - md->getStartBodyLine() + 1;
+        printf("      %d lines of code\n", size);
         printReferencesMembers(md);
+      }
   }
 }
 
@@ -129,6 +139,17 @@ void listMembers(MemberList *ml) {
     MemberDef *md;
     for (mli.toFirst(); (md=mli.current()); ++mli) {
       lookupSymbol((Definition*) md);
+    }
+  }
+}
+
+static void printInheritance(ClassDef* cd) {
+  BaseClassList* baseClasses = cd->baseClasses();
+  if (baseClasses) {
+    BaseClassListIterator bci(*baseClasses);
+    BaseClassDef* bcd;
+    for (bci.toFirst(); (bcd = bci.current()); ++bci) {
+      printf("      inherits from %s\n", bcd->classDef->name().data());
     }
   }
 }
@@ -148,6 +169,7 @@ static void listSymbols() {
         ClassDef *cd;
         for (cli.toFirst(); (cd = cli.current()); ++cli) {
           printf("module %s\n", cd->name().data());
+          printInheritance(cd);
           // methods
           listMembers(cd->getMemberList(MemberList::functionMembers));
           // attributes
