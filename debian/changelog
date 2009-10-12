@@ -1,3 +1,13 @@
+doxyparse (1.5.8-2) UNRELEASED; urgency=low
+
+  [ João M. Miranda ]
+  * Extracting more information from source code
+
+  [ Antonio Terceiro ]
+  * List constructors as methods too
+
+ -- Antonio Terceiro <terceiro@softwarelivre.org>  Mon, 12 Oct 2009 15:29:44 -0300
+
 doxyparse (1.5.8-1) unstable; urgency=low
 
   * Initial release (Closes: #nnnn)  <nnnn is the bug number of your ITP>
