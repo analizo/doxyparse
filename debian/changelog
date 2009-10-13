@@ -1,3 +1,9 @@
+doxyparse (1.5.8-3) unstable; urgency=low
+
+  * Using 3 spaces for inheritance information.
+
+ -- Antonio Terceiro <terceiro@softwarelivre.org>  Mon, 12 Oct 2009 22:19:52 -0300
+
 doxyparse (1.5.8-2) unstable; urgency=low
 
   [ João M. Miranda ]
