@@ -149,7 +149,7 @@ static void printInheritance(ClassDef* cd) {
     BaseClassListIterator bci(*baseClasses);
     BaseClassDef* bcd;
     for (bci.toFirst(); (bcd = bci.current()); ++bci) {
-      printf("      inherits from %s\n", bcd->classDef->name().data());
+      printf("   inherits from %s\n", bcd->classDef->name().data());
     }
   }
 }
