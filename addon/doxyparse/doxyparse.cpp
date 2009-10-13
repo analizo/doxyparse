@@ -23,6 +23,8 @@
 #include "doxygen.h"
 #include "outputgen.h"
 #include "parserintf.h"
+#include <string>
+#include <cstdlib>
 
 class Doxyparse : public CodeOutputInterface
 {
@@ -201,7 +203,10 @@ int main(int argc,char **argv) {
   // setup the non-default configuration options
 
   // we need a place to put intermediate files
-  Config_getString("OUTPUT_DIRECTORY")="/tmp/doxyparse"; 
+  std:: string tmpdir = "/tmp/doxyparse-";
+  tmpdir += getenv("USER");
+  Config_getString("OUTPUT_DIRECTORY")=tmpdir.c_str();
+
   // enable HTML (fake) output to omit warning about missing output format
   Config_getBool("GENERATE_HTML")=TRUE;
   // disable latex output
