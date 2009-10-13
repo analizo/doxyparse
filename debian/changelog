@@ -1,3 +1,9 @@
+doxyparse (1.5.8-4) unstable; urgency=low
+
+  * Using one temporary directory for each user
+
+ -- Antonio Terceiro <terceiro@softwarelivre.org>  Tue, 13 Oct 2009 17:15:41 -0300
+
 doxyparse (1.5.8-3) unstable; urgency=low
 
   * Using 3 spaces for inheritance information.
