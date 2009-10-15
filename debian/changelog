@@ -1,3 +1,10 @@
+doxyparse (1.5.8-5) unstable; urgency=low
+
+  * Extracting methods to print classes and files
+  * Don't list structs in C code as proper modules
+
+ -- Antonio Terceiro <terceiro@softwarelivre.org>  Thu, 15 Oct 2009 19:44:23 -0300
+
 doxyparse (1.5.8-4) unstable; urgency=low
 
   * Using one temporary directory for each user
