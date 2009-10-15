@@ -59,6 +59,8 @@ class Doxyparse : public CodeOutputInterface
     FileDef *m_fd;
 };
 
+static bool is_c_code = false;
+
 static void findXRefSymbols(FileDef *fd)
 {
   // get the interface to a parser that matches the file extension
@@ -95,6 +97,31 @@ static bool ignoreStaticExternalCall(MemberDef *context, MemberDef *md) {
   }
 }
 
+static void printReferenceTo(MemberDef* rmd) {
+  if (is_c_code) {
+    if (rmd->getClassDef()) {
+      printf("      uses %s %s::%s", rmd->memberTypeName().data(), rmd->getClassDef()->name().data(), rmd->name().data());
+      printf(" defined in %s\n", rmd->getClassDef()->getFileDef()->getFileBase().data());
+    } else if (rmd->getFileDef()) {
+      printf("      uses %s %s", rmd->memberTypeName().data(), rmd->name().data());
+      printf(" defined in %s\n", rmd->getFileDef()->getFileBase().data());
+    }
+    else {
+      printf("\n");
+    }
+  } else {
+    printf("      uses %s %s", rmd->memberTypeName().data(), rmd->name().data());
+    if (rmd->getClassDef()) {
+      printf(" defined in %s\n", rmd->getClassDef()->name().data());
+    } else if (rmd->getFileDef()) {
+      printf(" defined in %s\n", rmd->getFileDef()->getFileBase().data());
+    }
+    else {
+      printf("\n");
+    }
+  }
+}
+
 static void printReferencesMembers(MemberDef *md) {
   LockingPtr<MemberSDict> defDict = md->getReferencesMembers();
   if (defDict != 0) {
@@ -102,15 +129,7 @@ static void printReferencesMembers(MemberDef *md) {
     MemberDef *rmd;
     for (msdi.toFirst(); (rmd=msdi.current()); ++msdi) {
       if (rmd->definitionType() == Definition::TypeMember && !ignoreStaticExternalCall(md, rmd)) {
-        printf("      uses %s %s", rmd->memberTypeName().data(), rmd->name().data());
-        if (rmd->getClassDef()) {
-          printf(" defined in %s\n", rmd->getClassDef()->name().data());
-        } else if (rmd->getFileDef()) {
-          printf(" defined in %s\n", rmd->getFileDef()->getFileBase().data());
-        }
-        else {
-          printf("\n");
-        }
+        printReferenceTo(rmd);
       }
     }
   }
@@ -157,14 +176,26 @@ static void printInheritance(ClassDef* cd) {
 }
 
 static void printClass(ClassDef* cd) {
-  printf("module %s\n", cd->name().data());
-  printInheritance(cd);
-  // methods
-  listMembers(cd->getMemberList(MemberList::functionMembers));
-  // constructors
-  listMembers(cd->getMemberList(MemberList::constructors));
-  // attributes
-  listMembers(cd->getMemberList(MemberList::variableMembers));
+  if (is_c_code) {
+    MemberList* ml = cd->getMemberList(MemberList::variableMembers);
+    if (ml) {
+      MemberListIterator mli(*ml);
+      MemberDef* md;
+      for (mli.toFirst(); (md=mli.current()); ++mli) {
+        printf("   variable %s::%s in line %d\n", cd->name().data(), md->name().data(), md->getDefLine());
+      }
+    }
+
+  } else {
+    printf("module %s\n", cd->name().data());
+    printInheritance(cd);
+    // methods
+    listMembers(cd->getMemberList(MemberList::functionMembers));
+    // constructors
+    listMembers(cd->getMemberList(MemberList::constructors));
+    // attributes
+    listMembers(cd->getMemberList(MemberList::variableMembers));
+  }
 }
 
 static void printFile(FileDef* fd) {
@@ -179,11 +210,21 @@ static void listSymbols() {
   // iterate over the input files
   FileNameListIterator fnli(*Doxygen::inputNameList); 
   FileName *fn;
+  // detect C code
+  for (fnli.toFirst(); (fn=fnli.current()); ++fnli) {
+    std::string filename = fn->fileName();
+    if (filename.find(".c", filename.size() - 2) != std::string::npos) {
+      is_c_code = true;
+      break;
+    }
+  }
   // for each file with a certain name
   for (fnli.toFirst(); (fn=fnli.current()); ++fnli) {
     FileNameIterator fni(*fn);
     FileDef *fd;
     for (; (fd=fni.current()); ++fni) {
+      printFile(fd);
+
       ClassSDict *classes = fd->getClassSDict();
       if (classes) {
         ClassSDict::Iterator cli(*classes);
@@ -192,7 +233,6 @@ static void listSymbols() {
           printClass(cd);
         }
       }
-      printFile(fd);
     }
   }
   // TODO print external symbols referenced
