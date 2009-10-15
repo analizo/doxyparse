@@ -156,6 +156,25 @@ static void printInheritance(ClassDef* cd) {
   }
 }
 
+static void printClass(ClassDef* cd) {
+  printf("module %s\n", cd->name().data());
+  printInheritance(cd);
+  // methods
+  listMembers(cd->getMemberList(MemberList::functionMembers));
+  // constructors
+  listMembers(cd->getMemberList(MemberList::constructors));
+  // attributes
+  listMembers(cd->getMemberList(MemberList::variableMembers));
+}
+
+static void printFile(FileDef* fd) {
+  MemberList *ml = fd->getMemberList(MemberList::allMembersList);
+  if (ml && ml->count() > 0) {
+    printf("module %s\n", fd->getFileBase().data());
+    listMembers(ml);
+  }
+}
+
 static void listSymbols() {
   // iterate over the input files
   FileNameListIterator fnli(*Doxygen::inputNameList); 
@@ -170,22 +189,10 @@ static void listSymbols() {
         ClassSDict::Iterator cli(*classes);
         ClassDef *cd;
         for (cli.toFirst(); (cd = cli.current()); ++cli) {
-          printf("module %s\n", cd->name().data());
-          printInheritance(cd);
-          // methods
-          listMembers(cd->getMemberList(MemberList::functionMembers));
-          // constructors
-          listMembers(cd->getMemberList(MemberList::constructors));
-          // attributes
-          listMembers(cd->getMemberList(MemberList::variableMembers));
+          printClass(cd);
         }
       }
-
-      MemberList *ml = fd->getMemberList(MemberList::allMembersList);
-      if (ml && ml->count() > 0) {
-        printf("module %s\n", fd->getFileBase().data());
-        listMembers(ml);
-      }
+      printFile(fd);
     }
   }
   // TODO print external symbols referenced
