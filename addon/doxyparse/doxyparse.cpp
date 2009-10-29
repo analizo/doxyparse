@@ -183,6 +183,7 @@ static void printClass(ClassDef* cd) {
       MemberDef* md;
       for (mli.toFirst(); (md=mli.current()); ++mli) {
         printf("   variable %s::%s in line %d\n", cd->name().data(), md->name().data(), md->getDefLine());
+        printProtection(md);
       }
     }
 
