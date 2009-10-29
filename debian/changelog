@@ -1,3 +1,9 @@
+doxyparse (1.5.8-6) unstable; urgency=low
+
+  * printing protection of struct members
+
+ -- Antonio Terceiro <terceiro@softwarelivre.org>  Thu, 29 Oct 2009 12:43:49 -0300
+
 doxyparse (1.5.8-5) unstable; urgency=low
 
   * Extracting methods to print classes and files
