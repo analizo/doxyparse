@@ -1,3 +1,9 @@
+doxyparse (1.5.8-7) unstable; urgency=low
+
+  * More robust discovery of current user name.
+
+ -- Antonio Terceiro <terceiro@softwarelivre.org>  Mon, 02 Nov 2009 23:47:04 -0300
+
 doxyparse (1.5.8-6) unstable; urgency=low
 
   * printing protection of struct members
