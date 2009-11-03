@@ -239,6 +239,14 @@ static void listSymbols() {
   // TODO print external symbols referenced
 }
 
+char* getUserName() {
+  char* username = getenv("USER");
+  if (!username) {
+    username = getenv("LOGNAME");
+  }
+  return username;
+}
+
 int main(int argc,char **argv) {
   if (argc < 2) {
     printf("Usage: %s [source_file | source_dir]\n",argv[0]);
@@ -252,7 +260,12 @@ int main(int argc,char **argv) {
 
   // we need a place to put intermediate files
   std:: string tmpdir = "/tmp/doxyparse-";
-  tmpdir += getenv("USER");
+  char* username = getUserName();
+  if (username) {
+    tmpdir += username;
+  } else {
+    tmpdir += "unknown-user";
+  }
   Config_getString("OUTPUT_DIRECTORY")=tmpdir.c_str();
 
   // enable HTML (fake) output to omit warning about missing output format
