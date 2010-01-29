@@ -59,7 +59,7 @@ class Doxyparse : public CodeOutputInterface
     FileDef *m_fd;
 };
 
-static bool is_c_code = false;
+static bool is_c_code = true;
 
 static void findXRefSymbols(FileDef *fd)
 {
@@ -207,18 +207,38 @@ static void printFile(FileDef* fd) {
   }
 }
 
-static void listSymbols() {
-  // iterate over the input files
-  FileNameListIterator fnli(*Doxygen::inputNameList); 
-  FileName *fn;
-  // detect C code
+static bool checkLanguage(std::string& filename, std::string extension) {
+  if (filename.find(extension, filename.size() - extension.size()) != std::string::npos) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+/* Detects the programming language of the project. Actually, we only care
+ * about whether it is a C project or not. */
+static void detectProgrammingLanguage(FileNameListIterator& fnli) {
+  FileName* fn;
   for (fnli.toFirst(); (fn=fnli.current()); ++fnli) {
     std::string filename = fn->fileName();
-    if (filename.find(".c", filename.size() - 2) != std::string::npos) {
-      is_c_code = true;
-      break;
+    if (
+        checkLanguage(filename, ".cc") ||
+        checkLanguage(filename, ".cxx") ||
+        checkLanguage(filename, ".cpp") ||
+        checkLanguage(filename, ".java")
+       ) {
+      is_c_code = false;
     }
   }
+}
+
+static void listSymbols() {
+  // iterate over the input files
+  FileNameListIterator fnli(*Doxygen::inputNameList);
+  FileName *fn;
+
+  detectProgrammingLanguage(fnli);
+
   // for each file with a certain name
   for (fnli.toFirst(); (fn=fnli.current()); ++fnli) {
     FileNameIterator fni(*fn);
