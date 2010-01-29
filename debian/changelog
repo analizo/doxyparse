@@ -1,3 +1,9 @@
+doxyparse (1.5.8-8) unstable; urgency=low
+
+  * Being more cautious when detecting C projects.
+
+ -- Antonio Terceiro <terceiro@softwarelivre.org>  Fri, 29 Jan 2010 19:40:02 -0200
+
 doxyparse (1.5.8-7) unstable; urgency=low
 
   * More robust discovery of current user name.
