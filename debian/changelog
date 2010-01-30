@@ -1,8 +1,10 @@
 doxyparse (1.5.8-8) unstable; urgency=low
 
-  * Being more cautious when detecting C projects.
+  * Correctly detecting the programming language.
+  * Fixing problem with instance variables and arguments with the same
+    name
 
- -- Antonio Terceiro <terceiro@softwarelivre.org>  Fri, 29 Jan 2010 19:40:02 -0200
+ -- Antonio Terceiro <terceiro@softwarelivre.org>  Sat, 30 Jan 2010 20:38:23 -0200
 
 doxyparse (1.5.8-7) unstable; urgency=low
 
