@@ -110,6 +110,8 @@ static bool          g_lexInit = FALSE;
 
 static QStack<int>   g_classScopeLengthStack;
 
+static int           g_prefixed_with_this_keyword = FALSE;
+
 // context for an Objective-C method call
 struct ObjCCallCtx
 {
@@ -931,7 +933,7 @@ static void generateClassOrGlobalLink(CodeOutputInterface &ol,char *clName,
   bool isLocal=FALSE;
 
   //printf("generateClassOrGlobalLink(className=%s)\n",className.data());
-  if ((lcd=g_theVarContext.findVariable(className))==0) // not a local variable
+  if (!g_prefixed_with_this_keyword || (lcd=g_theVarContext.findVariable(className))==0) // not a local variable
   {
     Definition *d = g_currentDefinition;
     //printf("d=%p g_sourceFileDef=%p\n",d,g_currentDefinition);
@@ -977,6 +979,8 @@ static void generateClassOrGlobalLink(CodeOutputInterface &ol,char *clName,
     isLocal=TRUE;
     //fprintf(stderr,"is a local variable cd=%p!\n",cd);
   }
+  g_prefixed_with_this_keyword = FALSE; // discard the "this" prefix for the next calls
+
   if (cd && cd->isLinkable()) // is it a linkable class
   {
     //fprintf(stderr,"is linkable class %s\n",clName);
@@ -2228,6 +2232,7 @@ OPERATOR {ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP}
 <UsingName>\n				{ codifyLines(yytext); BEGIN(Body); }
 <UsingName>.				{ codifyLines(yytext); BEGIN(Body); }
 <Body,FuncCall>"$"?"this"("->"|".")	{ g_code->codify(yytext); // this-> for C++, this. for C#
+					  g_prefixed_with_this_keyword = TRUE;
                                         }
 <Body>{KEYWORD}/([^a-z_A-Z0-9]) 	{
   					  startFontClass("keyword");
