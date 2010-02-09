@@ -149,6 +149,8 @@ static void lookupSymbol(Definition *d) {
       if (md->isFunction()) {
         int size = md->getEndBodyLine() - md->getStartBodyLine() + 1;
         printf("      %d lines of code\n", size);
+        ArgumentList* argList = md->argumentList().pointer();
+        printf("      %d parameters\n", argList->count());
         printf("      %d conditional paths\n", md->numberOfFlowKeyWords());
         printReferencesMembers(md);
       }
