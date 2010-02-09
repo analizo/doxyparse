@@ -1716,7 +1716,8 @@ SCOPETNAME ((({ID}{TEMPLIST}?){BN}*"::"{BN}*)*)((~{BN}*)?{ID})
 SCOPEPREFIX ({ID}{TEMPLIST}?{BN}*"::"{BN}*)+
 KEYWORD_OBJC ("@public"|"@private"|"@protected"|"@class"|"@implementation"|"@interface"|"@end"|"@selector"|"@protocol"|"@optional"|"@required"|"@throw"|"@synthesize")
 KEYWORD ("asm"|"__assume"|"auto"|"class"|"const"|"delete"|"enum"|"explicit"|"extern"|"false"|"friend"|"gcnew"|"gcroot"|"get"|"inline"|"internal"|"mutable"|"namespace"|"new"|"nullptr"|"override"|"operator"|"pin_ptr"|"private"|"protected"|"public"|"raise"|"register"|"remove"|"self"|"set"|"sizeof"|"static"|"struct"|"__super"|"template"|"generic"|"this"|"true"|"typedef"|"typeid"|"typename"|"union"|"using"|"virtual"|"volatile"|"abstract"|"final"|"import"|"synchronized"|"transient"|{KEYWORD_OBJC})
-FLOWKW  ("break"|"case"|"catch"|"continue"|"default"|"do"|"else"|"finally"|"for"|"foreach"|"for each"|"goto"|"if"|"return"|"switch"|"throw"|"throws"|"try"|"while"|"@try"|"@catch"|"@finally")
+FLOWKW ("break"|"catch"|"continue"|"default"|"do"|"else"|"finally"|"return"|"switch"|"@catch"|"@finally"|"throw"|"throws")
+FLOWCONDITION  ("case"|"for"|"foreach"|"for each"|"goto"|"if"|"try"|"while"|"@try")
 TYPEKW  ("bool"|"char"|"double"|"float"|"int"|"long"|"object"|"short"|"signed"|"unsigned"|"void"|"wchar_t"|"size_t"|"boolean"|"id"|"SEL"|"string")
 CASTKW ("const_cast"|"dynamic_cast"|"reinterpret_cast"|"static_cast")
 CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^' \\\n]{1,4}"'"))
@@ -2274,6 +2275,18 @@ OPERATOR {ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP}
 					  g_inForEachExpression = (strcmp(yytext,"for each")==0 || strcmp(yytext, "foreach")==0);
 					  BEGIN(FuncCall);
   					}
+<Body>{FLOWCONDITION}/{BN}*"("          {
+                                          if (g_currentMemberDef->isFunction())
+                                          {
+                                            g_currentMemberDef->addFlowKeyWord();
+                                          }
+                                          startFontClass("keywordflow");
+                                          codifyLines(yytext);
+                                          endFontClass();
+                                          g_name.resize(0);g_type.resize(0);
+                                          g_inForEachExpression = (strcmp(yytext,"for each")==0 || strcmp(yytext, "foreach")==0);
+                                          BEGIN(FuncCall);
+                                        }
 <Body>{FLOWKW}/([^a-z_A-Z0-9]) 		{
   					  startFontClass("keywordflow");
   					  codifyLines(yytext);
@@ -2283,11 +2296,33 @@ OPERATOR {ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP}
 					    g_inFunctionTryBlock=FALSE;
 					  }
   					}
+<Body>{FLOWCONDITION}/([^a-z_A-Z0-9]) 	{
+                                          if (g_currentMemberDef->isFunction())
+                                          {
+                                            g_currentMemberDef->addFlowKeyWord();
+                                          }
+                                          startFontClass("keywordflow");
+                                          codifyLines(yytext);
+                                          endFontClass();
+                                          if (g_inFunctionTryBlock && (strcmp(yytext,"catch")==0 || strcmp(yytext,"finally")==0))
+                                          {
+                                            g_inFunctionTryBlock=FALSE;
+                                          }
+                                        }
 <Body>{FLOWKW}/{B}* 			{
   					  startFontClass("keywordflow");
   					  codifyLines(yytext);
 					  endFontClass();
   					}
+<Body>{FLOWCONDITION}/{B}*              {
+                                          if (g_currentMemberDef->isFunction())
+                                          {
+                                            g_currentMemberDef->addFlowKeyWord();
+                                          }
+                                          startFontClass("keywordflow");
+                                          codifyLines(yytext);
+                                          endFontClass();
+                                        }
 <Body>[\\|\)\+\-\/\%\~\!]		{
   					  g_code->codify(yytext);
   				          g_name.resize(0);g_type.resize(0);
@@ -2735,6 +2770,17 @@ OPERATOR {ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP}
   					  g_code->codify(yytext);
 					  endFontClass();
 					}
+<MemberCall2,FuncCall>{FLOWCONDITION}/([^a-z_A-Z0-9]) {
+                                          if (g_currentMemberDef->isFunction())
+                                          {
+                                            g_currentMemberDef->addFlowKeyWord();
+                                          }
+                                          addParmType();
+                                          g_parmName=yytext;
+                                          startFontClass("keywordflow");
+                                          g_code->codify(yytext);
+                                          endFontClass();
+                                        }
 <MemberCall2,FuncCall>{ID}(({B}*"<"[^\n\[\](){}<>]*">")?({B}*"::"{B}*{ID})?)* {
 					  addParmType();
 					  g_parmName=yytext; 

@@ -170,6 +170,8 @@ class MemberDef : public Definition
     bool hasMultiLineInitializer() const;
     bool protectionVisible() const;
 
+    int numberOfFlowKeyWords();
+
     // output info
     bool isLinkableInProject() const;
     bool isLinkable() const;
@@ -238,6 +240,8 @@ class MemberDef : public Definition
     //-----------------------------------------------------------------------------------
     // ----  setters -----
     //-----------------------------------------------------------------------------------
+
+    void addFlowKeyWord();
 
     // set functions
     void setMemberType(MemberType t);
@@ -363,6 +367,9 @@ class MemberDef : public Definition
     void makeResident() const;
 
     static int s_indentLevel;
+
+    int number_of_flowkw;
+
     // disable copying of member defs
     MemberDef(const MemberDef &);
     MemberDef &operator=(const MemberDef &);

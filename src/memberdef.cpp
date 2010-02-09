@@ -635,6 +635,7 @@ MemberDef::MemberDef(const char *df,int dl,
   m_impl = new MemberDefImpl;
   m_impl->init(this,t,a,e,p,v,s,r,mt,tal,al);
   m_flushPending = FALSE;
+  number_of_flowkw = 1;
 }
 
 void MemberDef::moveTo(Definition *scope)
@@ -4206,5 +4207,15 @@ void MemberDef::invalidateCachedArgumentTypes()
   makeResident();
   invalidateCachedTypesInArgumentList(m_impl->defArgList);
   invalidateCachedTypesInArgumentList(m_impl->declArgList);
+}
+
+void MemberDef::addFlowKeyWord()
+{
+  number_of_flowkw++;
+}
+
+int MemberDef::numberOfFlowKeyWords()
+{
+  return number_of_flowkw;
 }
 
