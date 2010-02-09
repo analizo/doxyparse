@@ -193,6 +193,9 @@ static void printClass(ClassDef* cd) {
   } else {
     printf("module %s\n", cd->name().data());
     printInheritance(cd);
+    if(cd->isAbstract()) {
+      printf("   abstract class\n");
+    }
     // methods
     listMembers(cd->getMemberList(MemberList::functionMembers));
     // constructors
