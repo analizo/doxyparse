@@ -2276,7 +2276,7 @@ OPERATOR {ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP}
 					  BEGIN(FuncCall);
   					}
 <Body>{FLOWCONDITION}/{BN}*"("          {
-                                          if (g_currentMemberDef->isFunction())
+                                          if (g_currentMemberDef && g_currentMemberDef->isFunction())
                                           {
                                             g_currentMemberDef->addFlowKeyWord();
                                           }
@@ -2297,7 +2297,7 @@ OPERATOR {ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP}
 					  }
   					}
 <Body>{FLOWCONDITION}/([^a-z_A-Z0-9]) 	{
-                                          if (g_currentMemberDef->isFunction())
+                                          if (g_currentMemberDef && g_currentMemberDef->isFunction())
                                           {
                                             g_currentMemberDef->addFlowKeyWord();
                                           }
@@ -2315,7 +2315,7 @@ OPERATOR {ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP}
 					  endFontClass();
   					}
 <Body>{FLOWCONDITION}/{B}*              {
-                                          if (g_currentMemberDef->isFunction())
+                                          if (g_currentMemberDef && g_currentMemberDef->isFunction())
                                           {
                                             g_currentMemberDef->addFlowKeyWord();
                                           }
@@ -2771,7 +2771,7 @@ OPERATOR {ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP}
 					  endFontClass();
 					}
 <MemberCall2,FuncCall>{FLOWCONDITION}/([^a-z_A-Z0-9]) {
-                                          if (g_currentMemberDef->isFunction())
+                                          if (g_currentMemberDef && g_currentMemberDef->isFunction())
                                           {
                                             g_currentMemberDef->addFlowKeyWord();
                                           }
