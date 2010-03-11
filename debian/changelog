@@ -1,3 +1,18 @@
+doxyparse (1.5.8-9) unstable; urgency=low
+
+  [ Paulo Meirelles ]
+  * adding number of contidionals path (JoaoMM, Lucianna, PauloRMM)
+  * adding number of parameters(JoaoMM, Lucianna, PauloRMM)
+  * adding abstract class report
+
+  [ joaomm ]
+  * Fixing the segmentation fault (lucianna and joaomm)
+
+  [ Antonio Terceiro ]
+  * Making a new release
+
+ -- Antonio Terceiro <terceiro@softwarelivre.org>  Thu, 11 Mar 2010 10:13:33 -0300
+
 doxyparse (1.5.8-8) unstable; urgency=low
 
   * Correctly detecting the programming language.
