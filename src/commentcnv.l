@@ -370,7 +370,7 @@ void replaceComment(int offset);
 				       BEGIN(CComment);
 				     }
   				   }
-<CComment>[ \t]+"{@code"	   {
+<CComment>[ \t]*"{@code"	   {
                                      copyToOutput(" @code",6); 
 				     g_lastCommentContext = YY_START;
 				     g_javaBlock=1;
@@ -492,10 +492,10 @@ void replaceComment(int offset);
                                      copyToOutput(yytext,yyleng); 
                                    }
 
-<CComment>[^\\!@*\n]*	           { /* anything that is not a '*' or command */ 
+<CComment>[^\\!@*\n\{]*	           { /* anything that is not a '*' or command */ 
                                      copyToOutput(yytext,yyleng); 
                                    }
-<CComment>"*"+[^*/\\@\n]*          { /* stars without slashes */
+<CComment>"*"+[^*/\\@\n\{]*          { /* stars without slashes */
                                      copyToOutput(yytext,yyleng); 
                                    }
 <CComment>"\"\"\""                 { /* end of Python docstring */
