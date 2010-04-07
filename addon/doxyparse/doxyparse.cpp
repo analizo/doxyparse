@@ -97,28 +97,65 @@ static bool ignoreStaticExternalCall(MemberDef *context, MemberDef *md) {
   }
 }
 
-static void printReferenceTo(MemberDef* rmd) {
-  if (is_c_code) {
-    if (rmd->getClassDef()) {
-      printf("      uses %s %s::%s", rmd->memberTypeName().data(), rmd->getClassDef()->name().data(), rmd->name().data());
-      printf(" defined in %s\n", rmd->getClassDef()->getFileDef()->getFileBase().data());
-    } else if (rmd->getFileDef()) {
-      printf("      uses %s %s", rmd->memberTypeName().data(), rmd->name().data());
-      printf(" defined in %s\n", rmd->getFileDef()->getFileBase().data());
+void printArgumentList(MemberDef* md) {
+  ArgumentList * argList = md->argumentList().pointer();
+  ArgumentListIterator iterator(*argList);
+
+  printf("(");
+  Argument * argument = iterator.toFirst();
+  if(argument != NULL) {
+    printf("%s", argument->type.data());
+    for(++iterator; (argument = iterator.current()) ;++iterator){
+      printf(",%s", argument->type.data());
     }
-    else {
-      printf("\n");
-    }
-  } else {
-    printf("      uses %s %s", rmd->memberTypeName().data(), rmd->name().data());
-    if (rmd->getClassDef()) {
-      printf(" defined in %s\n", rmd->getClassDef()->name().data());
-    } else if (rmd->getFileDef()) {
-      printf(" defined in %s\n", rmd->getFileDef()->getFileBase().data());
-    }
-    else {
-      printf("\n");
-    }
+  }
+  printf(")");
+}
+
+void printType(MemberDef* md) {
+  printf("%s ", md->memberTypeName().data());
+}
+
+void printSignature(MemberDef* md) {
+  printf("%s", md->name().data());
+  if(md->isFunction()){
+    printArgumentList(md);
+  }
+  printf(" ");
+}
+
+static void printWhereItWasDefined(MemberDef * md) {
+  if (md->getClassDef()) {
+    printf("defined in %s\n", md->getClassDef()->name().data());
+  }
+  else if (md->getFileDef()) {
+    printf("defined in %s\n", md->getFileDef()->getFileBase().data());
+  }
+  else {
+    printf("\n");
+  }
+}
+
+static void printCStructMember(MemberDef * md) {
+  printType(md);
+  printf("%s::", md->getClassDef()->name().data());
+  printSignature(md);
+  printf(" defined in %s\n", md->getClassDef()->getFileDef()->getFileBase().data());
+}
+
+static int isPartOfCStruct(MemberDef * md) {
+  return is_c_code && md->getClassDef() != NULL;
+}
+
+static void printReferenceTo(MemberDef* md) {
+  printf("      uses ");
+  if (isPartOfCStruct(md)) {
+    printCStructMember(md);
+  }
+  else {
+    printType(md);
+    printSignature(md);
+    printWhereItWasDefined(md);
   }
 }
 
@@ -135,8 +172,19 @@ static void printReferencesMembers(MemberDef *md) {
   }
 }
 
-static void printProtection(MemberDef* def) {
-  if (def->protection() == Public) {
+void printDefinitionLine(MemberDef* md) {
+  printf("in line %d\n", md->getDefLine());
+}
+
+void printDefinition(MemberDef* md) {
+  printf("   ");
+  printType(md);
+  printSignature(md);
+  printDefinitionLine(md);
+}
+
+static void printProtection(MemberDef* md) {
+  if (md->protection() == Public) {
     printf("      protection public\n");
   }
 }
@@ -165,7 +213,7 @@ void printFunctionInformation(MemberDef* md) {
 static void lookupSymbol(Definition *d) {
   if (d->definitionType() == Definition::TypeMember) {
     MemberDef *md = (MemberDef *)d;
-    printf("   %s %s in line %d\n", md->memberTypeName().data(), d->name().data(), d->getDefLine());
+    printDefinition(md);
     printProtection(md);
     if (md->isFunction()) {
       printFunctionInformation(md);
