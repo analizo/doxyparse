@@ -140,7 +140,7 @@ static void printCStructMember(MemberDef * md) {
   printType(md);
   printf("%s::", md->getClassDef()->name().data());
   printSignature(md);
-  printf(" defined in %s\n", md->getClassDef()->getFileDef()->getFileBase().data());
+  printf("defined in %s\n", md->getClassDef()->getFileDef()->getFileBase().data());
 }
 
 static int isPartOfCStruct(MemberDef * md) {
@@ -242,30 +242,41 @@ static void printInheritance(ClassDef* cd) {
   }
 }
 
+void printCModule(ClassDef* cd) {
+  MemberList* ml = cd->getMemberList(MemberList::variableMembers);
+  if (ml) {
+    MemberListIterator mli(*ml);
+    MemberDef* md;
+    for (mli.toFirst(); (md=mli.current()); ++mli) {
+      printf("   variable %s::%s in line %d\n", cd->name().data(), md->name().data(), md->getDefLine());
+      printProtection(md);
+    }
+  }
+}
+
+void listAllMembers(ClassDef* cd) {
+  // methods
+  listMembers(cd->getMemberList(MemberList::functionMembers));
+  // constructors
+  listMembers(cd->getMemberList(MemberList::constructors));
+  // attributes
+  listMembers(cd->getMemberList(MemberList::variableMembers));
+}
+
+void printClassInformation(ClassDef* cd) {
+  printf("module %s\n", cd->name().data());
+  printInheritance(cd);
+  if(cd->isAbstract()) {
+    printf("   abstract class\n");
+  }
+  listAllMembers(cd);
+}
+
 static void printClass(ClassDef* cd) {
   if (is_c_code) {
-    MemberList* ml = cd->getMemberList(MemberList::variableMembers);
-    if (ml) {
-      MemberListIterator mli(*ml);
-      MemberDef* md;
-      for (mli.toFirst(); (md=mli.current()); ++mli) {
-        printf("   variable %s::%s in line %d\n", cd->name().data(), md->name().data(), md->getDefLine());
-        printProtection(md);
-      }
-    }
-
+    printCModule(cd);
   } else {
-    printf("module %s\n", cd->name().data());
-    printInheritance(cd);
-    if(cd->isAbstract()) {
-      printf("   abstract class\n");
-    }
-    // methods
-    listMembers(cd->getMemberList(MemberList::functionMembers));
-    // constructors
-    listMembers(cd->getMemberList(MemberList::constructors));
-    // attributes
-    listMembers(cd->getMemberList(MemberList::variableMembers));
+    printClassInformation(cd);
   }
 }
 
