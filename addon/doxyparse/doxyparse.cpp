@@ -141,19 +141,35 @@ static void printProtection(MemberDef* def) {
   }
 }
 
+void printNumberOfLines(MemberDef* md) {
+  int size = md->getEndBodyLine() - md->getStartBodyLine() + 1;
+  printf("      %d lines of code\n", size);
+}
+
+void printNumberOfArguments(MemberDef* md) {
+  ArgumentList* argList = md->argumentList().pointer();
+  printf("      %d parameters\n", argList->count());
+}
+
+void printNumberOfConditionalPaths(MemberDef* md) {
+  printf("      %d conditional paths\n", md->numberOfFlowKeyWords());
+}
+
+void printFunctionInformation(MemberDef* md) {
+  printNumberOfLines(md);
+  printNumberOfArguments(md);
+  printNumberOfConditionalPaths(md);
+  printReferencesMembers(md);
+}
+
 static void lookupSymbol(Definition *d) {
   if (d->definitionType() == Definition::TypeMember) {
     MemberDef *md = (MemberDef *)d;
-      printf("   %s %s in line %d\n", md->memberTypeName().data(), d->name().data(), d->getDefLine());
-      printProtection(md);
-      if (md->isFunction()) {
-        int size = md->getEndBodyLine() - md->getStartBodyLine() + 1;
-        printf("      %d lines of code\n", size);
-        ArgumentList* argList = md->argumentList().pointer();
-        printf("      %d parameters\n", argList->count());
-        printf("      %d conditional paths\n", md->numberOfFlowKeyWords());
-        printReferencesMembers(md);
-      }
+    printf("   %s %s in line %d\n", md->memberTypeName().data(), d->name().data(), d->getDefLine());
+    printProtection(md);
+    if (md->isFunction()) {
+      printFunctionInformation(md);
+    }
   }
 }
 
