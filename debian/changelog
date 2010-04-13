@@ -1,3 +1,16 @@
+doxyparse (1.5.8-10) UNRELEASED; urgency=low
+
+  [ joaomm ]
+  * Fixing the @code bug
+  * Just a simple refactoring in function lookupSymbol
+  * Implementing method complete signature
+  * Some refactorings and erasing a whitespace
+
+  [ Antonio Terceiro ]
+  * Making a new release.
+
+ -- Antonio Terceiro <terceiro@softwarelivre.org>  Tue, 13 Apr 2010 14:38:25 -0300
+
 doxyparse (1.5.8-9) unstable; urgency=low
 
   [ Paulo Meirelles ]
