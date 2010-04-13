@@ -1,4 +1,4 @@
-doxyparse (1.5.8-10) UNRELEASED; urgency=low
+doxyparse (1.5.8-10) unstable; urgency=low
 
   [ joaomm ]
   * Fixing the @code bug
