@@ -394,7 +394,18 @@ int main(int argc,char **argv) {
   // set the input
   Config_getList("INPUT").clear();
   for (int i = 1; i < argc; i++) {
-    Config_getList("INPUT").append(argv[i]);
+    if (strcmp(argv[i], "-") == 0) {
+      char filename[1024];
+      while (1) {
+        scanf("%s[^\n]", filename);
+        if (feof(stdin)) {
+          break;
+        }
+        Config_getList("INPUT").append(filename);
+      }
+    } else {
+      Config_getList("INPUT").append(argv[i]);
+    }
   }
 
   // check and finalize the configuration
