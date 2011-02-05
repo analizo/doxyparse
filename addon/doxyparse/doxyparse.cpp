@@ -407,6 +407,9 @@ int main(int argc,char **argv) {
       Config_getList("INPUT").append(argv[i]);
     }
   }
+  if (Config_getList("INPUT").isEmpty()) {
+    exit(0);
+  }
 
   // check and finalize the configuration
   checkConfiguration();
