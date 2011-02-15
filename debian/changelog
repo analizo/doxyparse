@@ -1,3 +1,14 @@
+doxyparse (1.5.8-11) unstable; urgency=low
+
+  [ Vinicius Daros ]
+  * Updating install destination path in Makefile.in
+
+  [ Antonio Terceiro ]
+  * Allow reading input files from standard input
+  * Don't run doxyparse with an empty input list
+
+ -- Antonio Terceiro <terceiro@softwarelivre.org>  Tue, 15 Feb 2011 15:57:11 -0300
+
 doxyparse (1.5.8-10) unstable; urgency=low
 
   [ joaomm ]
