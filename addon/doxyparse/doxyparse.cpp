@@ -281,6 +281,7 @@ static void printClass(ClassDef* cd) {
 }
 
 static void printFile(FileDef* fd) {
+  printf("file %s\n", fd->absFilePath().data());
   MemberList *ml = fd->getMemberList(MemberList::allMembersList);
   if (ml && ml->count() > 0) {
     printf("module %s\n", fd->getFileBase().data());
