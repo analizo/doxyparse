@@ -320,7 +320,7 @@ static void listSymbols() {
 
   detectProgrammingLanguage(fnli);
 
-  // for each file with a certain name
+  // for each file
   for (fnli.toFirst(); (fn=fnli.current()); ++fnli) {
     FileNameIterator fni(*fn);
     FileDef *fd;
