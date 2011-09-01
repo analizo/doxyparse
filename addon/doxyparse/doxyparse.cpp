@@ -25,6 +25,7 @@
 #include "parserintf.h"
 #include <string>
 #include <cstdlib>
+#include <sstream>
 
 class Doxyparse : public CodeOutputInterface
 {
@@ -341,14 +342,6 @@ static void listSymbols() {
   // TODO print external symbols referenced
 }
 
-char* getUserName() {
-  char* username = getenv("USER");
-  if (!username) {
-    username = getenv("LOGNAME");
-  }
-  return username;
-}
-
 int main(int argc,char **argv) {
   if (argc < 2) {
     printf("Usage: %s [source_file | source_dir]\n",argv[0]);
@@ -361,14 +354,9 @@ int main(int argc,char **argv) {
   // setup the non-default configuration options
 
   // we need a place to put intermediate files
-  std:: string tmpdir = "/tmp/doxyparse-";
-  char* username = getUserName();
-  if (username) {
-    tmpdir += username;
-  } else {
-    tmpdir += "unknown-user";
-  }
-  Config_getString("OUTPUT_DIRECTORY")=tmpdir.c_str();
+  std::ostringstream tmpdir;
+  tmpdir << "/tmp/doxyparse-" << getpid();
+  Config_getString("OUTPUT_DIRECTORY")= tmpdir.str().c_str();
 
   // enable HTML (fake) output to omit warning about missing output format
   Config_getBool("GENERATE_HTML")=TRUE;
@@ -440,6 +428,10 @@ int main(int argc,char **argv) {
   rmdir(Config_getString("OUTPUT_DIRECTORY"));
 
   listSymbols();
+
+  std::string cleanup_command = "rm -rf ";
+  cleanup_command += tmpdir.str();
+  system(cleanup_command.c_str());
 
   exit(0);
 }
