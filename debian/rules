@@ -6,7 +6,7 @@ configure/doxyparse::
 	QTDIR=/usr ./configure --with-doxyparse
 
 build/doxyparse::
-	make
+	PATH=$(CURDIR)/debian/bin:$(PATH) make
 
 clean::
 	[ ! -f Makefile ] || $(MAKE) distclean
