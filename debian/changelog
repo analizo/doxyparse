@@ -1,3 +1,11 @@
+doxyparse (1.5.9-1) unstable; urgency=low
+
+  [ Antonio Terceiro ]
+  * Allow simulateneously running doxyparse instances
+  * print full file name
+
+ -- Joenio Costa <joenio@colivre.coop.br>  Mon, 21 Jan 2013 21:09:24 -0300
+
 doxyparse (1.5.8-11) unstable; urgency=low
 
   [ Vinicius Daros ]
