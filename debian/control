@@ -5,6 +5,8 @@ Maintainer: Antonio Terceiro <terceiro@softwarelivre.org>
 Build-Depends: cdbs, debhelper (>= 7), autotools-dev, flex, bison, libqt4-dev, g++-4.6
 Standards-Version: 3.8.3
 Homepage: http://analizo.org/Site/Doxyparse
+Vcs-Browser: http://gitorious.org/analizo/doxyparse/trees/master
+Vcs-Git: git://gitorious.org/analizo/doxyparse.git
 
 Package: doxyparse
 Architecture: any
