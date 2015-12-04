@@ -176,7 +176,6 @@ static QDict<FileDef>   g_usingDeclarations(1009); // used classes
 static FileStorage     *g_storage = 0;
 static bool             g_successfulRun = FALSE;
 static bool             g_dumpSymbolMap = FALSE;
-static bool             g_dumpConfigAsXML = FALSE;
 
 void clearAll()
 {
@@ -1294,6 +1293,13 @@ static void addClassToContext(EntryNav *rootNav)
     {
       tagName     = rootNav->tagInfo()->tagName;
       refFileName = rootNav->tagInfo()->fileName;
+      int i;
+      if ((i=fullName.find("::"))!=-1) 
+        // symbols imported via tag files may come without the parent scope, 
+        // so we artificially create it here
+      {
+        buildScopeFromQualifiedName(fullName,fullName.contains("::"),root->lang);
+      }
     }
     cd=new ClassDef(root->fileName,root->startLine,root->startColumn,
         fullName,sec,tagName,refFileName,TRUE,root->spec&Entry::Enum);
@@ -6105,11 +6111,15 @@ static void findMember(EntryNav *rootNav,
               // for template member we also need to check the return type
               if (md->templateArguments()!=0 && root->tArgLists!=0)
               {
-                //printf("Comparing return types '%s'<->'%s' args %d<->%d\n",
-                //    md->typeString(),funcType.data(),
-                //    md->templateArguments()->count(),root->tArgLists->last()->count());
+                QCString memType = md->typeString();
+                memType.stripPrefix("static "); // see bug700696
+                funcType=substitute(funcType,className+"::",""); // see bug700693
+                Debug::print(Debug::FindMembers,0,
+                   "5b. Comparing return types '%s'<->'%s' #args %d<->%d\n",
+                    md->typeString(),funcType.data(),
+                    md->templateArguments()->count(),root->tArgLists->last()->count());
                 if (md->templateArguments()->count()!=root->tArgLists->last()->count() ||
-                    qstrcmp(md->typeString(),funcType))
+                    qstrcmp(memType,funcType))
                 {
                   //printf(" ---> no matching\n");
                   matching = FALSE;
@@ -7183,10 +7193,12 @@ static void addEnumValuesToEnums(EntryNav *rootNav)
                 // them here and only add them to the enum
                 e->loadEntry(g_storage);
                 Entry *root = e->entry();
-                //printf("md->qualifiedName()=%s rootNav->name()=%s\n",
-                //    md->qualifiedName().data(),rootNav->name().data());
+                //printf("md->qualifiedName()=%s rootNav->name()=%s tagInfo=%p name=%s\n",
+                //    md->qualifiedName().data(),rootNav->name().data(),rootNav->tagInfo(),root->name.data());
                 if (substitute(md->qualifiedName(),"::",".")== // TODO: add function to get canonical representation
-                    substitute(rootNav->name(),"::",".")) // enum value scope matches that of the enum
+                    substitute(rootNav->name(),"::",".") ||    // enum value scope matches that of the enum
+                    rootNav->tagInfo()                         // be less strict for tag files as members can have incomplete scope
+                   ) 
                 {
                   MemberDef *fmd=new MemberDef(
                       root->fileName,root->startLine,root->startColumn,
@@ -9746,18 +9758,6 @@ static void dumpSymbolMap()
 }
 
 //----------------------------------------------------------------------------
-
-void dumpConfigAsXML()
-{
-  QFile f("config.xml");
-  if (f.open(IO_WriteOnly))
-  {
-    FTextStream t(&f);
-    Config::instance()->writeXML(t);
-  }
-}
-
-//----------------------------------------------------------------------------
 // print the usage of doxygen
 
 static void usage(const char *name)
@@ -9782,7 +9782,7 @@ static void usage(const char *name)
   msg("    LaTeX:      %s -w latex headerFile footerFile styleSheetFile [configFile]\n\n",name);
   msg("6) Use doxygen to generate an rtf extensions file\n");
   msg("    RTF:   %s -e rtf extensionsFile\n\n",name);
-  msg("If -s is specified the comments in the config file will be omitted.\n");
+  msg("If -s is specified the comments of the configuration items in the config file will be omitted.\n");
   msg("If configName is omitted `Doxyfile' will be used as a default.\n\n");
   exit(1);
 }
@@ -10173,8 +10173,10 @@ void readConfiguration(int argc, char **argv)
       case 'm':
         g_dumpSymbolMap = TRUE;
         break;
-      case 'x':
-        g_dumpConfigAsXML = TRUE;
+      case 'v':
+        msg("%s\n",versionString); 
+        cleanUpDoxygen();
+        exit(0);
         break;
       case '-':
         if (qstrcmp(&argv[optind][2],"help")==0)
@@ -10186,6 +10188,11 @@ void readConfiguration(int argc, char **argv)
           msg("%s\n",versionString); 
           cleanUpDoxygen();
           exit(0);
+        }
+        else
+        {
+          err("Unknown option -%s\n",&argv[optind][1]);
+          usage(argv[0]);
         }
         break;
       case 'b':
@@ -10211,17 +10218,7 @@ void readConfiguration(int argc, char **argv)
 
   if (genConfig)
   {
-    if (g_dumpConfigAsXML)
-    {
-      checkConfiguration();
-      generateConfigFile(configName,shortList);
-      dumpConfigAsXML();
-      exit(0); 
-    }
-    else
-    {
-      generateConfigFile(configName,shortList);
-    }
+    generateConfigFile(configName,shortList);
     cleanUpDoxygen();
     exit(0);
   }

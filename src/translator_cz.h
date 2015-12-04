@@ -20,6 +20,7 @@
 
 // Updates:
 // --------
+// 2013/04/11 - Updates for "new since 1.8.4".
 // 2012/07/31 - Updates for "new since 1.8.2".
 // 2012/04/10 - Updates for "new since 1.8.0".
 // 2011/07/28 - Updates for "new since 1.7.5".
@@ -84,7 +85,7 @@
 //    something else.  It is difficult to find the general translation
 //    for all kinds in the Czech language.
 
-class TranslatorCzech : public TranslatorAdapter_1_8_2
+class TranslatorCzech : public Translator
 {
   public:
     // --- Language control methods -------------------
@@ -96,12 +97,6 @@ class TranslatorCzech : public TranslatorAdapter_1_8_2
     {
       return "\\usepackage[T2A]{fontenc}\n"
              "\\usepackage[czech]{babel}\n";
-    }
-
-    /*! return the language charset. This will be used for the HTML output */
-    virtual QCString idLanguageCharset()
-    {
-        return "utf-8";
     }
 
     // --- Language translation methods -------------------
@@ -459,12 +454,6 @@ class TranslatorCzech : public TranslatorAdapter_1_8_2
     { return "Definice maker"; }
 
     /*! This is used in the documentation of a file as a header before the
-     *  list of function prototypes
-     */
-    virtual QCString trFuncProtos()
-    { return "Prototypy"; }
-
-    /*! This is used in the documentation of a file as a header before the
      *  list of typedefs
      */
     virtual QCString trTypedefs()
@@ -499,12 +488,6 @@ class TranslatorCzech : public TranslatorAdapter_1_8_2
      */
     virtual QCString trDefineDocumentation()
     { return "Dokumentace k definicím maker"; }
-
-    /*! This is used in the documentation of a file/namespace before the list
-     *  of documentation blocks for function prototypes
-     */
-    virtual QCString trFunctionPrototypeDocumentation()
-    { return "Dokumentace prototypů"; }
 
     /*! This is used in the documentation of a file/namespace before the list
      *  of documentation blocks for typedefs
@@ -556,12 +539,6 @@ class TranslatorCzech : public TranslatorAdapter_1_8_2
           result += QCString(" pro projekt ") + projName;
       result += " programem";
       return result;
-    }
-    /*! This is part of the sentence used in the standard footer of each page.
-     */
-    virtual QCString trWrittenBy()
-    {
-      return " -- autor ";
     }
 
     /*! this text is put before a class diagram */
@@ -837,12 +814,6 @@ class TranslatorCzech : public TranslatorAdapter_1_8_2
       else        result+="následujících souborů:";
       return result;
     }
-
-    /*! This is in the (quick) index as a link to the alphabetical compound
-     * list.
-     */
-    virtual QCString trAlphabeticalList()
-    { return "Rejstřík tříd"; }
 
 //////////////////////////////////////////////////////////////////////////
 // new since 0.49-990901
@@ -1157,16 +1128,6 @@ class TranslatorCzech : public TranslatorAdapter_1_8_2
     }
 
 //////////////////////////////////////////////////////////////////////////
-// new since 1.2.1
-//////////////////////////////////////////////////////////////////////////
-
-    /*! Used as a section header for KDE-2 IDL methods */
-    virtual QCString trDCOPMethods()
-    {
-      return "Metody DCOP";
-    }
-
-//////////////////////////////////////////////////////////////////////////
 // new since 1.2.2
 //////////////////////////////////////////////////////////////////////////
 
@@ -1476,13 +1437,6 @@ class TranslatorCzech : public TranslatorAdapter_1_8_2
 // new since 1.3.3
 //////////////////////////////////////////////////////////////////////////
 
-    /*! When the search engine is enabled this text is put in the index
-     *  of each page before the search field.
-     */
-    virtual QCString trSearchForIndex()
-    {
-      return "Vyhledat";
-    }
     /*! This string is used as the title for the page listing the search
      *  results.
      */
@@ -1861,12 +1815,6 @@ class TranslatorCzech : public TranslatorAdapter_1_8_2
 // new since 1.6.3 (missing items for the directory pages)
 //////////////////////////////////////////////////////////////////////////
 
-    /*! introduction text for the directory dependency graph */
-    virtual QCString trDirDependency(const char *name)
-    {
-      return (QCString)"Graf závislosti adresářů pro "+name;
-    }
-
     /*! when clicking a directory dependency label, a page with a
      *  table is shown. The heading for the first column mentions the
      *  source file that has a relation to another file.
@@ -2029,6 +1977,62 @@ class TranslatorCzech : public TranslatorAdapter_1_8_2
     virtual QCString trDesignOverview()
     {
       return "Návrhové schéma";
+    }
+
+//////////////////////////////////////////////////////////////////////////
+// new since 1.8.4
+//////////////////////////////////////////////////////////////////////////
+
+    /** old style UNO IDL services: implemented interfaces */
+    virtual QCString trInterfaces()
+    { return "Exportovaná rozhraní"; }
+
+    /** old style UNO IDL services: inherited services */
+    virtual QCString trServices()
+    { return "Začleněné služby"; }
+
+    /** UNO IDL constant groups */
+    virtual QCString trConstantGroups()
+    { return "Konstantní skupiny"; }
+
+    /** UNO IDL constant groups */
+    virtual QCString trConstantGroupReference(const char *namespaceName)
+    {
+      QCString result="Konstantní skupiny z ";
+      result += namespaceName;
+      return result;
+    }
+    /** UNO IDL service page title */
+    virtual QCString trServiceReference(const char *sName)
+    {
+      QCString result="Popis služby ";
+      result += sName;
+      return result;
+    }
+    /** UNO IDL singleton page title */
+    virtual QCString trSingletonReference(const char *sName)
+    {
+      QCString result="Popis singletonu ";
+      result += sName;
+      return result;
+    }
+    /** UNO IDL service page */
+    virtual QCString trServiceGeneratedFromFiles(bool single)
+    {
+      // single is true implies a single file
+      QCString result="Dokumentace k této službě byla generována ";
+      if (single) result+="z následujícího souboru:";
+      else        result+="z následujících souborů:";
+      return result;
+    }
+    /** UNO IDL singleton page */
+    virtual QCString trSingletonGeneratedFromFiles(bool single)
+    {
+      // single is true implies a single file
+      QCString result="Dokumentace k tomuto singletonu byla generována ";
+      if (single) result+="z následujícího souboru:";
+      else        result+="z následujících souborů:";
+      return result;
     }
 
 //////////////////////////////////////////////////////////////////////////

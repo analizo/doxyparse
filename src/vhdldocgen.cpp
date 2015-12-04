@@ -2583,6 +2583,7 @@ void VhdlDocGen::writeSource(MemberDef *mdef,OutputList& ol,QCString & cname)
   pIntf->parseCode(ol,                   // codeOutIntf
                        0,                // scope
                        codeFragment,     // input
+                       SrcLangExt_VHDL,  // lang
                        FALSE,            // isExample
                        0,                // exampleName
                        mdef->getFileDef(),            // fileDef
@@ -3188,6 +3189,8 @@ void VhdlDocGen::writeRecUnitDocu(
   {
     QCString n=ql[i].utf8();
     ol.startParameterType(first,"");
+    ol.endParameterType();
+    ol.startParameterName(TRUE);
     VhdlDocGen::formatString(n,ol,md);
     if ((len-i)>1)
     {

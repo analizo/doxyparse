@@ -442,7 +442,7 @@ static int processEmphasis3(GrowBuf &out, const char *data, int size, char c)
 }
 
 /** Process ndash and mdashes */
-static int processNmdash(GrowBuf &out,const char *data,int,int size)
+static int processNmdash(GrowBuf &out,const char *data,int off,int size)
 {
   // precondition: data[0]=='-'
   int i=1;
@@ -459,7 +459,7 @@ static int processNmdash(GrowBuf &out,const char *data,int,int size)
   {
     count++;
   }
-  if (count==2) // -- => ndash
+  if (count==2 && (off<8 || qstrncmp(data-8,"operator",8)!=0)) // -- => ndash
   {
     out.addStr("&ndash;");
     return 2;
@@ -1831,10 +1831,11 @@ static void findEndOfLine(GrowBuf &out,const char *data,int size,
        )
     {
       QCString endBlockName = isBlockCommand(data+end-1,end-1,size-(end-1));
+      end++;
       if (!endBlockName.isEmpty())
       {
         int l = endBlockName.length();
-        for (;end<size-l;end++) // search for end of block marker
+        for (;end<size-l-1;end++) // search for end of block marker
         {
           if ((data[end]=='\\' || data[end]=='@') &&
               data[end-1]!='\\' && data[end-1]!='@'
@@ -1857,10 +1858,6 @@ static void findEndOfLine(GrowBuf &out,const char *data,int size,
             }
           }
         }
-      }
-      else
-      {
-        end++;
       }
     }
     else if (nb==0 && data[end-1]=='<' && end<size-6 &&
@@ -2341,6 +2338,7 @@ void MarkdownFileParser::parseInput(const char *fileName,
 void MarkdownFileParser::parseCode(CodeOutputInterface &codeOutIntf,
                const char *scopeName,
                const QCString &input,
+               SrcLangExt lang,
                bool isExampleBlock,
                const char *exampleName,
                FileDef *fileDef,
@@ -2356,7 +2354,7 @@ void MarkdownFileParser::parseCode(CodeOutputInterface &codeOutIntf,
   if (pIntf!=this)
   {
     pIntf->parseCode(
-       codeOutIntf,scopeName,input,isExampleBlock,exampleName,
+       codeOutIntf,scopeName,input,lang,isExampleBlock,exampleName,
        fileDef,startLine,endLine,inlineFragment,memberDef,showLineNumbers,searchCtx);
   }
 }

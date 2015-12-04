@@ -45,10 +45,6 @@
 
 #include "clangparser.h"
 
-// Toggle for some debugging info
-#define DBG_CTX(x) fprintf x
-//#define DBG_CTX(x) do { } while(0)
-
 #define YY_NEVER_INTERACTIVE 1
 #define YY_NO_INPUT 1
 
@@ -526,7 +522,6 @@ static void splitKnRArg(QCString &oldStyleArgPtr,QCString &oldStyleArgName)
       oldStyleArgName=current->args.copy().stripWhiteSpace();
     }
   }
-  DBG_CTX((stderr,"type=%s ptr=%s name=%s\n",oldStyleArgType.data(),oldStyleArgPtr.data(),oldStyleArgName.data()));
 }
 
 //-----------------------------------------------------------------------------
@@ -624,6 +619,11 @@ IDLATTR   ("["[^\]]*"]"){BN}*
 TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 RAWBEGIN  (u|U|L|u8)?R\"[^ \t\(\)\\]{0,16}"("
 RAWEND    ")"[^ \t\(\)\\]{0,16}\"
+ARITHOP   "+"|"-"|"/"|"*"|"%"|"--"|"++"
+ASSIGNOP  "="|"*="|"/="|"%="|"+="|"-="|"<<="|">>="|"&="|"^="|"|="
+LOGICOP   "=="|"!="|">"|"<"|">="|"<="|"&&"|"||"|"!"
+BITOP     "&"|"|"|"^"|"<<"|">>"|"~"
+OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 
 %option noyywrap
 
@@ -666,6 +666,7 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
 %x	ReadBodyIntf
 %x	Using
 %x	UsingAlias
+%x	UsingAliasEnd
 %x	UsingDirective
 %x	SkipCurly
 %x	SkipCurlyCpp
@@ -1938,7 +1939,7 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
                                           BEGIN(Using); 
                                         }
 <Using>"namespace"{BN}+			{ lineCount(); BEGIN(UsingDirective); }
-<Using>{ID}{BN}*({BN}*("::"|"."){BN}*{ID})*	{
+<Using>({ID}{BN}*("::"|"."){BN}*)*({ID}|{OPERATOR}) {
                                           lineCount();
   					  current->name=yytext;
                                           current->fileName = yyFileName; 
@@ -1976,12 +1977,42 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
                                           previous->spec |= Entry::Alias;
                                           BEGIN(FindMembers); 
                                         }
+<UsingAlias>";"{BN}*("/**"|"//!"|"/*!"|"///")"<" {
+					  docBlockContext   = UsingAliasEnd;
+					  docBlockInBody    = FALSE;
+					  docBlockAutoBrief = ( yytext[yyleng-2]=='*' && Config_getBool("JAVADOC_AUTOBRIEF") ) ||
+					                      ( yytext[yyleng-2]=='!' && Config_getBool("QT_AUTOBRIEF") );
+                                          QCString indent;
+                                          indent.fill(' ',computeIndent(yytext,g_column));
+                                          docBlock=indent;
+  					  lineCount();
+
+					  docBlockTerm = ';';
+					  if (yytext[yyleng-3]=='/')
+					  {
+					    startCommentBlock(TRUE);
+					    BEGIN( DocLine );
+					  }
+					  else
+					  {
+					    startCommentBlock(FALSE);
+					    BEGIN( DocBlock );
+					  }
+  					}
 <UsingAlias>.                           {
                                           previous->args+=yytext;
                                         }
 <UsingAlias>\n                          {
                                           previous->args+=yytext;
                                           lineCount();
+                                        }
+<UsingAliasEnd>";"                      {
+                                          previous->doc   = current->doc;
+                                          previous->brief = current->brief;
+                                          current->doc.resize(0);
+                                          current->brief.resize(0);
+                                          unput(';');
+                                          BEGIN(UsingAlias);
                                         }
 <UsingDirective>{SCOPENAME}		{ current->name=removeRedundantWhiteSpace(yytext);
                                           current->fileName = yyFileName; 
@@ -2171,7 +2202,7 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
   					  unput(';');
 					  BEGIN(FindMembers);
   					}
-<QtPropType>"const"|"volatile"		{
+<QtPropType>"const"|"volatile"|"unsigned"|"signed"|"long"|"short" {
   				          current->type+=yytext;
   					}
 <QtPropType>{B}+			{
@@ -4651,7 +4682,6 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
 					  }
 					  else if (checkForKnRstyleC())
 					  {
-					    DBG_CTX((stderr,"===> got a K&R style function\n"));
                                             current->args = yytext; 
 					    oldStyleArgType.resize(0);
 					    BEGIN(OldStyleArgs);
@@ -6210,12 +6240,12 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
                                             docBlock+=indent;
                                           }
   					}
-<DocCopyBlock>^{B}*"*"+/{BN}*		{ // start of a comment line
+<DocCopyBlock>^{B}*+"*"/{BN}*		{ // start of a comment line
   					  if (docBlockName=="code")
                                           {
                                             QCString indent;
-                                            indent.fill(' ',computeIndent(yytext,0));
-                                            docBlock+=indent;
+                                            indent.fill(' ',computeIndent(yytext,0)-1);
+                                            docBlock+=indent+"*";
                                           }
                                           else
 					  {
@@ -6822,6 +6852,7 @@ void CLanguageScanner::parseInput(const char *fileName,
 void CLanguageScanner::parseCode(CodeOutputInterface & codeOutIntf,
                    const char * scopeName,
                    const QCString & input,
+                   SrcLangExt lang,
                    bool isExampleBlock,
                    const char * exampleName,
                    FileDef * fileDef,
@@ -6833,7 +6864,7 @@ void CLanguageScanner::parseCode(CodeOutputInterface & codeOutIntf,
                    Definition *searchCtx
                   )
 {
-  ::parseCCode(codeOutIntf,scopeName,input,isExampleBlock,exampleName,
+  ::parseCCode(codeOutIntf,scopeName,input,lang,isExampleBlock,exampleName,
                fileDef,startLine,endLine,inlineFragment,memberDef,
 	       showLineNumbers,searchCtx);
 }

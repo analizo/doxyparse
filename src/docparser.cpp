@@ -51,6 +51,7 @@
 #include "reflist.h"
 #include "formula.h"
 #include "config.h"
+#include "growbuf.h"
 
 // debug off
 #define DBG(x) do {} while(0)
@@ -1351,7 +1352,7 @@ reparsetoken:
             doctokenizerYYsetStateDbOnly();
             tok = doctokenizerYYlex();
             children.append(new DocVerbatim(parent,g_context,g_token->verb,DocVerbatim::DocbookOnly,g_isExample,g_exampleName));
-            if (tok==0) warn_doc_error(g_fileName,doctokenizerYYlineno,"xmlonly section ended without end marker",doctokenizerYYlineno);
+            if (tok==0) warn_doc_error(g_fileName,doctokenizerYYlineno,"docbookonly section ended without end marker",doctokenizerYYlineno);
             doctokenizerYYsetStatePara();
           }
           break;
@@ -1524,39 +1525,6 @@ handlepara:
       return FALSE;
   }
   return TRUE;
-}
-
-//---------------------------------------------------------------------------
-
-static int handleDocCopy(DocNode *parent,QList<DocNode> &children)
-{
-  int tok=doctokenizerYYlex();
-  int cmdId = Mappers::cmdMapper->map(g_token->name);
-  if (tok!=TK_WHITESPACE)
-  {
-    warn_doc_error(g_fileName,doctokenizerYYlineno,"expected whitespace after %s command",
-        qPrint(g_token->name));
-    return 0;
-  }
-  tok=doctokenizerYYlex();
-  if (tok==0)
-  {
-    warn_doc_error(g_fileName,doctokenizerYYlineno,"unexpected end of comment block while parsing the "
-        "argument of command %s\n", qPrint(g_token->name));
-    return 0;
-  }
-  else if (tok!=TK_WORD && tok!=TK_LNKWORD)
-  {
-    warn_doc_error(g_fileName,doctokenizerYYlineno,"unexpected token %s as the argument of %s",
-        tokToString(tok),qPrint(g_token->name));
-    return 0;
-  }
-  DocCopy *cpy = new DocCopy(parent,g_token->name,
-      cmdId==CMD_COPYDOC || cmdId==CMD_COPYBRIEF,
-      cmdId==CMD_COPYDOC || cmdId==CMD_COPYDETAILS);
-  cpy->parse(children);
-  delete cpy;
-  return TK_NEWPARA;
 }
 
 //---------------------------------------------------------------------------
@@ -1756,10 +1724,6 @@ static int internalValidatingParseDoc(DocNode *parent,QList<DocNode> &children,
     else
     {
       delete par;
-    }
-    if (retval==RetVal_CopyDoc)
-    {
-      retval=handleDocCopy(parent,children);
     }
   } while (retval==TK_NEWPARA);
   if (lastPar) lastPar->markLast();
@@ -3239,15 +3203,12 @@ int DocInternal::parse(int level)
     {
       warn_doc_error(g_fileName,doctokenizerYYlineno,"Invalid list item found",doctokenizerYYlineno);
     }
-    else if (retval==RetVal_CopyDoc)
-    {
-      retval=handleDocCopy(this,m_children);
-    }
   } while (retval!=0 && 
            retval!=RetVal_Section &&
            retval!=RetVal_Subsection &&
            retval!=RetVal_Subsubsection &&
-           retval!=RetVal_Paragraph
+           retval!=RetVal_Paragraph &&
+           retval!=RetVal_EndInternal
           );
   if (lastPar) lastPar->markLast();
 
@@ -3269,7 +3230,7 @@ int DocInternal::parse(int level)
     warn_doc_error(g_fileName,doctokenizerYYlineno,"\\internal command found inside internal section");
   }
 
-  DBG(("DocInternal::parse() end\n"));
+  DBG(("DocInternal::parse() end: retval=%x\n",retval));
   DocNode *n=g_nodeStack.pop();
   ASSERT(n==this);
   return retval;
@@ -4447,6 +4408,7 @@ int DocAutoList::parse()
   int retval = RetVal_OK;
   int num=1;
   g_nodeStack.push(this);
+  doctokenizerYYstartAutoList();
 	  // first item or sub list => create new list
   do
   {
@@ -4469,6 +4431,7 @@ int DocAutoList::parse()
          (g_token->id==-1 || g_token->id>=num)  // increasing number (or no number)
         );
 
+  doctokenizerYYendAutoList();
   DocNode *n=g_nodeStack.pop();
   ASSERT(n==this);
   return retval;
@@ -5510,6 +5473,15 @@ int DocPara::handleCommand(const QCString &cmdName)
         doctokenizerYYsetStatePara();
       }
       break;
+    case CMD_DBONLY:
+      {
+        doctokenizerYYsetStateDbOnly();
+        retval = doctokenizerYYlex();
+        m_children.append(new DocVerbatim(this,g_context,g_token->verb,DocVerbatim::DocbookOnly,g_isExample,g_exampleName));
+        if (retval==0) warn_doc_error(g_fileName,doctokenizerYYlineno,"docbookonly section ended without end marker",doctokenizerYYlineno);
+        doctokenizerYYsetStatePara();
+      }
+      break;
     case CMD_VERBATIM:
       {
         doctokenizerYYsetStateVerbatim();
@@ -5592,10 +5564,14 @@ int DocPara::handleCommand(const QCString &cmdName)
     case CMD_INTERNAL:
       retval = RetVal_Internal;
       break;
+    case CMD_ENDINTERNAL:
+      retval = RetVal_EndInternal;
+      break;
     case CMD_COPYDOC:   // fall through
     case CMD_COPYBRIEF: // fall through
     case CMD_COPYDETAILS:
-      retval = RetVal_CopyDoc;
+      //retval = RetVal_CopyDoc;
+      // these commands should already be resolved by processCopyDoc()
       break;
     case CMD_INCLUDE:
       handleInclude(cmdName,DocInclude::Include);
@@ -5697,7 +5673,8 @@ int DocPara::handleCommand(const QCString &cmdName)
   INTERNAL_ASSERT(retval==0 || retval==RetVal_OK || retval==RetVal_SimpleSec || 
          retval==TK_LISTITEM || retval==TK_ENDLIST || retval==TK_NEWPARA ||
          retval==RetVal_Section || retval==RetVal_EndList || 
-         retval==RetVal_Internal || retval==RetVal_SwitchLang
+         retval==RetVal_Internal || retval==RetVal_SwitchLang || 
+         retval==RetVal_EndInternal
         );
   DBG(("handleCommand(%s) end retval=%x\n",qPrint(cmdName),retval));
   return retval;
@@ -6646,16 +6623,22 @@ int DocSection::parse()
     {
       warn_doc_error(g_fileName,doctokenizerYYlineno,"Invalid list item found");
     }
-    else if (retval==RetVal_CopyDoc)
+    if (retval==RetVal_Internal)
     {
-      retval=handleDocCopy(this,m_children);
+      DocInternal *in = new DocInternal(this);
+      m_children.append(in);
+      retval = in->parse(m_level+1);
+      if (retval==RetVal_EndInternal)
+      {
+        retval=RetVal_OK;
+      }
     }
   } while (retval!=0 && 
-           retval!=RetVal_Internal      &&
            retval!=RetVal_Section       &&
            retval!=RetVal_Subsection    &&
            retval!=RetVal_Subsubsection &&
-           retval!=RetVal_Paragraph 
+           retval!=RetVal_Paragraph     &&
+           retval!=RetVal_EndInternal
           );
 
   if (lastPar) lastPar->markLast();
@@ -6712,12 +6695,6 @@ int DocSection::parse()
     retval=0; // stop parsing
             
   }
-  else if (retval==RetVal_Internal)
-  {
-    DocInternal *in = new DocInternal(this);
-    m_children.append(in);
-    retval = in->parse(m_level+1);
-  }
   else
   {
   }
@@ -6727,10 +6704,11 @@ int DocSection::parse()
                   retval==RetVal_Subsection || 
                   retval==RetVal_Subsubsection || 
                   retval==RetVal_Paragraph || 
-                  retval==RetVal_Internal
+                  retval==RetVal_Internal ||
+                  retval==RetVal_EndInternal
                  );
 
-  DBG(("DocSection::parse() end\n"));
+  DBG(("DocSection::parse() end: retval=%x\n",retval));
   DocNode *n = g_nodeStack.pop();
   ASSERT(n==this);
   return retval;
@@ -6866,11 +6844,13 @@ void DocRoot::parse()
     {
       warn_doc_error(g_fileName,doctokenizerYYlineno,"found paragraph command outside of subsubsection context!");
     }
-    else if (retval==RetVal_CopyDoc)
+    if (retval==RetVal_Internal)
     {
-      retval=handleDocCopy(this,m_children);
+      DocInternal *in = new DocInternal(this);
+      m_children.append(in);
+      retval = in->parse(1);
     }
-  } while (retval!=0 && retval!=RetVal_Section && retval!=RetVal_Internal);
+  } while (retval!=0 && retval!=RetVal_Section);
   if (lastPar) lastPar->markLast();
 
   //printf("DocRoot::parse() retval=%d %d\n",retval,RetVal_Section);
@@ -6892,19 +6872,145 @@ void DocRoot::parse()
     }
   }
 
-  if (retval==RetVal_Internal)
-  {
-    DocInternal *in = new DocInternal(this);
-    m_children.append(in);
-    retval = in->parse(1);
-  }
-
-
   handleUnclosedStyleCommands();
 
   DocNode *n = g_nodeStack.pop();
   ASSERT(n==this);
   DBG(("DocRoot::parse() end\n"));
+}
+
+static QCString extractCopyDocId(const char *data, uint &j, uint len)
+{
+  uint s=j;
+  uint e=j;
+  int round=0;
+  bool insideDQuote=FALSE;
+  bool insideSQuote=FALSE;
+  bool found=FALSE;
+  while (j<len && !found)
+  {
+    if (!insideSQuote && !insideDQuote)
+    {
+      switch (data[j])
+      {
+        case '(': round++; break;
+        case ')': round--; break;
+        case '"': insideDQuote=TRUE; break;
+        case '\'': insideSQuote=TRUE; break;
+        case ' ':  // fall through
+        case '\t': // fall through
+        case '\n': 
+          found=(round==0);
+          break;
+      }
+    }
+    else if (insideSQuote) // look for single quote end
+    {
+      if (data[j]=='\'' && (j==0 || data[j]!='\\'))
+      {
+        insideSQuote=FALSE;
+      }
+    }
+    else if (insideDQuote) // look for double quote end
+    {
+      if (data[j]=='"' && (j==0 || data[j]!='\\'))
+      {
+        insideDQuote=FALSE;
+      }
+    }
+    if (!found) j++;
+  }
+  e=j;
+  QCString id(e-s+1);
+  if (e>s) memcpy(id.data(),data+s,e-s);
+  id.at(e-s)='\0';
+  //printf("extractCopyDocId=%s input='%s'\n",id.data(),&data[s]);
+  return id;
+}
+
+static uint isCopyBriefOrDetailsCmd(const char *data, uint i,uint len,bool &brief)
+{
+  int j=0;
+  if (i==0 || (data[i-1]!='@' && data[i-1]!='\\')) // not an escaped command
+  {
+    if (i+10<len && qstrncmp(data+i+1,"copybrief",9)==0) // @copybrief or \copybrief
+    {
+      j=i+10;
+      brief=TRUE;
+    }
+    else if (i+12<len && qstrncmp(data+i+1,"copydetails",11)==0) // @copydetails or \copydetails
+    {
+      j=i+12;
+      brief=FALSE;
+    }
+  }
+  return j;
+}
+
+static QCString processCopyDoc(const char *data,uint &len)
+{
+  //printf("processCopyDoc start '%s'\n",data);
+  GrowBuf buf;
+  uint i=0;
+  while (i<len)
+  {
+    char c = data[i];
+    if (c=='@' || c=='\\') // look for a command
+    {
+      bool isBrief=TRUE;
+      uint j=isCopyBriefOrDetailsCmd(data,i,len,isBrief);
+      if (j>0)
+      {
+        // skip whitespace
+        while (j<len && (data[j]==' ' || data[j]=='\t')) j++;
+        // extract the argument
+        QCString id = extractCopyDocId(data,j,len);
+        Definition *def;
+        QCString doc,brief;
+        //printf("resolving docs='%s'\n",id.data());
+        if (findDocsForMemberOrCompound(id,&doc,&brief,&def))
+        {
+          //printf("found it def=%p brief='%s' doc='%s' isBrief=%d\n",def,brief.data(),doc.data(),isBrief);
+          if (g_copyStack.findRef(def)==-1) // definition not parsed earlier
+          {
+            g_copyStack.append(def);
+            if (isBrief)
+            {
+              uint l=brief.length();
+              buf.addStr(processCopyDoc(brief,l));
+            }
+            else 
+            {
+              uint l=doc.length();
+              buf.addStr(processCopyDoc(doc,l));
+            }
+            g_copyStack.remove(def);
+          }
+          else
+          {
+            warn_doc_error(g_fileName,doctokenizerYYlineno,
+	         "Found recursive @copy%s or @copydoc relation for argument '%s'.\n",
+                 isBrief?"brief":"details",id.data());
+          }
+        }
+        // skip over command
+        i=j;
+      }
+      else
+      {
+        buf.addChar(c);
+        i++;
+      }
+    }
+    else // not a command, just copy
+    {
+      buf.addChar(c);
+      i++;
+    }
+  }
+  len = buf.getPos();
+  buf.addChar(0);
+  return buf.get();
 }
 
 //--------------------------------------------------------------------------
@@ -7072,12 +7178,13 @@ DocRoot *validatingParseDoc(const char *fileName,int startLine,
   
   //printf("Starting comment block at %s:%d\n",g_fileName.data(),startLine);
   doctokenizerYYlineno=startLine;
-  QCString inpStr=input;
-  uint inpLen = inpStr.length();
-  if (inpLen>0 && inpStr.at(inpLen-1)!='\n')
+  uint inpLen=qstrlen(input);
+  QCString inpStr = processCopyDoc(input,inpLen);
+  if (inpStr.isEmpty() || inpStr.at(inpStr.length()-1)!='\n')
   {
     inpStr+='\n';
   }
+  //printf("processCopyDoc(in='%s' out='%s')\n",input,inpStr.data());
   doctokenizerYYinit(inpStr,g_fileName);
 
   // build abstract syntax tree

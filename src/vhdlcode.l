@@ -42,6 +42,7 @@
 #include "config.h"
 #include "classdef.h"
 #include "filedef.h"
+#include "tooltip.h"
 
 #define YY_NEVER_INTERACTIVE 1
 #define YY_NO_INPUT 1
@@ -63,7 +64,7 @@ static bool isFuncProto=FALSE;
 static bool isComponent=FALSE;
 static bool isPackageBody=FALSE;
 static bool isProto = FALSE;
-
+static bool       g_startCode = FALSE;
 static QCString   g_PrevString;
 static QCString   g_CurrClass;
 static QDict<QCString>g_vhdlKeyDict;   
@@ -185,6 +186,7 @@ static void startCodeLine()
   //if (g_currentFontClass) { g_code->endFontClass(); }
   if (g_sourceFileDef)
   {
+    g_startCode=TRUE;
     //QCString lineNumber,lineAnchor;
     //lineNumber.sprintf("%05d",g_yyLineNr);
     //lineAnchor.sprintf("l%05d",g_yyLineNr);
@@ -247,12 +249,15 @@ static void endCodeLine()
 
 static void nextCodeLine()
 {
+  if (g_startCode)
+  {
+    endCodeLine();    // </div>
+  }
   const char *fc = g_currentFontClass;
-  endCodeLine();
   if (g_yyLineNr<g_inputLines) 
   {
     g_currentFontClass = fc;
-    startCodeLine();
+    startCodeLine();  //<div>
   }
 }
 
@@ -347,7 +352,7 @@ static void writeWord(const char *word,const char* curr_class=0,bool classLink=F
 /*! write a code fragment `text' that may span multiple lines, inserting
  * line numbers for each line.
  */
-static void codifyLines(const char *text,const char *cl=0,bool classlink=FALSE)
+static void codifyLines(const char *text,const char *cl=0,bool classlink=FALSE,bool comment=FALSE)
 {
   if (text==0) return;
   //printf("codifyLines(%d,\"%s\")\n",g_yyLineNr,text);
@@ -365,12 +370,21 @@ static void codifyLines(const char *text,const char *cl=0,bool classlink=FALSE)
       line = line.left((int)(p-sp)-1);
       //*(p-1)='\0';
       //g_code->codify(sp);
-      writeWord(line,cl,classlink);
+      if (comment)
+      {
+        writeFont("keyword",line.data());
+      }
+      else
+      {
+        writeWord(line,cl,classlink);
+      }
       nextCodeLine();
     }
     else
     {
-      //g_code->codify(sp);
+      if (comment)
+        writeFont("keyword",sp);
+      else
       writeWord(sp,cl,classlink);
       done=TRUE;
     }
@@ -382,10 +396,19 @@ static void codifyLines(const char *text,const char *cl=0,bool classlink=FALSE)
  * split into multiple links with the same destination, one for each line.
  */
 static void writeMultiLineCodeLink(CodeOutputInterface &ol,
-                  const char *ref,const char *file,
-                  const char *anchor,const char *text,
-		  const char *tooltip)
+                  Definition *d,
+                  const char *text)
 {
+  static bool sourceTooltips = Config_getBool("SOURCE_TOOLTIPS");
+  TooltipManager::instance()->addTooltip(d);
+  QCString ref  = d->getReference();
+  QCString file = d->getOutputFileBase();
+  QCString anchor = d->anchor();
+  QCString tooltip; 
+  if (!sourceTooltips) // fall back to simple "title" tooltips
+  {
+    tooltip = d->briefDescriptionAsTooltip();
+  }
   bool done=FALSE;
   char *p=(char *)text;
   while (!done)
@@ -442,11 +465,7 @@ static void generateFuncLink(CodeOutputInterface &ol,MemberDef* mdef)
 
   if (mdef && mdef->isLinkable()) // is it a linkable class
   {
-    writeMultiLineCodeLink(ol,mdef->getReference(),
-	                      mdef->getOutputFileBase(),
-			      mdef->anchor(),
-			      mdef->name(),
-			      mdef->briefDescriptionAsTooltip());
+    writeMultiLineCodeLink(ol,mdef,mdef->name());
     addToSearchIndex(memberName);
     return;
   }
@@ -483,11 +502,7 @@ static void generateMemLink(CodeOutputInterface &ol,QCString &clName,QCString& m
 
   if (md && md->isLinkable()) // is it a linkable class
   {
-    writeMultiLineCodeLink(ol,md->getReference(),
-	                      md->getOutputFileBase(),
-			      md->anchor(),
-			      memberName,
-			      md->briefDescriptionAsTooltip());
+    writeMultiLineCodeLink(ol,md,memberName);
     addToSearchIndex(memberName);
     return;
   }
@@ -519,11 +534,7 @@ static void generateClassOrGlobalLink(CodeOutputInterface &ol,const char *clName
       //{
       //  temp=VhdlDocGen::getClassName(cd);
       //}
-      writeMultiLineCodeLink(ol,cd->getReference(),
-	                        cd->getOutputFileBase(),
-				cd->anchor(),
-				temp,
-				cd->briefDescriptionAsTooltip());
+      writeMultiLineCodeLink(ol,cd,temp);
       addToSearchIndex(className);
       return;
     }
@@ -1465,9 +1476,9 @@ XILINX      "INST"|"NET"|"PIN"|"BLKNM"|"BUFG"|"COLLAPSE"|"CPLD"|"COMPGRP"|"CONFI
 			   }  
 			   else // normal comment
 			   {
-			     startFontClass("keyword");
-			     codifyLines(text);
-			     endFontClass();
+			     //    startFontClass("keyword");
+			     codifyLines(text,0,FALSE,TRUE);
+			     //    endFontClass();
 			   }
                          }
 <*>{TEXTT}               { // found normal or special comment after something
@@ -1480,9 +1491,9 @@ XILINX      "INST"|"NET"|"PIN"|"BLKNM"|"BUFG"|"COLLAPSE"|"CPLD"|"COMPGRP"|"CONFI
 			   }  
 			   else // normal comment
 			   {
-			     startFontClass("keyword");
-			     codifyLines(text);
-			     endFontClass();
+			     //   startFontClass("keyword");
+			     codifyLines(text,0,FALSE,TRUE);
+			     //   endFontClass();
 			   }
                          }
 
@@ -1505,6 +1516,7 @@ void parseVhdlCode(CodeOutputInterface &od,const char *className,const QCString 
 {
   //printf("***parseCode() exBlock=%d exName=%s fd=%p\n",exBlock,exName,fd);
   if (s.isEmpty()) return;
+  TooltipManager::instance()->clearTooltips();
   if (memberDef)
   {
     ClassDef *dd=memberDef->getClassDef();
@@ -1575,14 +1587,17 @@ void parseVhdlCode(CodeOutputInterface &od,const char *className,const QCString 
   {
     endCodeLine();
   }
+  if (fd)
+  {
+    TooltipManager::instance()->writeTooltips(*g_code);
+  }
   if (cleanupSourceDef)
   {
     // delete the temporary file definition used for this example
     delete g_sourceFileDef;
     g_sourceFileDef=0;
   }
- 
-  return;
+  g_startCode=FALSE;
 }
 
 void codeFreeVhdlScanner()

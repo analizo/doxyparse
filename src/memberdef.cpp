@@ -2702,7 +2702,7 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
     ParserInterface *pIntf = Doxygen::parserManager->getParser(getDefFileExtension());
     pIntf->resetCodeParserState();
     ol.startCodeFragment();
-    pIntf->parseCode(ol,scopeName,m_impl->initializer,FALSE,0,getFileDef(),
+    pIntf->parseCode(ol,scopeName,m_impl->initializer,lang,FALSE,0,getFileDef(),
                      -1,-1,TRUE,this,FALSE,this);
     ol.endCodeFragment();
   }
@@ -3398,6 +3398,8 @@ void MemberDef::_writeTagData(const DefType compoundType)
 { 
   unsigned typeMask = 1 << compoundType;
   if ((m_impl->tagDataWritten) & typeMask) return; // member already written for this type
+  if (m_impl->mtype==MemberType_EnumValue && m_impl->enumScope &&
+      m_impl->enumScope->isStrong()) return; // enum value is part of enum
   static bool generateTagFile = !Config_getString("GENERATE_TAGFILE").isEmpty();
   // write tag file information of this member
   if (generateTagFile && isLinkableInProject())
@@ -3448,37 +3450,32 @@ void MemberDef::_writeTagData(const DefType compoundType)
       Doxygen::tagFile << "      <clangid>" << convertToXML(idStr) << "</clangid>" << endl;
     }
     Doxygen::tagFile << "      <arglist>" << convertToXML(argsString()) << "</arglist>" << endl;
-    writeDocAnchorsToTagFile();
-    Doxygen::tagFile << "    </member>" << endl;
-    _addToSearchIndex();
-  }
-  MemberList *fmdl=m_impl->enumFields;
-  if (fmdl)
-  {
-    MemberListIterator mli(*fmdl);
-    MemberDef *fmd;
-    for (mli.toFirst();(fmd=mli.current());++mli)
+    if (isStrong())
     {
-      if (!fmd->isReference())
+      MemberList *fmdl=m_impl->enumFields;
+      if (fmdl)
       {
-        if (!Config_getString("GENERATE_TAGFILE").isEmpty())
+        MemberListIterator mli(*fmdl);
+        MemberDef *fmd;
+        for (mli.toFirst();(fmd=mli.current());++mli)
         {
-          Doxygen::tagFile << "    <member kind=\"enumvalue\">" << endl;
-          Doxygen::tagFile << "      <name>" << convertToXML(fmd->name()) << "</name>" << endl; 
-          Doxygen::tagFile << "      <anchorfile>" << convertToXML(getOutputFileBase()+Doxygen::htmlFileExtension) << "</anchorfile>" << endl;              
-          Doxygen::tagFile << "      <anchor>" << convertToXML(fmd->anchor()) << "</anchor>" << endl; 
-          QCString idStr = fmd->id();
-          if (!idStr.isEmpty())
+          if (!fmd->isReference())
           {
-            Doxygen::tagFile << "      <clangid>" << convertToXML(idStr) << "</clangid>" << endl;
+            Doxygen::tagFile << "      <enumvalue file=\"" << convertToXML(getOutputFileBase()+Doxygen::htmlFileExtension);
+            Doxygen::tagFile << "\" anchor=\"" << convertToXML(fmd->anchor());
+            QCString idStr = fmd->id();
+            if (!idStr.isEmpty()) 
+            {
+              Doxygen::tagFile << "\" clangid=\"" << convertToXML(idStr);
+            }
+            Doxygen::tagFile  << "\">" << convertToXML(fmd->name()) << "</enumvalue>" << endl; 
           }
-          Doxygen::tagFile << "      <arglist>" << convertToXML(fmd->argsString()) << "</arglist>" << endl; 
-          Doxygen::tagFile << "    </member>" << endl;
-          fmd->m_impl->tagDataWritten |= typeMask;
-          fmd->_addToSearchIndex();
         }
       }
     }
+    writeDocAnchorsToTagFile();
+    Doxygen::tagFile << "    </member>" << endl;
+    _addToSearchIndex();
   }
   m_impl->tagDataWritten |= typeMask;
 }
@@ -3795,6 +3792,12 @@ QCString MemberDef::qualifiedName() const
     qm+=name();
     qm+="]";
     return qm;
+  }
+  else if (m_impl->enumScope && m_impl->enumScope->isStrong())
+  {
+    return m_impl->enumScope->qualifiedName()+
+           getLanguageSpecificSeparator(getLanguage())+
+           localName();
   }
   else
   {
@@ -4138,6 +4141,13 @@ bool MemberDef::isWeak() const
 bool MemberDef::isStrong() const
 {
   return (m_impl->memSpec&Entry::Strong)!=0; 
+}
+
+bool MemberDef::isStrongEnumValue() const
+{
+  return m_impl->mtype==MemberType_EnumValue &&
+         m_impl->enumScope && 
+         m_impl->enumScope->isStrong();
 }
 
 bool MemberDef::isUnretained() const
@@ -4855,5 +4865,4 @@ void combineDeclarationAndDefinition(MemberDef *mdec,MemberDef *mdef)
     }
   }
 }
-
 

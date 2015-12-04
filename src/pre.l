@@ -59,6 +59,16 @@
 #define DBG_CTX(x) do { } while(0)
 
 #define YY_NEVER_INTERACTIVE 1
+
+struct CondCtx
+{
+  CondCtx(int line,QCString id,bool b) 
+    : lineNr(line),sectionId(id), skip(b) {}
+  int lineNr;
+  QCString sectionId;
+  bool skip;
+};
+
 struct FileState
 {
   FileState(int size) : fileBuf(size), 
@@ -222,6 +232,7 @@ class DefineManager
     Define *isDefined(const char *name) const
     {
       Define *d = m_contextDefines.find(name);
+      if (d && d->undef) d=0;
       //printf("isDefined(%s)=%p\n",name,d);
       return d;
     }
@@ -360,7 +371,7 @@ static bool               g_isImported;
 static QCString           g_blockName;
 static int                g_condCtx;
 static bool               g_skip;
-static QStack<bool>       g_condStack;
+static QStack<CondCtx>    g_condStack;
 static bool               g_insideCS; // C# has simpler preprocessor
 static bool               g_isSource;
 
@@ -1613,7 +1624,7 @@ static void startCondSection(const char *sectId)
   //printf("startCondSection: skip=%d stack=%d\n",g_skip,g_condStack.count());
   CondParser prs;
   bool expResult = prs.parse(g_yyFileName,g_yyLineNr,sectId);
-  g_condStack.push(new bool(g_skip));
+  g_condStack.push(new CondCtx(g_yyLineNr,sectId,g_skip));
   if (!expResult)
   {
     g_skip=TRUE;
@@ -1629,8 +1640,8 @@ static void endCondSection()
   }
   else
   {
-    bool *ctx = g_condStack.pop();
-    g_skip=*ctx;
+    CondCtx *ctx = g_condStack.pop();
+    g_skip=ctx->skip;
   }
   //printf("endCondSection: skip=%d stack=%d\n",g_skip,g_condStack.count());
 }
@@ -1694,7 +1705,7 @@ static int yyread(char *buf,int max_size)
 
 %}
 
-ID	[a-z_A-Z][a-z_A-Z0-9]*
+ID	[a-z_A-Z\x80-\xFF][a-z_A-Z0-9\x80-\xFF]*
 B       [ \t]
 BN	[ \t\r\n]
 CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
@@ -1750,7 +1761,7 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
  					  outputArray(yytext,(int)yyleng);
   					  BEGIN(CopyLine); 
 					}
-<Start>^{B}*[_A-Z][_A-Z0-9]*{B}*"("[^\)\n]*")"/{BN}{1,10}*[:{] { // constructors?
+<Start>^{B}*[a-z_A-Z\x80-\xFF][a-z_A-Z0-9\x80-\xFF]+{B}*"("[^\)\n]*")"/{BN}{1,10}*[:{] { // constructors?
 					  int i;
 					  for (i=(int)yyleng-1;i>=0;i--)
 					  {
@@ -1758,8 +1769,8 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
 					  }
 					  BEGIN(CopyLine);
                                         }
-<Start>^{B}*[_A-Z][_A-Z0-9]*{B}*"("[^\(\)\n]*"("[^\)\n]*")"[^\)\n]*")"{B}*\n | // function list macro with one (...) argument, e.g. for K_GLOBAL_STATIC_WITH_ARGS
-<Start>^{B}*[_A-Z][_A-Z0-9]*{B}*"("[^\)\n]*")"{B}*\n { // function like macro
+<Start>^{B}*[a-z_A-Z\x80-\xFF][a-z_A-Z0-9\x80-\xFF]+{B}*"("[^\(\)\n]*"("[^\)\n]*")"[^\)\n]*")"{B}*\n | // function list macro with one (...) argument, e.g. for K_GLOBAL_STATIC_WITH_ARGS
+<Start>^{B}*[a-z_A-Z\x80-\xFF][a-z_A-Z0-9\x80-\xFF]+{B}*"("[^\)\n]*")"{B}*\n { // function like macro
   					  static bool skipFuncMacros = Config_getBool("SKIP_FUNCTION_MACROS");
 					  QCString name(yytext);
 					  name=name.left(name.find('(')).stripWhiteSpace();
@@ -2031,7 +2042,7 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
 					    BEGIN(SkipCPPBlock);
 					  }
   					}
-<Command>"else"/[^a-z_A-Z0-9]		{
+<Command>"else"/[^a-z_A-Z0-9\x80-\xFF]		{
 					  //printf("else g_levelGuard[%d]=%d\n",g_level-1,g_levelGuard[g_level-1]);
   					  if (otherCaseDone())
 					  {
@@ -2054,7 +2065,7 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
   					    BEGIN(Guard);
 					  }
   					}
-<Command>"endif"/[^a-z_A-Z0-9]		{
+<Command>"endif"/[^a-z_A-Z0-9\x80-\xFF]		{
   					  //printf("Pre.l: #endif\n");
   					  decrLevel();
   					}
@@ -2457,6 +2468,9 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
 					  }
 					  BEGIN(SkipVerbatim);
   					}
+<SkipCComment,SkipCPPComment>[\\@][\\@]"cond"[ \t]+ { // escaped @cond
+  					  outputArray(yytext,(int)yyleng);
+                                        }
 <SkipCPPComment>[\\@]"cond"[ \t]+	{ // conditional section
                                           g_ccomment=TRUE;  
                                           g_condCtx=YY_START;
@@ -2467,7 +2481,7 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
                                           g_condCtx=YY_START;
   					  BEGIN(CondLineC);
   					}
-<CondLineC,CondLineCpp>[!()&| \ta-z_A-Z0-9.\-]+      {
+<CondLineC,CondLineCpp>[!()&| \ta-z_A-Z0-9\x80-\xFF.\-]+      {
   				          startCondSection(yytext);
                                           if (g_skip)
                                           {
@@ -2530,7 +2544,13 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
 <SkipCond>[^\/\!*\\@\n]+                { }
 <SkipCond>"//"[/!]                      { g_ccomment=FALSE; }
 <SkipCond>"/*"[*!]                      { g_ccomment=TRUE; }
-<SkipCond>[\\@]"endcond"/[^a-z_A-Z0-9]  { 
+<SkipCond,SkipCComment,SkipCPPComment>[\\@][\\@]"endcond"/[^a-z_A-Z0-9\x80-\xFF] {
+                                          if (!g_skip)
+                                          {
+  					    outputArray(yytext,(int)yyleng);
+                                          }
+                                        }
+<SkipCond>[\\@]"endcond"/[^a-z_A-Z0-9\x80-\xFF]  { 
                                           bool oldSkip = g_skip;
                                           endCondSection(); 
                                           if (oldSkip && !g_skip)
@@ -2542,7 +2562,7 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
                                             BEGIN(g_condCtx);
                                           }
                                         }
-<SkipCComment,SkipCPPComment>[\\@]"endcond"/[^a-z_A-Z0-9] {
+<SkipCComment,SkipCPPComment>[\\@]"endcond"/[^a-z_A-Z0-9\x80-\xFF] {
                                           bool oldSkip = g_skip;
   					  endCondSection();
                                           if (oldSkip && !g_skip) 
@@ -2581,7 +2601,7 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
 <SkipCComment,SkipVerbatim>.		{
   					  outputChar(*yytext);
   					}
-<CopyCComment>[^*a-z_A-Z\n]+		{
+<CopyCComment>[^*a-z_A-Z\x80-\xFF\n]+		{
 					  g_defLitText+=yytext;
 					  g_defText+=escapeAt(yytext);
   					}
@@ -2982,7 +3002,7 @@ void preprocessFile(const char *fileName,BufStr &input,BufStr &output)
 	 ) // predefined function macro definition
       {
 	//printf("predefined function macro '%s'\n",defStr);
-	QRegExp reId("[a-z_A-Z][a-z_A-Z0-9]*"); // regexp matching an id
+	QRegExp reId("[a-z_A-Z\x80-\xFF][a-z_A-Z0-9\x80-\xFF]*"); // regexp matching an id
 	QDict<int> argDict(17);
 	argDict.setAutoDelete(TRUE);
 	int i=i_obrace+1,p,l,count=0;
@@ -3088,6 +3108,14 @@ void preprocessFile(const char *fileName,BufStr &input,BufStr &output)
   preYYlex();
   g_lexInit=TRUE;
 
+  while (!g_condStack.isEmpty())
+  {
+    CondCtx *ctx = g_condStack.pop();
+    QCString sectionInfo = " ";
+    if (ctx->sectionId!=" ") sectionInfo.sprintf(" with label %s ",ctx->sectionId.data()); 
+    warn(fileName,ctx->lineNr,"Conditional section%sdoes not have "
+	"a corresponding \\endcond command within this file.",sectionInfo.data());
+  }
   // make sure we don't extend a \cond with missing \endcond over multiple files (see bug 624829)
   forceEndCondSection();
 

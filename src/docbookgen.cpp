@@ -208,6 +208,12 @@ class DocbookCodeGenerator : public CodeOutputInterface
       writeDocbookLink(m_t,ref,file,anchor,name,tooltip);
       col+=strlen(name);
     }
+    void writeTooltip(const char *, const DocLinkInfo &, const char *,
+                      const char *, const SourceLinkInfo &, const SourceLinkInfo &
+                     )
+    {
+      Docbook_DB(("(writeToolTip)\n"));
+    }
     void startCodeLine(bool)
     {
       Docbook_DB(("(startCodeLine)\n"));
@@ -234,16 +240,6 @@ class DocbookCodeGenerator : public CodeOutputInterface
       m_refId.resize(0);
       m_external.resize(0);
       m_insideCodeLine=FALSE;
-    }
-    void startCodeAnchor(const char *id)
-    {
-      Docbook_DB(("(startCodeAnchor)\n"));
-      m_t << "<anchor id=\"" << id << "\">";
-    }
-    void endCodeAnchor()
-    {
-      Docbook_DB(("(endCodeAnchor)\n"));
-      m_t << "</anchor>";
     }
     void startFontClass(const char * /*colorClass*/)
     {
@@ -370,11 +366,13 @@ static void writeDocbookDocBlock(FTextStream &t,
 void writeDocbookCodeBlock(FTextStream &t,FileDef *fd)
 {
   ParserInterface *pIntf=Doxygen::parserManager->getParser(fd->getDefFileExtension());
+  SrcLangExt langExt = getLanguageFromFileName(fd->getDefFileExtension());
   pIntf->resetCodeParserState();
   DocbookCodeGenerator *docbookGen = new DocbookCodeGenerator(t);
   pIntf->parseCode(*docbookGen,  // codeOutIntf
       0,           // scopeName
       fileToString(fd->absFilePath(),Config_getBool("FILTER_SOURCE_FILES")),
+      langExt,     // lang
       FALSE,       // isExampleBlock
       0,           // exampleName
       fd,          // fileDef
@@ -1171,7 +1169,27 @@ static void generateDocbookForClass(ClassDef *cd,FTextStream &ti)
       {
         t << "<link linkend=\"" << ii->fileDef->getOutputFileBase() << "\">";
       }
-      t << "&lt;" << nm << "&gt;" << "</link>";
+      if (ii->local)
+      {
+        t << "&quot;";
+      }
+      else
+      {
+        t << "&lt;";
+      }
+      t << convertToXML(nm);
+      if (ii->local)
+      {
+        t << "&quot;";
+      }
+      else
+      {
+        t << "&gt;";
+      }
+      if (ii->fileDef && !ii->fileDef->isReference())
+      {
+        t << "</link>";
+      }
       t << "</programlisting>" << endl;
       t << "</para>" << endl;
     }
@@ -1389,7 +1407,23 @@ static void generateDocbookForFile(FileDef *fd,FTextStream &ti)
     for (ili1.toFirst();(inc=ili1.current());++ili1)
     {
       t << "    <programlisting>#include ";
-      t << inc->includeName;
+      if (inc->local)
+      {
+        t << "&quot;";
+      }
+      else
+      {
+        t << "&lt;";
+      }
+      t << convertToXML(inc->includeName);
+      if (inc->local)
+      {
+        t << "&quot;";
+      }
+      else
+      {
+        t << "&gt;";
+      }
       t << "</programlisting>" << endl;
     }
   }

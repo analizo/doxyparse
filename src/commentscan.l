@@ -116,6 +116,8 @@ static bool handleToc(const QCString &s);
 static bool handleInherit(const QCString &);
 static bool handleExtends(const QCString &);
 static bool handleCopyDoc(const QCString &);
+static bool handleCopyBrief(const QCString &);
+static bool handleCopyDetails(const QCString &);
 
 typedef bool (*DocCmdFunc)(const QCString &name);
 
@@ -169,7 +171,7 @@ static DocCmdMap docCmdMap[] =
   { "relatedalso",     &handleRelatedAlso,      TRUE  },
   { "relatesalso",     &handleRelatedAlso,      TRUE  },
   { "refitem",         &handleRefItem,          TRUE  },
-  { "cite",            &handleCite,             TRUE  },
+  { "cite",            &handleCite,             FALSE },
   { "subpage",         &handleSubpage,          TRUE  },
   { "section",         &handleSection,          TRUE  },
   { "subsection",      &handleSection,          TRUE  },
@@ -218,8 +220,8 @@ static DocCmdMap docCmdMap[] =
   { "author",          0,                       TRUE  },
   { "authors",         0,                       TRUE  },
   { "copydoc",         &handleCopyDoc,          TRUE  },
-  { "copybrief",       0,                       FALSE },
-  { "copydetails",     0,                       TRUE  },
+  { "copybrief",       &handleCopyBrief,        FALSE },
+  { "copydetails",     &handleCopyDetails,      TRUE  },
   { "copyright",       0,                       TRUE  },
   { "date",            0,                       TRUE  },
   { "dotfile",         0,                       TRUE  },
@@ -412,8 +414,8 @@ static bool             parseMore;
 static int              g_condCount;
 
 static int              g_commentCount;
-static bool             g_spaceBeforeCmd;
-static bool             g_spaceBeforeIf;
+static QCString         g_spaceBeforeCmd;
+static QCString         g_spaceBeforeIf;
 static QCString         g_copyDocArg;
 
 static QCString         g_guardExpr;
@@ -878,6 +880,7 @@ LABELID   [a-z_A-Z\x80-\xFF][a-z_A-Z0-9\x80-\xFF\-]*
 CITEID    [a-z_A-Z\x80-\xFF][a-z_A-Z0-9\x80-\xFF\-:/]*
 SCOPEID   {ID}({ID}*{BN}*"::"{BN}*)*({ID}?)
 SCOPENAME "$"?(({ID}?{BN}*("::"|"."){BN}*)*)((~{BN}*)?{ID})
+TMPLSPEC  "<"{BN}*[^>]+{BN}*">"
 MAILADDR   [a-z_A-Z0-9.+\-]+"@"[a-z_A-Z0-9\-]+("."[a-z_A-Z0-9\-]+)+[a-z_A-Z0-9\-]+ 
 RCSTAG    "$"{ID}":"[^\n$]+"$"
 
@@ -1021,6 +1024,7 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
   					  BEGIN(HtmlComment);
 					}
 <Comment>{B}*{CMD}"endinternal"{B}*	{
+                                          addOutput("\\endinternal "); 
                                           if (!inInternalDocs)
   					    warn(yyFileName,yyLineNr,
                                                "found \\endinternal without matching \\internal"
@@ -1031,17 +1035,17 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
                                           // the {B}* in the front was added for bug620924
   					  QCString cmdName = QCString(yytext).stripWhiteSpace().data()+1;
 					  DocCmdMapper::Cmd *cmdPtr = DocCmdMapper::map(cmdName);
-					  g_spaceBeforeCmd = yytext[0]==' ' || yytext[0]=='\t';
 					  if (cmdPtr) // special action is required
 					  {
+                                            int i=0;
+                                            while (yytext[i]==' ' || yytext[i]=='\t') i++;
+					    g_spaceBeforeCmd = QCString(yytext).left(i);
 					    if (cmdPtr->endsBrief)
 					    { 
 					      briefEndsAtDot=FALSE;
 					      // this command forces the end of brief description
 					      setOutput(OutputDoc);
 					    }
-                                            int i=0;
-                                            while (yytext[i]==' ' || yytext[i]=='\t') i++;
                                             //if (i>0) addOutput(QCString(yytext).left(i)); // removed for bug 689341
 					    if (cmdPtr->func && cmdPtr->func(cmdName))
 					    {
@@ -1065,7 +1069,7 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
 					    {
 					      // command without handler, to be processed
 					      // later by parsedoc.cpp
-					      addOutput(yytext+i);
+					      addOutput(yytext);
 					    }
 					  }
 					  else // command not relevant
@@ -1340,6 +1344,10 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
 
   /* ------ handle argument of class/struct/union command --------------- */
 
+<ClassDocArg1>{SCOPENAME}{TMPLSPEC}     { 
+  					  current->name = substitute(removeRedundantWhiteSpace(yytext),".","::");
+					  BEGIN( ClassDocArg2 );
+                                        }
 <ClassDocArg1>{SCOPENAME}		{ // first argument
   					  current->name = substitute(yytext,".","::");
 					  if (current->section==Entry::PROTOCOLDOC_SEC)
@@ -1793,15 +1801,15 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
   					  addOutput(*yytext);
   					}
 <GuardParamEnd>{B}*{DOCNL}		{
-  					  g_spaceBeforeIf=FALSE;
+  					  g_spaceBeforeIf.resize(0);
   					  BEGIN(Comment);
   					}
 <GuardParamEnd>{B}*			{
-  					  if (g_spaceBeforeIf) // needed for 665313 in combation with bug620924
+  					  if (!g_spaceBeforeIf.isEmpty()) // needed for 665313 in combation with bug620924
 					  {
-					    addOutput(" ");
+					    addOutput(g_spaceBeforeIf);
 					  }
-  					  g_spaceBeforeIf=FALSE;
+  					  g_spaceBeforeIf.resize(0);
   					  BEGIN(Comment);
   					}
 <GuardParamEnd>.			{
@@ -1858,6 +1866,7 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
 					  {
 					    if (!enabledSectionFound && guards.top()->parentVisible())
 					    {
+                                              guardType=Guard_If;
 					      delete guards.pop();
 					      BEGIN( GuardParam );
 					    }
@@ -1922,6 +1931,7 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
 					  }
   					}
 <SkipInternal>[@\\]"endinternal"[ \t]*  {
+                                          addOutput("\\endinternal "); 
 					  BEGIN(Comment);
 					}
 <SkipInternal>[^ \\@\n]+		{ // skip non-special characters
@@ -2010,10 +2020,10 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
 
 <OverloadParam>{DOCNL}			{ // end of argument
   					  if (*yytext=='\n') yyLineNr++;
-					  addOutput('\n');
 					  if (functionProto.stripWhiteSpace().isEmpty())
 					  { // plain overload command
 					    addOutput(getOverloadDocs());
+					    addOutput('\n');
 					  }
 					  else // overload declaration
 					  {
@@ -2428,10 +2438,10 @@ static bool handleSubpage(const QCString &s)
     warn(yyFileName,yyLineNr,
 	"found \\subpage command in a comment block that is not marked as a page!");
   }
-  if (g_spaceBeforeCmd) 
+  if (!g_spaceBeforeCmd.isEmpty()) 
   {
-    addOutput(' ');
-    g_spaceBeforeCmd=FALSE;
+    addOutput(g_spaceBeforeCmd);
+    g_spaceBeforeCmd.resize(0);
   }
   addOutput("@"+s+" ");
   BEGIN(SubpageLabel);
@@ -2447,6 +2457,11 @@ static bool handleAnchor(const QCString &s)
 
 static bool handleCite(const QCString &s)
 {
+  if (!g_spaceBeforeCmd.isEmpty()) 
+  {
+    addOutput(g_spaceBeforeCmd);
+    g_spaceBeforeCmd.resize(0);
+  }
   addOutput("@"+s+" ");
   BEGIN(CiteLabel);
   return FALSE;
@@ -2528,10 +2543,10 @@ static bool handleEndIf(const QCString &)
     delete guards.pop();
   }
   enabledSectionFound=FALSE;
-  if (g_spaceBeforeCmd) 
+  if (!g_spaceBeforeCmd.isEmpty()) 
   {
-    addOutput(' ');
-    g_spaceBeforeCmd=FALSE;
+    addOutput(g_spaceBeforeCmd);
+    g_spaceBeforeCmd.resize(0);
   }
   BEGIN( GuardParamEnd );
   return FALSE;
@@ -2674,9 +2689,43 @@ static bool handleExtends(const QCString &)
   return FALSE;
 }
 
+static bool handleCopyBrief(const QCString &)
+{
+  if (current->brief.isEmpty() && current->doc.isEmpty())
+  { // if we don't have a brief or detailed description yet,
+    // then the @copybrief should end up in the brief description.
+    // otherwise it will be copied inline (see bug691315 & bug700788)
+    setOutput(OutputBrief);
+  }
+  if (!g_spaceBeforeCmd.isEmpty()) 
+  {
+    addOutput(g_spaceBeforeCmd);
+    g_spaceBeforeCmd.resize(0);
+  }
+  addOutput("\\copybrief ");
+  return FALSE;
+}
+
+static bool handleCopyDetails(const QCString &)
+{
+  setOutput(OutputDoc);
+  if (!g_spaceBeforeCmd.isEmpty()) 
+  {
+    addOutput(g_spaceBeforeCmd);
+    g_spaceBeforeCmd.resize(0);
+  }
+  addOutput("\\copydetails ");
+  return FALSE;
+}
+
 static bool handleCopyDoc(const QCString &)
 {
   setOutput(OutputBrief);
+  if (!g_spaceBeforeCmd.isEmpty()) 
+  {
+    addOutput(g_spaceBeforeCmd);
+    g_spaceBeforeCmd.resize(0);
+  }
   addOutput("\\copybrief ");
   g_copyDocArg.resize(0);
   BEGIN(CopyDoc);
@@ -2734,8 +2783,8 @@ bool parseCommentBlock(/* in */     ParserInterface *parser,
   briefEndsAtDot = isAutoBriefOn;
   g_condCount    = 0;
   g_sectionLevel = 0;
-  g_spaceBeforeCmd = FALSE;
-  g_spaceBeforeIf  = FALSE;
+  g_spaceBeforeCmd.resize(0);
+  g_spaceBeforeIf.resize(0);
 
   if (!current->inbodyDocs.isEmpty() && isInbody) // separate in body fragments
   {
@@ -2804,7 +2853,8 @@ bool parseCommentBlock(/* in */     ParserInterface *parser,
   if (parseMore) position=inputPosition; else position=0;
 
   lineNr = yyLineNr;
-  //printf("position=%d parseMore=%d\n",position,parseMore);
+  //printf("position=%d parseMore=%d newEntryNeeded=%d\n",
+  //  position,parseMore,newEntryNeeded);
 
   return parseMore;
 }

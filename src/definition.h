@@ -130,8 +130,11 @@ class Definition : public DefinitionIntf
     /*! Returns the anchor within a page where this item can be found */
     virtual QCString anchor() const = 0;
 
-    /*! Returns the name of the source listing of this file. */
-    virtual QCString getSourceFileBase() const { ASSERT(0); return "NULL"; }
+    /*! Returns the name of the source listing of this definition. */
+    virtual QCString getSourceFileBase() const;
+
+    /*! Returns the anchor of the source listing of this definition. */
+    virtual QCString getSourceAnchor() const;
 
     /*! Returns the detailed description of this definition */
     QCString documentation() const;
@@ -349,7 +352,7 @@ class Definition : public DefinitionIntf
     void _setBriefDescription(const char *b,const char *briefFile,int briefLine);
     void _setDocumentation(const char *d,const char *docFile,int docLine,bool stripWhiteSpace,bool atTop);
     void _setInbodyDocumentation(const char *d,const char *docFile,int docLine);
-    bool _docsAlreadyAdded(const QCString &doc);
+    bool _docsAlreadyAdded(const QCString &doc,QCString &sigList);
     DefinitionImpl *m_impl; // internal structure holding all private data
     QCString m_name;
     bool m_isSymbol;

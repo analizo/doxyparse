@@ -164,7 +164,7 @@ static QList<Entry>     moduleProcedures; // list of all interfaces which contai
                                           // module procedures
 static QCString         docBlock;
 static QCString         docBlockName;
-static bool             docBlockInBody;
+static bool             docBlockInBody = FALSE;
 static bool             docBlockJavaStyle;
 
 static MethodTypes 	mtype;
@@ -187,6 +187,7 @@ static InterfaceType     ifType = IF_NONE;
 static bool              functionLine = FALSE;
 
 static char              stringStartSymbol; // single or double quote
+static bool 		 parsingPrototype = FALSE; // see parsePrototype()
 
 //! Accumulated modifiers of current statement, eg variable declaration.
 static SymbolModifiers currentModifiers;
@@ -265,6 +266,7 @@ ATTR_STMT {ATTR_SPEC}|DIMENSION|{ACCESS_SPEC}
 
 CONTAINS  CONTAINS
 PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTAL)?
+SCOPENAME ({ID}{BS}"::"{BS})*
 
 %option noyywrap
 %option stack
@@ -307,6 +309,12 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
 %x	EndDoc
 
 %x      BlockData
+
+/** prototype parsing */
+%x  	Prototype
+%x  	PrototypeSubprog
+%x	PrototypeArgs
+
 %%
 
  /*-----------------------------------------------------------------------------------*/
@@ -559,7 +567,7 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
 
  /*------- type definition  -------------------------------------------------------------------------------*/
 
-<Start,ModuleBody>^{BS}type             {
+<Start,ModuleBody>^{BS}type/[^a-z0-9]    {
                                           if(YY_START == Start)
                                           {
                                             addModule(NULL); 
@@ -1023,7 +1031,7 @@ private                                 {
 
  /*---- documentation comments --------------------------------------------------------------------*/
 
-<Variable,SubprogBody,ModuleBody,TypedefBody>"!<"  { /* backward docu comment */
+<Variable,SubprogBody,ModuleBody,TypedefBody,TypedefBodyContains>"!<"  { /* backward docu comment */
                                           if (v_type != V_IGNORE) {
 					   current->docLine  = yyLineNr;
  					   docBlockJavaStyle = FALSE;
@@ -1077,6 +1085,7 @@ private                                 {
                                           yy_push_state(YY_START);
 					  current->docLine  = yyLineNr;
  					  docBlockJavaStyle = FALSE;
+					  if (YY_START==SubprogBody) docBlockInBody = TRUE;
 					  docBlock.resize(0);
 					  docBlockJavaStyle = Config_getBool("JAVADOC_AUTOBRIEF");
 					  startCommentBlock(TRUE);
@@ -1099,6 +1108,24 @@ private                                 {
                                           yy_pop_state();                                          
   					}
 
+ /*-----Prototype parsing -------------------------------------------------------------------------*/
+<Prototype>{BS}{SUBPROG}{BS_}		{
+					  BEGIN(PrototypeSubprog);
+					}
+<Prototype,PrototypeSubprog>{BS}{SCOPENAME}?{BS}{ID} { 
+					  current->name = QCString(yytext).lower();
+					  current->name.stripWhiteSpace();
+					  BEGIN(PrototypeArgs);
+					}
+<PrototypeArgs>{
+"("|")"|","|{BS_}			{ current->args += yytext; }
+{ID}					{ current->args += yytext; 
+					  Argument *a = new Argument;
+					  a->name = QCString(yytext).lower();
+					  current->argList->append(a);
+					}
+}
+
  /*------------------------------------------------------------------------------------------------*/
 
 <*>"\n"                                 {
@@ -1111,7 +1138,10 @@ private                                 {
  /*---- error: EOF in wrong state --------------------------------------------------------------------*/
 
 <*><<EOF>>                              {
-                                          if ( include_stack_ptr <= 0 ) {
+					  if (parsingPrototype) {
+					    yyterminate();
+
+					  } else if ( include_stack_ptr <= 0 ) {
                                             if (YY_START!=INITIAL && YY_START!=Start) {
                                               DBG_CTX((stderr,"==== Error: EOF reached in wrong state (end missing)"));
                                               scanner_abort();
@@ -2067,11 +2097,14 @@ static void startCommentBlock(bool brief)
 
 static void handleCommentBlock(const QCString &doc,bool brief)
 {
-  docBlockInBody = FALSE;
   bool needsEntry = FALSE;
   static bool hideInBodyDocs = Config_getBool("HIDE_IN_BODY_DOCS");
   int position=0;
-  if (docBlockInBody && hideInBodyDocs) return;
+  if (docBlockInBody && hideInBodyDocs)
+  {
+    docBlockInBody = FALSE;
+    return;
+  }
   DBG_CTX((stderr,"call parseCommentBlock [%s]\n",doc.data()));
   int lineNr = brief ? current->briefLine : current->docLine;
   while (parseCommentBlock(
@@ -2094,6 +2127,7 @@ static void handleCommentBlock(const QCString &doc,bool brief)
   DBG_CTX((stderr,"parseCommentBlock position=%d [%s]  needsEntry=%d\n",position,doc.data()+position,needsEntry));
 
   if (needsEntry) addCurrentEntry(0);
+  docBlockInBody = FALSE;
 }
 
 //----------------------------------------------------------------------------
@@ -2103,6 +2137,10 @@ static void subrHandleCommentBlock(const QCString &doc,bool brief)
   QCString loc_doc;
   Entry *tmp_entry = current; 
   current = subrCurrent.first(); // temporarily switch to the entry of the subroutine / function
+
+  // Still in the specification section so no inbodyDocs yet, but parameter documentation
+  current->inbodyDocs = "";
+
   if (docBlock.stripWhiteSpace().find("\\param") == 0)
   {
     handleCommentBlock("\n\n"+doc,brief);
@@ -2277,6 +2315,7 @@ void FortranLanguageScanner::parseInput(const char *fileName,
 void FortranLanguageScanner::parseCode(CodeOutputInterface & codeOutIntf,
                    const char * scopeName,
                    const QCString & input,
+                   SrcLangExt /*lang*/,
                    bool isExampleBlock,
                    const char * exampleName,
                    FileDef * fileDef,
@@ -2304,7 +2343,13 @@ void FortranLanguageScanner::resetCodeParserState()
 
 void FortranLanguageScanner::parsePrototype(const char *text)
 {
-  current->name = QCString(text).lower();
+  QCString buffer = QCString(text);
+  pushBuffer(buffer);
+  parsingPrototype = TRUE;
+  BEGIN(Prototype);
+  fscanYYlex();
+  parsingPrototype = FALSE;
+  popBuffer();
 }
 
 static void scanner_abort() 

@@ -257,6 +257,12 @@ class XMLCodeGenerator : public CodeOutputInterface
       writeXMLLink(m_t,ref,file,anchor,name,tooltip);
       col+=qstrlen(name);
     }
+    void writeTooltip(const char *, const DocLinkInfo &, const char *,
+                      const char *, const SourceLinkInfo &, const SourceLinkInfo &
+                     )
+    {
+      XML_DB(("(writeToolTip)\n"));
+    }
     void startCodeLine(bool) 
     {
       XML_DB(("(startCodeLine)\n"));
@@ -298,21 +304,6 @@ class XMLCodeGenerator : public CodeOutputInterface
       m_refId.resize(0);
       m_external.resize(0);
       m_insideCodeLine=FALSE;
-    }
-    void startCodeAnchor(const char *id) 
-    {
-      XML_DB(("(startCodeAnchor)\n"));
-      if (m_insideCodeLine && !m_insideSpecialHL && m_normalHLNeedStartTag)
-      {
-        m_t << "<highlight class=\"normal\">";
-        m_normalHLNeedStartTag=FALSE;
-      }
-      m_t << "<anchor id=\"" << id << "\">";
-    }
-    void endCodeAnchor() 
-    {
-      XML_DB(("(endCodeAnchor)\n"));
-      m_t << "</anchor>";
     }
     void startFontClass(const char *colorClass) 
     {
@@ -456,11 +447,13 @@ static void writeXMLDocBlock(FTextStream &t,
 void writeXMLCodeBlock(FTextStream &t,FileDef *fd)
 {
   ParserInterface *pIntf=Doxygen::parserManager->getParser(fd->getDefFileExtension());
+  SrcLangExt langExt = getLanguageFromFileName(fd->getDefFileExtension());
   pIntf->resetCodeParserState();
   XMLCodeGenerator *xmlGen = new XMLCodeGenerator(t);
   pIntf->parseCode(*xmlGen,  // codeOutIntf
                 0,           // scopeName
                 fileToString(fd->absFilePath(),Config_getBool("FILTER_SOURCE_FILES")),
+                langExt,     // lang
                 FALSE,       // isExampleBlock
                 0,           // exampleName
                 fd,          // fileDef
@@ -896,9 +889,8 @@ static void generateXMLForMember(MemberDef *md,FTextStream &ti,FTextStream &t,De
       }
     }
   }
-  // avoid that extremely large tables are written to the output. 
-  // todo: it's better to adhere to MAX_INITIALIZER_LINES.
-  if (!md->initializer().isEmpty() && md->initializer().length()<2000)
+
+  if (md->hasOneLineInitializer() || md->hasMultiLineInitializer())
   {
     t << "        <initializer>";
     linkifyText(TextGeneratorXMLImpl(t),def,md->getBodyDef(),md,md->initializer());
@@ -1838,20 +1830,22 @@ static void generateXMLForPage(PageDef *pd,FTextStream &ti,bool isExample)
     QCString title;
     if (!pd->title().isEmpty() && pd->title().lower()!="notitle")
     {
-      title = filterTitle(Doxygen::mainPage->title());
+      title = filterTitle(convertCharEntitiesToUTF8(Doxygen::mainPage->title()));
     }
     else 
     {
       title = Config_getString("PROJECT_NAME");
     }
-    t << "    <title>" << convertToXML(title) << "</title>" << endl;
+    t << "    <title>" << convertToXML(convertCharEntitiesToUTF8(title)) 
+      << "</title>" << endl;
   }
   else
   {
     SectionInfo *si = Doxygen::sectionDict->find(pd->name());
     if (si)
     {
-      t << "    <title>" << convertToXML(si->title) << "</title>" << endl;
+      t << "    <title>" << convertToXML(convertCharEntitiesToUTF8(si->title)) 
+        << "</title>" << endl;
     }
   }
   writeInnerPages(pd->getSubPages(),t);
