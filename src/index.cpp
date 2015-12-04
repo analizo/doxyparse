@@ -81,13 +81,16 @@ void countRelatedPages(int &docPages,int &indexPages);
 
 void countDataStructures()
 {
-  annotatedClasses           = countAnnotatedClasses();
-  hierarchyClasses           = countClassHierarchy();
-  countFiles(documentedHtmlFiles,documentedFiles);
-  countRelatedPages(documentedPages,indexedPages);
-  documentedGroups           = countGroups();
-  documentedNamespaces       = countNamespaces();
-  documentedDirs             = countDirs();
+  annotatedClasses           = countAnnotatedClasses(); // "classes" + "annotated"
+  hierarchyClasses           = countClassHierarchy();   // "hierarchy"
+  countFiles(documentedHtmlFiles,documentedFiles);      // "files"
+  countRelatedPages(documentedPages,indexedPages);      // "pages"
+  documentedGroups           = countGroups();           // "modules"
+  documentedNamespaces       = countNamespaces();       // "namespaces"
+  documentedDirs             = countDirs();             // "dirs"
+  // "globals"
+  // "namespacemembers"
+  // "functions"
 }
 
 static void startIndexHierarchy(OutputList &ol,int level)
@@ -131,7 +134,7 @@ class MemberIndexList : public QList<MemberDef>
     }
 };
 
-#define MEMBER_INDEX_ENTRIES 128
+#define MEMBER_INDEX_ENTRIES 256
 
 static MemberIndexList g_memberIndexLetterUsed[CMHL_Total][MEMBER_INDEX_ENTRIES];
 static MemberIndexList g_fileIndexLetterUsed[FMHL_Total][MEMBER_INDEX_ENTRIES];
@@ -1573,7 +1576,8 @@ void addClassMemberNameToIndex(MemberDef *md)
   {
     QCString n = md->name();
     int index = getPrefixIndex(n);
-    int letter = tolower(n.at(index)) & 0x7f;
+    uchar charCode = (uchar)n.at(index);
+    uint letter = charCode<128 ? tolower(charCode) : charCode;
     if (!n.isEmpty()) 
     {
       bool isFriendToHide = hideFriendCompounds &&
@@ -1653,7 +1657,8 @@ void addNamespaceMemberNameToIndex(MemberDef *md)
   {
     QCString n = md->name();
     int index = getPrefixIndex(n);
-    int letter = tolower(n.at(index));
+    uchar charCode = (uchar)n.at(index);
+    uint letter = charCode<128 ? tolower(charCode) : charCode;
     if (!n.isEmpty()) 
     {
       g_namespaceIndexLetterUsed[NMHL_All][letter].append(md);
@@ -1711,7 +1716,8 @@ void addFileMemberNameToIndex(MemberDef *md)
   {
     QCString n = md->name();
     int index = getPrefixIndex(n);
-    int letter = tolower(n.at(index));
+    uchar charCode = (uchar)n.at(index);
+    uint letter = charCode<128 ? tolower(charCode) : charCode;
     if (!n.isEmpty()) 
     {
       g_fileIndexLetterUsed[FMHL_All][letter].append(md);
@@ -2199,7 +2205,10 @@ void writeNamespaceMemberIndex(OutputList &ol)
 class SearchIndexList : public SDict< QList<Definition> >
 {
   public:
-    SearchIndexList(int size=17) : SDict< QList<Definition> >(size,FALSE) {}
+    SearchIndexList(int size=17) : SDict< QList<Definition> >(size,FALSE) 
+    {
+      setAutoDelete(TRUE);
+    }
    ~SearchIndexList() {}
     void append(Definition *d)
     {
@@ -2237,7 +2246,8 @@ static void addMemberToSearchIndex(
       cd->templateMaster()==0)
   {
     QCString n = md->name();
-    int letter = tolower(n.at(0)) & 0x7f;
+    uchar charCode = (uchar)n.at(0);
+    uint letter = charCode<128 ? tolower(charCode) : charCode;
     if (!n.isEmpty()) 
     {
       bool isFriendToHide = hideFriendCompounds &&
@@ -2299,7 +2309,8 @@ static void addMemberToSearchIndex(
      )
   {
     QCString n = md->name();
-    int letter = tolower(n.at(0)) & 0x7f;
+    uchar charCode = (uchar)n.at(0);
+    uint letter = charCode<128 ? tolower(charCode) : charCode;
     if (!n.isEmpty()) 
     {
       symbols[SEARCH_INDEX_ALL][letter].append(md);
@@ -2403,7 +2414,7 @@ class SearchIndexCategoryMapping
     QString categoryLabel[NUM_SEARCH_INDICES];
 };
 
-void writeSearchIndex()
+void writeJavascriptSearchIndex()
 {
   if (!Config_getBool("GENERATE_HTML")) return;
   static bool treeView = Config_getBool("GENERATE_TREEVIEW");
@@ -2412,7 +2423,8 @@ void writeSearchIndex()
   ClassDef *cd;
   for (;(cd=cli.current());++cli)
   {
-    int letter = tolower(cd->localName().at(0));
+    uchar charCode = (uchar)cd->localName().at(0);
+    uint letter = charCode<128 ? tolower(charCode) : charCode;
     if (cd->isLinkable() && isId(letter))
     {
       g_searchIndexSymbols[SEARCH_INDEX_ALL][letter].append(cd);
@@ -2425,7 +2437,8 @@ void writeSearchIndex()
   NamespaceDef *nd;
   for (;(nd=nli.current());++nli)
   {
-    int letter = tolower(nd->name().at(0));
+    uchar charCode = (uchar)nd->name().at(0);
+    uint letter = charCode<128 ? tolower(charCode) : charCode;
     if (nd->isLinkable() && isId(letter))
     {
       g_searchIndexSymbols[SEARCH_INDEX_ALL][letter].append(nd);
@@ -2442,7 +2455,8 @@ void writeSearchIndex()
     FileDef *fd;
     for (;(fd=fni.current());++fni)
     {
-      int letter = tolower(fd->name().at(0));
+      uchar charCode = (uchar)fd->name().at(0);
+      uint letter = charCode<128 ? tolower(charCode) : charCode;
       if (fd->isLinkable() && isId(letter))
       {
         g_searchIndexSymbols[SEARCH_INDEX_ALL][letter].append(fd);
@@ -2495,17 +2509,7 @@ void writeSearchIndex()
     }
   }
 
-  //ol.pushGeneratorState();
-  //ol.disableAllBut(OutputGenerator::Html);
-  QCString htmlDirName = Config_getString("HTML_OUTPUT")+"/search";
-  QDir htmlDir(htmlDirName);
-  if (!htmlDir.exists() && !htmlDir.mkdir(htmlDirName))
-  {
-    err("Could not create search results directory '%s/search'\n",htmlDirName.data());
-    return;
-  }
-
-  HtmlGenerator::writeSearchData(htmlDirName);
+  QCString searchDirName = Config_getString("HTML_OUTPUT")+"/search";
 
   for (i=0;i<NUM_SEARCH_INDICES;i++)
   {
@@ -2515,7 +2519,7 @@ void writeSearchIndex()
       {
         QCString fileName;
         fileName.sprintf("/%s_%02x.html",g_searchIndexName[i],p);
-        fileName.prepend(htmlDirName);
+        fileName.prepend(searchDirName);
         QFile outFile(fileName);
         if (outFile.open(IO_WriteOnly))
         {
@@ -2523,6 +2527,7 @@ void writeSearchIndex()
           t << "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\""
                " \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">" << endl;
           t << "<html><head><title></title>" << endl;
+          t << "<meta http-equiv=\"Content-Type\" content=\"text/xhtml;charset=UTF-8\"/>" << endl;
           t << "<link rel=\"stylesheet\" type=\"text/css\" href=\"search.css\"/>" << endl;
           t << "<script type=\"text/javascript\" src=\"search.js\"></script>" << endl;
           t << "</head>" << endl;
@@ -2552,17 +2557,30 @@ void writeSearchIndex()
                 << "return searchResults.Nav(event," << itemCount << ")\" "
                 << "onkeyup=\""
                 << "return searchResults.Nav(event," << itemCount << ")\" "
-                << "class=\"SRSymbol\" href=\"../" 
-                << d->getOutputFileBase() << Doxygen::htmlFileExtension;
+                << "class=\"SRSymbol\" ";
+              if (!d->getReference().isEmpty())
+              {
+                QCString *dest;
+                t << "doxygen=\"" << d->getReference() << ":../";
+                if ((dest=Doxygen::tagDestinationDict[d->getReference()])) t << *dest << "/";
+                t << "\" ";
+                t << "href=\"../";
+                if ((dest=Doxygen::tagDestinationDict[d->getReference()])) t << *dest << "/";
+              }
+              else
+              {
+                t << "href=\"../";
+              }
+              t << d->getOutputFileBase() << Doxygen::htmlFileExtension;
               if (isMemberDef)
               {
                 t << "#" << ((MemberDef *)d)->anchor();
               }
               t << "\" target=\""; 
               if (treeView) t << "basefrm"; else t << "_parent"; 
-              t << "\">" 
-                << convertToXML(d->localName())
-                << "</a>" << endl;
+              t << "\">";
+              t << convertToXML(d->localName());
+              t << "</a>" << endl;
               if (d->getOuterScope()!=Doxygen::globalScope)
               {
                 t << "  <span class=\"SRScope\">" 
@@ -2622,8 +2640,21 @@ void writeSearchIndex()
                   << "onkeyup=\""
                   << "return searchResults.NavChild(event," 
                   << itemCount << "," << childCount << ")\" "
-                  << "class=\"SRScope\" href=\"../" << 
-                  d->getOutputFileBase() << Doxygen::htmlFileExtension;
+                  << "class=\"SRScope\" ";
+                if (!d->getReference().isEmpty())
+                {
+                  QCString *dest;
+                  t << "doxygen=\"" << d->getReference() << ":../";
+                  if ((dest=Doxygen::tagDestinationDict[d->getReference()])) t << *dest << "/";
+                  t << "\" ";
+                  t << "href=\"../";
+                  if ((dest=Doxygen::tagDestinationDict[d->getReference()])) t << *dest << "/";
+                }
+                else
+                {
+                  t << "href=\"../";
+                }
+                t << d->getOutputFileBase() << Doxygen::htmlFileExtension;
                 if (isMemberDef)
                 {
                   t << "#" << ((MemberDef *)d)->anchor();
@@ -2726,7 +2757,7 @@ void writeSearchIndex()
   //ol.popGeneratorState();
 
   {
-    QFile f(htmlDirName+"/search.js");
+    QFile f(searchDirName+"/search.js");
     if (f.open(IO_WriteOnly))
     {
       QTextStream t(&f);
@@ -2745,7 +2776,7 @@ void writeSearchIndex()
         {
           if (!first) t << "," << endl;
           t << "  " << j << ": \"";
-          for (p=32;p<MEMBER_INDEX_ENTRIES;p++)
+          for (p=0;p<MEMBER_INDEX_ENTRIES;p++)
           {
             t << (g_searchIndexSymbols[i][p].count()>0 ? "1" : "0");
           }
@@ -2776,21 +2807,14 @@ void writeSearchIndex()
     }
   }
   {
-    QFile f(htmlDirName+"/search.css");
-    if (f.open(IO_WriteOnly))
-    {
-      QTextStream t(&f);
-      t << search_styleSheet;
-    }
-  }
-  {
-    QFile f(htmlDirName+"/nomatches.html");
+    QFile f(searchDirName+"/nomatches.html");
     if (f.open(IO_WriteOnly))
     {
       QTextStream t(&f);
       t << "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" "
            "\"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">" << endl;
       t << "<html><head><title></title>" << endl;
+      t << "<meta http-equiv=\"Content-Type\" content=\"text/xhtml;charset=UTF-8\"/>" << endl;
       t << "<link rel=\"stylesheet\" type=\"text/css\" href=\"search.css\"/>" << endl;
       t << "<script type=\"text/javascript\" src=\"search.js\"></script>" << endl;
       t << "</head>" << endl;
@@ -2803,6 +2827,19 @@ void writeSearchIndex()
       t << "</html>" << endl;
     }
   }
+  Doxygen::indexList.addStyleSheetFile("search/search.js");
+}
+
+void writeSearchStyleSheet()
+{
+  QCString searchDirName = Config_getString("HTML_OUTPUT")+"/search";
+  QFile f(searchDirName+"/search.css");
+  if (f.open(IO_WriteOnly))
+  {
+    QTextStream t(&f);
+    t << search_styleSheet;
+  }
+  Doxygen::indexList.addStyleSheetFile("search/search.css");
 }
 
 void writeSearchCategories(QTextStream &t)
@@ -2855,7 +2892,7 @@ void writeExampleIndex(OutputList &ol)
     if (!pd->title().isEmpty())
     {
       ol.writeObjectLink(0,n,0,pd->title());
-      Doxygen::indexList.addContentsItem(FALSE,pd->title(),pd->getReference(),n,0);
+      Doxygen::indexList.addContentsItem(FALSE,filterTitle(pd->title()),pd->getReference(),n,0);
     }
     else
     {
@@ -2968,7 +3005,7 @@ void writePageIndex(OutputList &ol)
         ol.endTypewriter();
       }
       ol.writeString("\n");
-      Doxygen::indexList.addContentsItem(hasSubPages,pageTitle,pd->getReference(),pd->getOutputFileBase(),0);
+      Doxygen::indexList.addContentsItem(hasSubPages,filterTitle(pageTitle),pd->getReference(),pd->getOutputFileBase(),0);
       writeSubPages(pd);
       ol.endIndexListItem();
     }
@@ -3511,7 +3548,7 @@ void writeIndex(OutputList &ol)
   }
   else 
   {
-    title = substitute(Doxygen::mainPage->title(),"%","");
+    title = filterTitle(Doxygen::mainPage->title());
   }
 
   QCString indexName=Config_getBool("GENERATE_TREEVIEW")?"main":"index";
@@ -3539,7 +3576,9 @@ void writeIndex(OutputList &ol)
   {
     if (Doxygen::mainPage->title().lower()!="notitle")
     {
-      ol.docify(Doxygen::mainPage->title());
+      ol.parseDoc(Doxygen::mainPage->docFile(),Doxygen::mainPage->docLine(),
+                  Doxygen::mainPage,0,Doxygen::mainPage->title(),
+                  TRUE,FALSE,0,TRUE,FALSE);
     }
   }
   else

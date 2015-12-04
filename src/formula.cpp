@@ -266,7 +266,7 @@ void FormulaList::generateBitmaps(const char *path)
               dstImage.setPixel(x,y,QMIN(15,(c*15)/(16*10)));
             }
           }
-          // save the result as a png
+          // save the result as a bitmap
           QCString resultName;
           resultName.sprintf("form_%d.png",pageNum);
           // the option parameter 1 is used here as a temporary hack
@@ -289,8 +289,8 @@ void FormulaList::generateBitmaps(const char *path)
   // remove the latex file itself
   if (!formulaError) thisDir.remove("_formulas.tex");
   // write/update the formula repository so we know what text the 
-  // generated pngs represent (we use this next time to avoid regeneration
-  // of the pngs, and to avoid forcing the user to delete all pngs in order
+  // generated images represent (we use this next time to avoid regeneration
+  // of the images, and to avoid forcing the user to delete all images in order
   // to let a browser refresh the images).
   f.setName("formula.repository");
   if (f.open(IO_WriteOnly))

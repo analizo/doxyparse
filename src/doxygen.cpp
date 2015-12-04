@@ -1,8 +1,5 @@
 /******************************************************************************
  *
- * 
- *
- *
  * Copyright (C) 1997-2008 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
@@ -78,6 +75,8 @@
 #include "marshal.h"
 #include "portable.h"
 #include "vhdlscanner.h"
+#include "vhdldocgen.h"
+#include "eclipsehelp.h"
 
 #include "layout.h"
 
@@ -124,7 +123,7 @@ NamespaceDef    *Doxygen::globalScope = 0;
 QDict<RefList>  *Doxygen::xrefLists = new QDict<RefList>; // dictionary of cross-referenced item lists
 bool             Doxygen::parseSourcesNeeded = FALSE;
 QTime            Doxygen::runningTime;
-//SearchIndex *    Doxygen::searchIndex=0;
+SearchIndex *    Doxygen::searchIndex=0;
 QDict<DefinitionIntf> *Doxygen::symbolMap;
 bool             Doxygen::outputToWizard=FALSE;
 QDict<int> *     Doxygen::htmlDirMap = 0;
@@ -711,18 +710,31 @@ static void addIncludeFile(ClassDef *cd,FileDef *ifd,Entry *root)
   { 
     //printf(">>>>>> includeFile=%s\n",root->includeFile.data());
 
+    bool local=Config_getBool("FORCE_LOCAL_INCLUDES");
+    QCString includeFile = root->includeFile;
+    if (!includeFile.isEmpty() && includeFile.at(0)=='"')
+    {
+      local = TRUE;
+      includeFile=includeFile.mid(1,includeFile.length()-2);
+    }
+    else if (!includeFile.isEmpty() && includeFile.at(0)=='<')
+    {
+      local = FALSE;
+      includeFile=includeFile.mid(1,includeFile.length()-2);
+    }
+
     bool ambig;
     FileDef *fd=0;
     // see if we need to include a verbatim copy of the header file
     //printf("root->includeFile=%s\n",root->includeFile.data());
-    if (!root->includeFile.isEmpty() && 
-        (fd=findFileDef(Doxygen::inputNameDict,root->includeFile,ambig))==0
+    if (!includeFile.isEmpty() && 
+        (fd=findFileDef(Doxygen::inputNameDict,includeFile,ambig))==0
        )
     { // explicit request
       QCString text;
       text.sprintf("Warning: the name `%s' supplied as "
                   "the argument of the \\class, \\struct, \\union, or \\include command ",
-                  root->includeFile.data()
+                  includeFile.data()
                  );
       if (ambig) // name is ambigious
       {
@@ -737,7 +749,7 @@ static void addIncludeFile(ClassDef *cd,FileDef *ifd,Entry *root)
       }
       warn(root->fileName,root->startLine,text);
     }
-    else if (root->includeFile.isEmpty() && ifd &&
+    else if (includeFile.isEmpty() && ifd &&
         // see if the file extension makes sense
         guessSection(ifd->name())==Entry::HEADER_SEC)
     { // implicit assumption
@@ -748,14 +760,17 @@ static void addIncludeFile(ClassDef *cd,FileDef *ifd,Entry *root)
     if (fd)
     {
       QCString iName = !root->includeName.isEmpty() ? 
-                       root->includeName.data() : root->includeFile.data();
-      bool local=FALSE;
+                       root->includeName : includeFile;
       if (!iName.isEmpty()) // user specified include file
       {
-        local = iName.at(0)=='"'; // is it a local include file
-        if (local || iName.at(0)=='<')
+        if (iName.at(0)=='<') local=FALSE; // explicit override
+        if (iName.at(0)=='"' || iName.at(0)=='<')
         {
           iName=iName.mid(1,iName.length()-2); // strip quotes or brackets
+        }
+        if (iName.isEmpty())
+        {
+          iName=fd->name();
         }
       }
       else if (!Config_getList("STRIP_FROM_INC_PATH").isEmpty()) 
@@ -4078,12 +4093,12 @@ static bool findClassRelation(
 
   QCString biName=bi->name;
   bool explicitGlobalScope=FALSE;
+  //printf("findClassRelation: biName=`%s'\n",biName.data());
   if (biName.left(2)=="::") // explicit global scope
   {
      biName=biName.right(biName.length()-2);
      explicitGlobalScope=TRUE;
   }
-  //printf("biName=`%s'\n",biName.data());
 
   EntryNav *parentNode=rootNav->parent();
   bool lastParent=FALSE;
@@ -4108,7 +4123,7 @@ static bool findClassRelation(
       //                    &stripped);
       MemberDef *baseClassTypeDef=0;
       QCString templSpec;
-      ClassDef *baseClass=getResolvedClass(explicitGlobalScope ? 0 : cd,
+      ClassDef *baseClass=getResolvedClass(explicitGlobalScope ? Doxygen::globalScope : context,
                                            cd->getFileDef(), 
                                            baseClassName,
                                            &baseClassTypeDef,
@@ -4154,7 +4169,7 @@ static bool findClassRelation(
           {
             templSpec=removeRedundantWhiteSpace(baseClassName.mid(i,e-i));
             baseClassName=baseClassName.left(i)+baseClassName.right(baseClassName.length()-e);
-            baseClass=getResolvedClass(cd,
+            baseClass=getResolvedClass(explicitGlobalScope ? Doxygen::globalScope : context,
                                        cd->getFileDef(),
                                        baseClassName,
                                        &baseClassTypeDef,
@@ -4190,7 +4205,7 @@ static bool findClassRelation(
           QCString tmpTemplSpec;
           // replace any namespace aliases
           replaceNamespaceAliases(baseClassName,si);
-          baseClass=getResolvedClass(cd,
+          baseClass=getResolvedClass(explicitGlobalScope ? Doxygen::globalScope : context,
                                      cd->getFileDef(),
                                      baseClassName,
                                      &baseClassTypeDef,
@@ -4236,8 +4251,15 @@ static bool findClassRelation(
           // relations.
           if (!templSpec.isEmpty() && mode==TemplateInstances)
           {
-            //printf("       => findTemplateInstanceRelation\n");
-            findTemplateInstanceRelation(root,context,baseClass,templSpec,templateNames,isArtificial);
+            // if baseClass is actually a typedef then we should not
+            // instantiate it, since typedefs are in a different namespace
+            // see bug531637 for an example where this would otherwise hang
+            // doxygen
+            if (baseClassTypeDef==0)
+            {
+              //printf("       => findTemplateInstanceRelation: %p\n",baseClassTypeDef);
+              findTemplateInstanceRelation(root,context,baseClass,templSpec,templateNames,isArtificial);
+            }
           }
           else if (mode==DocumentedOnly || mode==Undocumented)
           {
@@ -4648,8 +4670,9 @@ static void addListReferences()
     {
       LockingPtr< QList<ListItemInfo> > xrefItems = pd->xrefListItems();
       addRefItem(xrefItems.pointer(),
+          name,
           theTranslator->trPage(TRUE,TRUE),
-          name,pd->title());
+          name,pd->title(),0);
     }
   }
   DirSDict::Iterator ddi(*Doxygen::directories);
@@ -4663,8 +4686,9 @@ static void addListReferences()
     //}
     LockingPtr< QList<ListItemInfo> > xrefItems = dd->xrefListItems();
     addRefItem(xrefItems.pointer(),
+        name,
         theTranslator->trDir(TRUE,TRUE),
-        name,dd->displayName());
+        name,dd->displayName(),0);
   }
 }
 
@@ -6330,6 +6354,7 @@ static void findEnums(EntryNav *rootNav)
       md->setMemberGroupId(root->mGrpId);
       md->enableCallGraph(root->callGraph);
       md->enableCallerGraph(root->callerGraph);
+      //printf("%s::setRefItems(%d)\n",md->name().data(),root->sli?root->sli->count():-1);
       md->setRefItems(root->sli);
       //printf("found enum %s nd=%p\n",name.data(),nd);
       bool defSet=FALSE;
@@ -6755,8 +6780,9 @@ static void findEnumDocumentation(EntryNav *rootNav)
               {
                 md->setMemberGroupId(root->mGrpId);
               }
-              
+
               md->addSectionsToDefinition(root->anchors);
+              md->setRefItems(root->sli);
 
               GroupDef *gd=md->getGroupDef();
               if (gd==0 &&root->groups->first()!=0) // member not grouped but out-of-line documentation is
@@ -6921,17 +6947,17 @@ static void computeMemberRelations()
         {
           ClassDef *bmcd = bmd->getClassDef();
           //printf("Check relation between `%s'::`%s' (%p) and `%s'::`%s' (%p)\n",
-          //       mcd->name().data(),md->name().data(),md,
+          //      mcd->name().data(),md->name().data(),md,
           //       bmcd->name().data(),bmd->name().data(),bmd
           //      );
           if (md!=bmd && bmcd && mcd && bmcd!=mcd && mcd->isBaseClass(bmcd,TRUE))
           {
-            //printf(" Base argList=`%s'\n Super argList=`%s'\n",
-            //        argListToString(bmd->argumentList()).data(),
-            //        argListToString(md->argumentList()).data()
-            //      );
             LockingPtr<ArgumentList> bmdAl = bmd->argumentList();
             LockingPtr<ArgumentList>  mdAl =  md->argumentList();
+            //printf(" Base argList=`%s'\n Super argList=`%s'\n",
+            //        argListToString(bmdAl.pointer()).data(),
+            //        argListToString(mdAl.pointer()).data()
+            //      );
             if ( 
                 matchArguments2(bmd->getOuterScope(),bmd->getFileDef(),bmdAl.pointer(),
                   md->getOuterScope(), md->getFileDef(), mdAl.pointer(),
@@ -7780,9 +7806,13 @@ static void buildPageList(EntryNav *rootNav)
 
     QCString title=root->args.stripWhiteSpace();
     if (title.isEmpty()) title=theTranslator->trMainPage();
-    addRefItem(root->sli,"page",
-               Config_getBool("GENERATE_TREEVIEW")?"main":"index",
-               title
+    QCString name = Config_getBool("GENERATE_TREEVIEW")?"main":"index";
+    addRefItem(root->sli,
+               name,
+               "page",
+               name,
+               title,
+               0
                );
 
     rootNav->releaseEntry();
@@ -8420,113 +8450,6 @@ static bool patternMatch(QFileInfo *fi,QStrList *patList)
   return found;
 }
 
-static int transcodeCharacterBuffer(BufStr &srcBuf,int size,
-           const char *inputEncoding,const char *outputEncoding)
-{
-  if (inputEncoding==0 || outputEncoding==0) return size;
-  if (qstricmp(inputEncoding,outputEncoding)==0) return size;
-  void *cd = portable_iconv_open(outputEncoding,inputEncoding);
-  if (cd==(void *)(-1)) 
-  {
-    err("Error: unsupported character conversion: '%s'->'%s': %s\n"
-        "Check the INPUT_ENCODING setting in the config file!\n",
-        inputEncoding,outputEncoding,strerror(errno));
-    exit(1);
-  }
-  int tmpBufSize=size*4+1;
-  BufStr tmpBuf(tmpBufSize);
-  size_t iLeft=size;
-  size_t oLeft=tmpBufSize;
-  const char *srcPtr = srcBuf.data();
-  char *dstPtr = tmpBuf.data();
-  uint newSize=0;
-  if (!portable_iconv(cd, &srcPtr, &iLeft, &dstPtr, &oLeft))
-  {
-    newSize = tmpBufSize-oLeft;
-    srcBuf.shrink(newSize);
-    strncpy(srcBuf.data(),tmpBuf.data(),newSize);
-    //printf("iconv: input size=%d output size=%d\n[%s]\n",size,newSize,srcBuf.data());
-  }
-  else
-  {
-    err("Error: failed to translate characters from %s to %s: check INPUT_ENCODING\n",
-        inputEncoding,outputEncoding);
-    exit(1);
-  }
-  portable_iconv_close(cd);
-  return newSize;
-}
-
-//----------------------------------------------------------------------------
-// reads a file into an array and filters out any 0x00 and 0x06 bytes,
-// because these are special for the parser.
-
-void copyAndFilterFile(const char *fileName,BufStr &dest)
-{
-  // try to open file
-  int size=0;
-  //uint oldPos = dest.curPos();
-  //printf(".......oldPos=%d\n",oldPos);
-
-  QFileInfo fi(fileName);
-  if (!fi.exists()) return;
-  QCString filterName = getFileFilter(fileName);
-  if (filterName.isEmpty())
-  {
-    QFile f(fileName);
-    if (!f.open(IO_ReadOnly))
-    {
-      err("Error: could not open file %s\n",fileName);
-      return;
-    }
-    size=fi.size();
-    // read the file
-    dest.skip(size);
-    if (f.readBlock(dest.data()/*+oldPos*/,size)!=size)
-    {
-      err("Error while reading file %s\n",fileName);
-      return;
-    }
-  }
-  else
-  {
-    QCString cmd=filterName+" \""+fileName+"\"";
-    Debug::print(Debug::ExtCmd,0,"Executing popen(`%s`)\n",cmd.data());
-    FILE *f=portable_popen(cmd,"r");
-    if (!f)
-    {
-      err("Error: could not execute filter %s\n",filterName.data());
-      return;
-    }
-    const int bufSize=1024;
-    char buf[bufSize];
-    int numRead;
-    while ((numRead=fread(buf,1,bufSize,f))>0) 
-    {
-      //printf(">>>>>>>>Reading %d bytes\n",numRead);
-      dest.addArray(buf,numRead),size+=numRead;
-    }
-    portable_pclose(f);
-  }
-  // filter unwanted bytes from the resulting data
-  uchar conv[256];
-  int i;
-  for (i=0;i<256;i++) conv[i]=i;
-  conv[0x06]=0x20; // replace the offending characters with spaces
-  conv[0x00]=0x20;
-  // remove any special markers from the input
-  uchar *p=(uchar *)dest.data()/*+oldPos*/;
-  for (i=0;i<size;i++,p++) *p=conv[*p];
-  // and translate CR's
-  int newSize=filterCRLF(dest.data()/*+oldPos*/,size);
-  //printf("filter char at %p size=%d newSize=%d\n",dest.data()+oldPos,size,newSize);
-  if (newSize!=size) // we removed chars
-  {
-    dest.shrink(/*oldPos+*/newSize); // resize the array
-    //printf(".......resizing from %d to %d result=[%s]\n",oldPos+size,oldPos+newSize,dest.data());
-  }
-}
-
 //----------------------------------------------------------------------------
 static void copyStyleSheet()
 {
@@ -8560,8 +8483,11 @@ static void copyStyleSheet()
   }
 }
 
+
+//! parse the list of input files
 static void parseFiles(Entry *root,EntryNav *rootNav)
 {
+#if 0
   void *cd = 0;
   QCString inpEncoding = Config_getString("INPUT_ENCODING");
   bool needsTranscoding = !inpEncoding.isEmpty();
@@ -8573,6 +8499,7 @@ static void parseFiles(Entry *root,EntryNav *rootNav)
        exit(1);
     }
   }
+#endif
 
   QCString *s=g_inputFiles.first();
   while (s)
@@ -8585,25 +8512,20 @@ static void parseFiles(Entry *root,EntryNav *rootNav)
 
     QFileInfo fi(fileName);
     BufStr preBuf(fi.size()+4096);
-    //BufStr *bufPtr = &preBuf;
 
     if (Config_getBool("ENABLE_PREPROCESSING") && 
         parser->needsPreprocessing(extension))
     {
+      BufStr inBuf(fi.size()+4096);
       msg("Preprocessing %s...\n",s->data());
-      preprocessFile(fileName,preBuf);
+      readInputFile(fileName,inBuf);
+      preprocessFile(fileName,inBuf,preBuf);
     }
-    else
+    else // no preprocessing
     {
       msg("Reading %s...\n",s->data());
-      copyAndFilterFile(fileName,preBuf);
+      readInputFile(fileName,preBuf);
     }
-
-    preBuf.addChar('\n'); /* to prevent problems under Windows ? */
-
-    // do character transcoding if needed.
-    transcodeCharacterBuffer(preBuf,preBuf.curPos(),
-                             Config_getString("INPUT_ENCODING"),"UTF-8");
 
     BufStr convBuf(preBuf.curPos()+1024);
 
@@ -9909,6 +9831,29 @@ void parseInput()
   if (generateMan)
     manOutput = createOutputDirectory(outputDirectory,"MAN_OUTPUT","/man");
 
+
+  if (Config_getBool("HAVE_DOT"))
+  {
+    QCString curFontPath = Config_getString("DOT_FONTPATH");
+    if (curFontPath.isEmpty())
+    {
+      portable_getenv("DOTFONTPATH");
+      QCString newFontPath = ".";
+      if (!curFontPath.isEmpty())
+      {
+        newFontPath+=portable_pathListSeparator();
+        newFontPath+=curFontPath;
+      }
+      portable_setenv("DOTFONTPATH",newFontPath);
+    }
+    else
+    {
+      portable_setenv("DOTFONTPATH",curFontPath);
+    }
+  }
+
+
+
   /**************************************************************************
    *             Handle layout file                                         *
    **************************************************************************/
@@ -10100,14 +10045,14 @@ void parseInput()
   msg("Computing class relations...\n");
   computeTemplateClassRelations(); 
   flushUnresolvedRelations();
-  //if (Config_getBool("OPTIMIZE_OUTPUT_VHDL"))
-  //{
-  //  VhdlDocGen::computeVhdlComponentRelations(g_classEntries,g_storage);
-  //}
-  //else
-  //{
+  if (Config_getBool("OPTIMIZE_OUTPUT_VHDL"))
+  {
+    VhdlDocGen::computeVhdlComponentRelations();
+  }
+  else
+  {
     computeClassRelations();        
-  //}
+  }
   g_classEntries.clear();          
 
   msg("Add enum values to enums...\n");
@@ -10245,13 +10190,19 @@ void generateOutput()
   {
     g_outputList->add(new HtmlGenerator);
     HtmlGenerator::init();
-    if (Config_getBool("GENERATE_HTMLHELP")) Doxygen::indexList.addIndex(new HtmlHelp);
-    if (Config_getBool("GENERATE_QHP")) Doxygen::indexList.addIndex(new Qhp);
 #if 0
     if (Config_getBool("GENERATE_INDEXLOG")) Doxygen::indexList.addIndex(new IndexLog);
 #endif
-    if (Config_getBool("GENERATE_TREEVIEW")) Doxygen::indexList.addIndex(new FTVHelp);
-    if (Config_getBool("GENERATE_DOCSET"))   Doxygen::indexList.addIndex(new DocSets);
+    bool generateHtmlHelp = Config_getBool("GENERATE_HTMLHELP");
+    bool generateEclipseHelp = Config_getBool("GENERATE_ECLIPSEHELP");
+    bool generateQhp      = Config_getBool("GENERATE_QHP");
+    bool generateTreeView = Config_getBool("GENERATE_TREEVIEW");
+    bool generateDocSet   = Config_getBool("GENERATE_DOCSET");
+    if (generateEclipseHelp) Doxygen::indexList.addIndex(new EclipseHelp);
+    if (generateHtmlHelp) Doxygen::indexList.addIndex(new HtmlHelp);
+    if (generateQhp)      Doxygen::indexList.addIndex(new Qhp);
+    if (generateTreeView) Doxygen::indexList.addIndex(new FTVHelp);
+    if (generateDocSet)   Doxygen::indexList.addIndex(new DocSets);
     Doxygen::indexList.initialize();
     Doxygen::indexList.addImageFile("tab_r.gif");
     Doxygen::indexList.addImageFile("tab_l.gif");
@@ -10330,12 +10281,30 @@ void generateOutput()
   g_outputList->writeStyleInfo(4); // write last part
   g_outputList->enableAll();
   
+  static bool searchEngine      = Config_getBool("SEARCHENGINE");
+  static bool serverBasedSearch = Config_getBool("SERVER_BASED_SEARCH");
+
   // generate search indices (need to do this before writing other HTML
   // pages as these contain a drop down menu with options depending on
   // what categories we find in this function.
-  if (Config_getBool("SEARCHENGINE"))
+  if (searchEngine)
   {
-    writeSearchIndex();
+    QCString searchDirName = Config_getString("HTML_OUTPUT")+"/search";
+    QDir searchDir(searchDirName);
+    if (!searchDir.exists() && !searchDir.mkdir(searchDirName))
+    {
+      err("Could not create search results directory '%s/search'\n",searchDirName.data());
+      return;
+    }
+    HtmlGenerator::writeSearchData(searchDirName);
+    writeSearchStyleSheet();
+    if (serverBasedSearch)
+    {
+    }
+    else
+    {
+      writeJavascriptSearchIndex();
+    }
   }
 
   //statistics();
@@ -10485,26 +10454,6 @@ void generateOutput()
     }
     QDir::setCurrent(oldDir);
   }
-#if 0
-  if ( Config_getBool("GENERATE_HTMLHELP") && 
-      !Config_getString("DOXYGEN2QTHELP_LOC").isEmpty() && 
-      !Config_getString("QTHELP_CONFIG").isEmpty())
-  {
-    msg("Running doxygen2qthelp...\n");
-    const QCString qtHelpFile = Config_getString("QTHELP_FILE");
-    const QCString args = QCString().sprintf("--config=%s index.hhp%s%s",
-        Config_getString("QTHELP_CONFIG").data(),
-        (qtHelpFile.isEmpty() ? "" : " "), (qtHelpFile.isEmpty() ? "" : qtHelpFile.data()));
-    
-    const QString oldDir = QDir::currentDirPath();
-    QDir::setCurrent(Config_getString("HTML_OUTPUT"));
-    if (portable_system(Config_getString("DOXYGEN2QTHELP_LOC"), args.data(), FALSE))
-    {
-      err("Error: failed to run doxygen2qthelp on index.hhp\n");
-    }
-    QDir::setCurrent(oldDir);
-  }
-#endif
   if ( Config_getBool("GENERATE_HTML") &&
        Config_getBool("GENERATE_QHP") && 
       !Config_getString("QHG_LOCATION").isEmpty())
@@ -10523,14 +10472,12 @@ void generateOutput()
     QDir::setCurrent(oldDir);
   }
 
-#if 0 // old PHP based search engine
-  if (Config_getBool("SEARCHENGINE"))
+  if (Config_getBool("GENERATE_HTML") && searchEngine && serverBasedSearch)
   {
     msg("Generating search index\n");
     HtmlGenerator::writeSearchPage();
-    Doxygen::searchIndex->write(Config_getString("HTML_OUTPUT")+"/search.idx");
+    Doxygen::searchIndex->write(Config_getString("HTML_OUTPUT")+"/search/search.idx");
   }
-#endif
 
   if (Debug::isFlagSet(Debug::Time))
   {

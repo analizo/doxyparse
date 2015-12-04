@@ -1193,11 +1193,11 @@ void Config::check()
   {
     dotImageFormat = "png";
   }
-  else if (dotImageFormat!="gif" && dotImageFormat!="png" && dotImageFormat!="jpg")
-  {
-    config_err("Invalid value for DOT_IMAGE_FORMAT: `%s'. Using the default.\n",dotImageFormat.data());
-    dotImageFormat = "png";
-  }
+  //else if (dotImageFormat!="gif" && dotImageFormat!="png" && dotImageFormat!="jpg")
+  //{
+  //  config_err("Invalid value for DOT_IMAGE_FORMAT: `%s'. Using the default.\n",dotImageFormat.data());
+  //  dotImageFormat = "png";
+  //}
   
   
   // check dot path
@@ -1361,57 +1361,16 @@ void Config::check()
   // check QHP creation requirements
   if (Config_getBool("GENERATE_QHP"))
   {
-    bool qhp=TRUE;
-    if (!Config_getBool("GENERATE_HTML"))
-    {
-      config_err("Error: GENERATE_QHP=YES requires GENERATE_HTML=YES. Disabling QHP output.\n");
-      qhp=FALSE;
-    }
-
     if (Config_getString("QHP_NAMESPACE").isEmpty())
     {
-      config_err("Error: GENERATE_QHP=YES requires QHP_NAMESPACE to be set. Disabling QHP output.\n");
-      qhp=FALSE;
+      config_err("Error: GENERATE_QHP=YES requires QHP_NAMESPACE to be set. Using 'org.doxygen.doc' as default!.\n");
+      Config_getString("QHP_NAMESPACE")="org.doxygen.doc";
     }
 
     if (Config_getString("QHP_VIRTUAL_FOLDER").isEmpty())
     {
-      config_err("Error: GENERATE_QHP=YES requires QHP_VIRTUAL_FOLDER to be set. Disabling QHP output.\n");
-      qhp=FALSE;
-    }
-
-    Config_getBool("GENERATE_QHP")=qhp;
-  }
-
-  // check QCH creation requirements
-  if (!Config_getString("QHG_LOCATION").isEmpty() &&
-      !Config_getBool("GENERATE_QHP"))
-  {
-    config_err("Warning: Specifying QHG_LOCATION requires GENERATE_QHP=YES.\n");
-  }
-  if (!Config_getString("QCH_FILE").isEmpty() &&
-      Config_getString("QHG_LOCATION").isEmpty())
-  {
-    config_err("Warning: Specifying QCH_FILE requires QHG_LOCATION to be set.\n");
-  }
-
-  if (Config_getBool("HAVE_DOT")) 
-  {
-    QCString curFontPath = Config_getString("DOT_FONTPATH");
-    if (curFontPath.isEmpty())
-    {  
-      portable_getenv("DOTFONTPATH");
-      QCString newFontPath = ".";
-      if (!curFontPath.isEmpty())
-      {
-        newFontPath+=portable_pathListSeparator();
-        newFontPath+=curFontPath;
-      }
-      portable_setenv("DOTFONTPATH",newFontPath);
-    }
-    else
-    {
-      portable_setenv("DOTFONTPATH",curFontPath);
+      config_err("Error: GENERATE_QHP=YES requires QHP_VIRTUAL_FOLDER to be set. Using 'doc' as default!\n");
+      Config_getString("QHP_VIRTUAL_FOLDER")="doc";
     }
   }
 

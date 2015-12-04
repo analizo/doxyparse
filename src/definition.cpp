@@ -198,9 +198,10 @@ static bool matchExcludedSymbols(const char *name)
 
 void Definition::addToMap(const char *name,Definition *d)
 {
+  bool vhdlOpt = Config_getBool("OPTIMIZE_OUTPUT_VHDL");
   QCString symbolName = name;
   int index=computeQualifiedIndex(symbolName);
-  if (index!=-1) symbolName=symbolName.mid(index+2);
+  if (!vhdlOpt && index!=-1) symbolName=symbolName.mid(index+2);
   if (!symbolName.isEmpty()) 
   {
     //printf("******* adding symbol `%s' (%p)\n",symbolName.data(),d);
@@ -382,8 +383,8 @@ bool Definition::_docsAlreadyAdded(const QCString &doc)
 }
 
 void Definition::_setDocumentation(const char *d,const char *docFile,int docLine,
-                                   bool stripWhiteSpace,bool atTop) 
-{ 
+                                   bool stripWhiteSpace,bool atTop)
+{
   if (d==0) return;
   //printf("Definition::setDocumentation(%s,%s,%d,%d)\n",d,docFile,docLine,stripWhiteSpace);
   QCString doc = d;
@@ -404,20 +405,25 @@ void Definition::_setDocumentation(const char *d,const char *docFile,int docLine
     }
     if (m_impl->details->doc.isEmpty()) // fresh detailed description
     {
-      m_impl->details->doc  = doc;
+      m_impl->details->doc = doc;
     }
     else if (atTop) // another detailed description, append it to the start
     {
-      m_impl->details->doc  = doc+"\n\n"+m_impl->details->doc;
+      m_impl->details->doc = doc+"\n\n"+m_impl->details->doc;
     }
     else // another detailed description, append it to the end
     {
-      m_impl->details->doc  += "\n\n"+doc;
+      m_impl->details->doc += "\n\n"+doc;
     }
     if (docLine!=-1) // store location if valid
     {
       m_impl->details->file = docFile;
       m_impl->details->line = docLine;
+    }
+    else
+    {
+      m_impl->details->file = docFile;
+      m_impl->details->line = 1;
     }
   }
 }
@@ -594,7 +600,11 @@ static bool readCodeFragment(const char *fileName,
         }
         // copy until end of line
         result+=c;
-        if (c==':') result+=cn;
+        if (c==':') 
+        {
+          result+=cn;
+          if (cn=='\n') lineNr++;
+        }
         startLine=lineNr;
         const int maxLineLength=4096;
         char lineStr[maxLineLength];
@@ -611,9 +621,10 @@ static bool readCodeFragment(const char *fileName,
             {
               size_read=qstrlen(p); 
             }
-            else 
+            else  // nothing read
             {
               size_read=-1;
+              lineStr[0]='\0';
             }
             result+=lineStr;
           } while (size_read == (maxLineLength-1));
@@ -1240,7 +1251,7 @@ void Definition::writePathFragment(OutputList &ol) const
     else
     {
       ol.writeString("&nbsp;");
-      ol.writeString("&raquo");
+      ol.writeString("&raquo;");
       ol.writeString("&nbsp;");
     }
   }

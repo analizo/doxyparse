@@ -6,6 +6,7 @@
 #include "outputlist.h"
 #include "doxygen.h"
 #include "language.h"
+#include <qregexp.h>
 
 
 PageDef::PageDef(const char *f,int l,const char *n,
@@ -70,10 +71,7 @@ void PageDef::writeDocumentation(OutputList &ol)
 {
   //outputList->disable(OutputGenerator::Man);
   QCString pageName;
-  if (Config_getBool("CASE_SENSE_NAMES"))
-    pageName=name();
-  else
-    pageName=name().lower();
+  pageName=escapeCharsInString(name(),FALSE);
 
   startFile(ol,pageName,pageName,title(),HLI_Pages,TRUE);
 
@@ -158,12 +156,15 @@ void PageDef::writeDocumentation(OutputList &ol)
       Doxygen::tagFile << "  </compound>" << endl;
     }
   }
+
+  Doxygen::indexList.addIndexItem(this,0,0,filterTitle(title()));
 }
 
 void PageDef::writePageDocumentation(OutputList &ol)
 {
   ol.startTextBlock();
-  ol.parseDoc(docFile(),   // fileName
+  ol.parseDoc(
+      docFile(),           // fileName
       docLine(),           // startLine
       this,                // context
       0,                   // memberdef

@@ -139,7 +139,7 @@ the path. The tag can be used to show relative paths in the file list.
 If left blank the directory from which doxygen is run is used as the 
 path to strip. 
 ' depends='FULL_PATH_NAMES'>
-      <value name='/Users/dimitri/doxygen/mail/1.5.7/doxywizard/'/>
+      <value name=''/>
     </option>
     <option type='list' id='STRIP_FROM_INC_PATH' format='string' docs='
 The STRIP_FROM_INC_PATH tag can be used to strip a user-defined part of 
@@ -377,6 +377,11 @@ If the SHOW_INCLUDE_FILES tag is set to YES (the default) then Doxygen
 will put a list of the files that are included by a file in the documentation 
 of that file. 
 ' defval='1'/>
+    <option type='bool' id='FORCE_LOCAL_INCLUDES' docs='
+If the FORCE_LOCAL_INCLUDES tag is set to YES then Doxygen 
+will list include files with double quotes in the documentation 
+rather than with sharp brackets.
+' defval='0'/>
     <option type='bool' id='INLINE_INFO' docs='
 If the INLINE_INFO tag is set to YES (the default) then a tag [inline] 
 is inserted in the documentation for inline members. 
@@ -449,6 +454,11 @@ The appearance of the initializer of individual variables and defines in the
 documentation can be controlled using \showinitializer or \hideinitializer 
 command in the documentation regardless of this setting. 
 ' minval='0' maxval='10000' defval='30'/>
+    <option type='bool' id='SHOW_USED_FILES' docs='
+Set the SHOW_USED_FILES tag to NO to disable the list of files generated 
+at the bottom of the documentation of classes and structs. If set to YES the 
+list will mention the files that were used to generate the documentation.
+' defval='1'/>
     <option type='bool' id='SHOW_DIRECTORIES' docs='
 If the sources in your project are distributed over multiple directories 
 then setting the SHOW_DIRECTORIES tag to YES will show the directory hierarchy 
@@ -531,7 +541,7 @@ documented source files. You may enter file names like &quot;myfile.cpp&quot; or
 directories like &quot;/usr/src/myproject&quot;. Separate the files or directories 
 with spaces. 
 '>
-      <value name='/Users/dimitri/doxygen/mail/1.5.7/doxywizard'/>
+      <value name=''/>
     </option>
     <option type='string' id='INPUT_ENCODING' format='string' docs='
 This tag can be used to specify the character encoding of the source files 
@@ -759,6 +769,11 @@ will generate a default style sheet. Note that doxygen will try to copy
 the style sheet file to the HTML output directory, so don&apos;t put your own 
 stylesheet in the HTML output directory as well, or it will be erased! 
 ' defval='' depends='GENERATE_HTML'/>
+    <option type='bool' id='HTML_TIMESTAMP' docs='
+If the HTML_TIMESTAMP tag is set to YES then the footer of each generated HTML 
+page will contain the date and time when the page was generated. Setting 
+this to NO can help when comparing the output of multiple runs.
+' defval='0' depends='GENERATE_HTML'/>
     <option type='bool' id='HTML_ALIGN_MEMBERS' docs='
 If the HTML_ALIGN_MEMBERS tag is set to YES, the members of classes, 
 files or namespaces will be aligned in HTML using tables. If set to 
@@ -811,7 +826,7 @@ If the GENERATE_HTMLHELP tag is set to YES, the HHC_LOCATION tag can
 be used to specify the location (absolute path including file name) of 
 the HTML help compiler (hhc.exe). If non-empty doxygen will try to run 
 the HTML help compiler on the generated index.hhp. 
-' defval='' depends='GENERATE_HTMLHELP'/>
+' defval='' depends='GENERATE_HTMLHELP' abspath='1'/>
     <option type='bool' id='GENERATE_CHI' docs='
 If the GENERATE_HTMLHELP tag is set to YES, the GENERATE_CHI flag 
 controls if a separate .chi index file is generated (YES) or that 
@@ -846,7 +861,7 @@ The path specified is relative to the HTML output folder.
 The QHP_NAMESPACE tag specifies the namespace to use when generating 
 Qt Help Project output. For more information please see 
 http://doc.trolltech.com/qthelpproject.html#namespace 
-' defval='' depends='GENERATE_QHP'/>
+' defval='org.doxygen.Project' depends='GENERATE_QHP'/>
     <option type='string' id='QHP_VIRTUAL_FOLDER' format='string' docs='
 The QHP_VIRTUAL_FOLDER tag specifies the namespace to use when generating 
 Qt Help Project output. For more information please see 
@@ -872,6 +887,21 @@ be used to specify the location of Qt&apos;s qhelpgenerator.
 If non-empty doxygen will try to run qhelpgenerator on the generated 
 .qhp file. 
 ' defval='' depends='GENERATE_QHP'/>
+    <option type='bool' id='GENERATE_ECLIPSEHELP' docs='
+If the GENERATE_ECLIPSEHELP tag is set to YES, additional index files  
+will be generated, which together with the HTML files, form an Eclipse help  
+plugin. To install this plugin and make it available under the help contents 
+menu in Eclipse, the contents of the directory containing the HTML and XML 
+files needs to be copied into the plugins directory of eclipse. The name of 
+the directory within the plugins directory should be the same as 
+the ECLIPSE_DOC_ID value. After copying Eclipse needs to be restarted before
+the help appears.
+' defval='0' depends='GENERATE_HTML'/>
+    <option type='string' id='ECLIPSE_DOC_ID' docs='
+A unique identifier for the eclipse help plugin. When installing the plugin 
+the directory name containing the HTML and XML files should also have 
+this name.
+' defval='org.doxygen.Project' depends='GENERATE_ECLIPSEHELP'/>
     <option type='bool' id='DISABLE_INDEX' docs='
 The DISABLE_INDEX tag can be used to turn on/off the condensed index at 
 top of each HTML page. The value NO (the default) enables the index and 
@@ -884,7 +914,7 @@ that doxygen will group on one line in the generated HTML documentation.
     <option type='bool' id='GENERATE_TREEVIEW' defval='0' docs='
 The GENERATE_TREEVIEW tag is used to specify whether a tree-like index 
 structure should be generated to display hierarchical information. 
-If the tag value is set to FRAME, a side panel will be generated 
+If the tag value is set to YES, a side panel will be generated 
 containing a tree-like index structure (just like the one that 
 is generated for HTML Help). For this to work a browser that supports 
 JavaScript, DHTML, CSS and frames is required (i.e. any modern browser). 
@@ -907,13 +937,23 @@ to manually remove any form_*.png images from the HTML output directory
 to force them to be regenerated. 
 ' minval='8' maxval='50' defval='10' depends='GENERATE_HTML'/>
     <option type='bool' id='SEARCHENGINE' docs='
-When the SEARCHENGINE tag is enable doxygen will generate a search box
+When the SEARCHENGINE tag is enabled doxygen will generate a search box
 for the HTML output. The underlying search engine uses javascript 
 and DHTML and should work on any modern browser. Note that when using
-HTML help (GENERATE_HTMLHELP) or Qt help (GENERATE_QHP) 
-there is already a search function so this one should typically 
-be disabled.
+HTML help (GENERATE_HTMLHELP), Qt help (GENERATE_QHP), or docsets
+(GENERATE_DOCSET) there is already a search function so this one should 
+typically be disabled. For large projects the javascript based search engine 
+can be slow, then enabling SERVER_BASED_SEARCH may provide a better solution.
 ' defval='1' depends='GENERATE_HTML'/>
+    <option type='bool' id='SERVER_BASED_SEARCH' docs='
+When the SERVER_BASED_SEARCH tag is enabled the search engine will be
+implemented using a PHP enabled web server instead of at the web client
+using Javascript. Doxygen will generate the search PHP script and index 
+file to put on the web server. The advantage of the server
+based approach is that it scales better to large projects and allows
+full text search. The disadvances is that it is more difficult to setup 
+and does not have live searching capabilities.
+' defval='0' depends='SEARCHENGINE'/>
   </group>
   <group name='LaTeX' docs='configuration options related to the LaTeX output'>
     <option type='bool' id='GENERATE_LATEX' docs='
@@ -928,6 +968,9 @@ put in front of it. If left blank `latex&apos; will be used as the default path.
     <option type='string' id='LATEX_CMD_NAME' format='file' docs='
 The LATEX_CMD_NAME tag can be used to specify the LaTeX command name to be 
 invoked. If left blank `latex&apos; will be used as the default command name. 
+Note that when enabling USE_PDFLATEX this option is only used for 
+generating bitmaps for formulas in the HTML output, but not in the 
+Makefile that is written to the output directory.
 ' defval='latex' depends='GENERATE_LATEX'/>
     <option type='string' id='MAKEINDEX_CMD_NAME' format='file' docs='
 The MAKEINDEX_CMD_NAME tag can be used to specify the command name to 
@@ -1374,7 +1417,6 @@ If the DOT_CLEANUP tag is set to YES (the default) Doxygen will
 remove the intermediate dot files that are used to generate 
 the various graphs. 
 ' defval='1' depends='HAVE_DOT'/>
-    <option type='obsolete' id='SHOW_USED_FILES'/>
     <option type='obsolete' id='USE_WINDOWS_ENCODING'/>
     <option type='obsolete' id='DETAILS_AT_TOP'/>
     <option type='obsolete' id='QTHELP_FILE'/>

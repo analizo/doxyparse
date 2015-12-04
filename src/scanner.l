@@ -772,6 +772,10 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 <FindMembersPHP>"<?"("php"?)            { // PHP code start
                                            BEGIN( FindMembers );
 					}
+<FindMembersPHP>"<script"{BN}+"language"{BN}*"="{BN}*['"]?"php"['"]?{BN}*">" { // PHP code start
+					  lineCount() ;
+                                          BEGIN( FindMembers );
+					}
 <FindMembersPHP>[^\n<]+                 { // Non-PHP code text, ignore
   					}
 <FindMembersPHP>\n                      { // Non-PHP code text, ignore
@@ -779,7 +783,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
   					}
 <FindMembersPHP>.                       { // Non-PHP code text, ignore
 				        }
-<FindMembers>"?>"                       { // PHP code end
+<FindMembers>"?>"|"</script>"           { // PHP code end
 					  if (insidePHP)
 					    BEGIN( FindMembersPHP );
 					  else
@@ -1124,7 +1128,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 <FindMembers>{BN}{1,80}			{
   					  lineCount();
   					}
-<FindMembers>"@"{ID}{BN}*"("		{
+<FindMembers>"@"({ID}".")*{ID}{BN}*"("	{
   					  if (insideJava) // Java annotation
 					  {
   					    lineCount();
@@ -1998,7 +2002,10 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					}
 <TryFunctionBlock>.
 <TryFunctionBlockEnd>"catch"		{ BEGIN(TryFunctionBlock); }
-<TryFunctionBlockEnd>.			{ unput(*yytext); 
+<TryFunctionBlockEnd>\n			{ unput(*yytext); // added to fix bug id 601138
+  					  BEGIN( FindMembers );
+					}
+<TryFunctionBlockEnd>.			{ unput(*yytext);
   					  BEGIN( FindMembers );
 					}
 <EndCppQuote>")"			{
@@ -2010,7 +2017,8 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					  lastCPPContext = YY_START;
 					  BEGIN( SkipCPP ) ;
 					}
-<FindMembers,FindFields>{B}*"#"{B}*"define"	{ if (insidePHP)
+<FindMembers,FindFields>{B}*"#"{B}*("cmake")?"define"	{
+  					  if (insidePHP)
 					    REJECT;
   					  current->bodyLine = yyLineNr;
   					  BEGIN( Define );
@@ -2019,13 +2027,18 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
                                           yyLineNr = atoi(&yytext[1]);
 					  //printf("setting line number to %d\n",yyLineNr);
 					  lastPreLineCtrlContext = YY_START;
+  					  current->program+=yytext;
   					  BEGIN( PreLineCtrl );
   					}
 <PreLineCtrl>"\""[^\n\"]*"\""		{
 				          yyFileName = stripQuotes(yytext);
+  					  current->program+=yytext;
   					}
-<PreLineCtrl>.				{}
+<PreLineCtrl>.				{
+  					  current->program+=yytext;
+                                        }
 <PreLineCtrl>\n				{
+  					  current->program+=yytext;
                                           yyLineNr++;
   					  BEGIN( lastPreLineCtrlContext );
   					}
@@ -2674,6 +2687,10 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					    current->type=current->type.simplifyWhiteSpace();
 					    current->args=removeRedundantWhiteSpace(current->args);
 					    current->name=current->name.stripWhiteSpace();
+					    if (current->section==Entry::CLASS_SEC) // remove spec for "struct Bla bla;"
+					    {
+					    	current->spec = 0;
+					    }
 					    current->section = Entry::VARIABLE_SEC ;
 					    current->fileName = yyFileName;
 					    current->startLine = yyLineNr;
@@ -3297,8 +3314,8 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
   					}
 <ReadBody,ReadNSBody,ReadBodyIntf>.	{ current->program += yytext ; }
 
-<FindMembers>"("/{BN}*({TSCOPE}{BN}*"::")*{TSCOPE}{BN}*")"{BN}*"(" | /* typedef void (A<int>::func_t)(args...) */
-<FindMembers>("("({BN}*{TSCOPE}{BN}*"::")*({BN}*[*&]{BN}*)+)+ {   /* typedef void (A::*ptr_t)(args...) or int (*func(int))[] */
+<FindMembers>"("/{BN}*"::"*{BN}*({TSCOPE}{BN}*"::")*{TSCOPE}{BN}*")"{BN}*"(" | /* typedef void (A<int>::func_t)(args...) */
+<FindMembers>("("({BN}*"::"*{BN}*{TSCOPE}{BN}*"::")*({BN}*[*&]{BN}*)+)+ {   /* typedef void (A::*ptr_t)(args...) or int (*func(int))[] */
   					  if (insidePHP) // reference parameter
 					  {
 					    REJECT
@@ -3556,6 +3573,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					  }
   					}
 	/* a non-special comment */
+<ReadFuncArgType,ReadTempArgs>"/**/"	{ /* empty comment */ }
 <ReadFuncArgType,ReadTempArgs>"/*"	{
   					  lastCContext = YY_START;
 					  BEGIN( SkipComment );
@@ -4527,6 +4545,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					    BEGIN( FindMembers );
 					  }
 					}
+<CSConstraintType,CSConstraintName>"/**/" { /* empty comment */ }
 <CSConstraintType,CSConstraintName>("/*"[*!]|"//"[/!])("<"?)	{ // special comment
                                           fullArgString.resize(0);
 					  lastCopyArgChar='#'; // end marker
@@ -5363,12 +5382,13 @@ static void handleCommentBlock(const QCString &doc,bool brief)
   bool needsEntry=FALSE;
   if (docBlockInBody && hideInBodyDocs) return;
   //printf("parseCommentBlock [%s]\n",doc.data());
+  int lineNr = brief ? current->briefLine : current->docLine;   // line of block start
   while (parseCommentBlock(
 	g_thisParser,
 	docBlockInBody && previous ? previous : current,
 	doc,        // text
 	yyFileName, // file
-	brief ? current->briefLine : current->docLine,   // line of block start
+	lineNr,     // line of block start
 	docBlockInBody ? FALSE : brief, 
 	docBlockInBody ? FALSE : docBlockAutoBrief,
 	docBlockInBody,

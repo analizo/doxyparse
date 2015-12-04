@@ -401,11 +401,11 @@ void NamespaceDef::writeDocumentation(OutputList &ol)
   addGroupListToTitle(ol,this);
   endTitle(ol,getOutputFileBase(),displayName());
   
-  //if (Config_getBool("SEARCHENGINE"))
-  //{
-  //  Doxygen::searchIndex->setCurrentDoc(pageTitle,getOutputFileBase());
-  //  Doxygen::searchIndex->addWord(localName(),TRUE);
-  //}
+  if (Doxygen::searchIndex)
+  {
+    Doxygen::searchIndex->setCurrentDoc(pageTitle,getOutputFileBase());
+    Doxygen::searchIndex->addWord(localName(),TRUE);
+  }
 
   bool generateTagFile = !Config_getString("GENERATE_TAGFILE").isEmpty();
   if (generateTagFile)
@@ -414,6 +414,8 @@ void NamespaceDef::writeDocumentation(OutputList &ol)
     Doxygen::tagFile << "    <name>" << convertToXML(name()) << "</name>" << endl;
     Doxygen::tagFile << "    <filename>" << convertToXML(getOutputFileBase()) << Doxygen::htmlFileExtension << "</filename>" << endl;
   }
+
+  Doxygen::indexList.addIndexItem(this,0);
 
   //---------------------------------------- start flexible part -------------------------------
 
@@ -655,8 +657,10 @@ void NamespaceDef::addListReferences()
   {
     LockingPtr< QList<ListItemInfo> > xrefItems = xrefListItems();
     addRefItem(xrefItems.pointer(),
+        qualifiedName(),
         fortranOpt?theTranslator->trModule(TRUE,TRUE):theTranslator->trNamespace(TRUE,TRUE),
-        getOutputFileBase(),displayName()
+        getOutputFileBase(),displayName(),
+        0
         );
   }
   MemberGroupSDict::Iterator mgli(*memberGroupSDict);

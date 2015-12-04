@@ -702,10 +702,12 @@ void DirRelation::writeDocumentation(OutputList &ol)
   ol.pushGeneratorState();
   ol.disableAllBut(OutputGenerator::Html);
 
-  QCString shortTitle=m_src->shortName()+" &rarr; "+
-                      m_dst->dir()->shortName()+" Relation";//theTranslator->trDirRelation(m_shortName);
-  QCString title=m_src->displayName()+" -> "+
-                 m_dst->dir()->shortName()+" Relation";//theTranslator->trDirRelation(m_dispName);
+  QCString shortTitle=theTranslator->trDirRelation(
+                      m_src->shortName()+" &rarr; "+
+                      m_dst->dir()->shortName());
+  QCString title=theTranslator->trDirRelation(
+                 m_src->displayName()+" -> "+
+                 m_dst->dir()->shortName());
   startFile(ol,getOutputFileBase(),getOutputFileBase(),title);
 
   // write navigation path
@@ -718,9 +720,11 @@ void DirRelation::writeDocumentation(OutputList &ol)
   
   ol.writeString("<table class=\"dirtab\">");
   ol.writeString("<tr class=\"dirtab\">");
+  // TODO: translate me! "File in %s"
   ol.writeString("<th class=\"dirtab\">File in ");
   m_src->writePathFragment(ol);
   ol.writeString("</th>");
+  // TODO: translate me! "Includes file in %s"
   ol.writeString("<th class=\"dirtab\">Includes file in ");
   m_dst->dir()->writePathFragment(ol);
   ol.writeString("</th>");
@@ -842,7 +846,7 @@ void computeDirDependencies()
 #endif
 }
 
-
+#if 0
 void writeDirDependencyGraph(const char *dirName)
 {
   QString path;
@@ -887,6 +891,7 @@ void writeDirDependencyGraph(const char *dirName)
   }
   htmlPage.close();
 }
+#endif
 
 void generateDirDocs(OutputList &ol)
 {

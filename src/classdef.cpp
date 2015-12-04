@@ -1423,6 +1423,8 @@ void ClassDef::writeDocumentation(OutputList &ol)
     ol.popGeneratorState();
   }
 
+  Doxygen::indexList.addIndexItem(this,0);
+
   if (!Config_getString("GENERATE_TAGFILE").isEmpty()) 
   {
     Doxygen::tagFile << "  <compound kind=\"" << compoundTypeString();
@@ -1442,11 +1444,11 @@ void ClassDef::writeDocumentation(OutputList &ol)
     }
   }
 
-  //if (Config_getBool("SEARCHENGINE"))
-  //{
-  //  Doxygen::searchIndex->setCurrentDoc(pageTitle,getOutputFileBase());
-  //  Doxygen::searchIndex->addWord(localName(),TRUE);
-  //}
+  if (Doxygen::searchIndex)
+  {
+    Doxygen::searchIndex->setCurrentDoc(pageTitle,getOutputFileBase());
+    Doxygen::searchIndex->addWord(localName(),TRUE);
+  }
   bool exampleFlag=hasExamples();
 
   //---------------------------------------- start flexible part -------------------------------
@@ -3089,10 +3091,12 @@ void ClassDef::addListReferences()
   {
     LockingPtr< QList<ListItemInfo> > xrefItems = xrefListItems();
     addRefItem(xrefItems.pointer(),
+             qualifiedName(),
              fortranOpt?theTranslator->trType(TRUE,TRUE):
                         theTranslator->trClass(TRUE,TRUE),
              getOutputFileBase(),
-             displayName()
+             displayName(),
+             0
             );
   }
   if (m_impl->memberGroupSDict)

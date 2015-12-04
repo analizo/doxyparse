@@ -192,7 +192,7 @@ void addConfigOptions(Config *cfg)
                  "If left blank the directory from which doxygen is run is used as the\n"
                  "path to strip."
                 );
-  cl->addValue("/Users/dimitri/doxygen/mail/1.5.7/doxywizard/");
+  cl->addValue("");
   cl->addDependency("FULL_PATH_NAMES");
   //----
   cl = cfg->addList(
@@ -535,6 +535,14 @@ void addConfigOptions(Config *cfg)
                 );
   //----
   cb = cfg->addBool(
+                 "FORCE_LOCAL_INCLUDES",
+                 "If the FORCE_LOCAL_INCLUDES tag is set to YES then Doxygen\n"
+                 "will list include files with double quotes in the documentation\n"
+                 "rather than with sharp brackets.",
+                 FALSE
+                );
+  //----
+  cb = cfg->addBool(
                  "INLINE_INFO",
                  "If the INLINE_INFO tag is set to YES (the default) then a tag [inline]\n"
                  "is inserted in the documentation for inline members.",
@@ -633,6 +641,14 @@ void addConfigOptions(Config *cfg)
                  "documentation can be controlled using \\showinitializer or \\hideinitializer\n"
                  "command in the documentation regardless of this setting.",
                  0,10000,30
+                );
+  //----
+  cb = cfg->addBool(
+                 "SHOW_USED_FILES",
+                 "Set the SHOW_USED_FILES tag to NO to disable the list of files generated\n"
+                 "at the bottom of the documentation of classes and structs. If set to YES the\n"
+                 "list will mention the files that were used to generate the documentation.",
+                 TRUE
                 );
   //----
   cb = cfg->addBool(
@@ -759,7 +775,7 @@ void addConfigOptions(Config *cfg)
                  "directories like \"/usr/src/myproject\". Separate the files or directories\n"
                  "with spaces."
                 );
-  cl->addValue("/Users/dimitri/doxygen/mail/1.5.7/doxywizard");
+  cl->addValue("");
   cl->setWidgetType(ConfigList::FileAndDir);
   //----
   cs = cfg->addString(
@@ -1085,6 +1101,15 @@ void addConfigOptions(Config *cfg)
   cs->addDependency("GENERATE_HTML");
   //----
   cb = cfg->addBool(
+                 "HTML_TIMESTAMP",
+                 "If the HTML_TIMESTAMP tag is set to YES then the footer of each generated HTML\n"
+                 "page will contain the date and time when the page was generated. Setting\n"
+                 "this to NO can help when comparing the output of multiple runs.",
+                 FALSE
+                );
+  cb->addDependency("GENERATE_HTML");
+  //----
+  cb = cfg->addBool(
                  "HTML_ALIGN_MEMBERS",
                  "If the HTML_ALIGN_MEMBERS tag is set to YES, the members of classes,\n"
                  "files or namespaces will be aligned in HTML using tables. If set to\n"
@@ -1228,6 +1253,7 @@ void addConfigOptions(Config *cfg)
                  "Qt Help Project output. For more information please see\n"
                  "http://doc.trolltech.com/qthelpproject.html#namespace"
                 );
+  cs->setDefaultValue("org.doxygen.Project");
   cs->addDependency("GENERATE_QHP");
   //----
   cs = cfg->addString(
@@ -1273,6 +1299,28 @@ void addConfigOptions(Config *cfg)
   cs->addDependency("GENERATE_QHP");
   //----
   cb = cfg->addBool(
+                 "GENERATE_ECLIPSEHELP",
+                 "If the GENERATE_ECLIPSEHELP tag is set to YES, additional index files\n"
+                 " will be generated, which together with the HTML files, form an Eclipse help\n"
+                 " plugin. To install this plugin and make it available under the help contents\n"
+                 "menu in Eclipse, the contents of the directory containing the HTML and XML\n"
+                 "files needs to be copied into the plugins directory of eclipse. The name of\n"
+                 "the directory within the plugins directory should be the same as\n"
+                 "the ECLIPSE_DOC_ID value. After copying Eclipse needs to be restarted before the help appears.",
+                 FALSE
+                );
+  cb->addDependency("GENERATE_HTML");
+  //----
+  cs = cfg->addString(
+                 "ECLIPSE_DOC_ID",
+                 "A unique identifier for the eclipse help plugin. When installing the plugin\n"
+                 "the directory name containing the HTML and XML files should also have\n"
+                 "this name."
+                );
+  cs->setDefaultValue("org.doxygen.Project");
+  cs->addDependency("GENERATE_ECLIPSEHELP");
+  //----
+  cb = cfg->addBool(
                  "DISABLE_INDEX",
                  "The DISABLE_INDEX tag can be used to turn on/off the condensed index at\n"
                  "top of each HTML page. The value NO (the default) enables the index and\n"
@@ -1293,7 +1341,7 @@ void addConfigOptions(Config *cfg)
                  "GENERATE_TREEVIEW",
                  "The GENERATE_TREEVIEW tag is used to specify whether a tree-like index\n"
                  "structure should be generated to display hierarchical information.\n"
-                 "If the tag value is set to FRAME, a side panel will be generated\n"
+                 "If the tag value is set to YES, a side panel will be generated\n"
                  "containing a tree-like index structure (just like the one that\n"
                  "is generated for HTML Help). For this to work a browser that supports\n"
                  "JavaScript, DHTML, CSS and frames is required (i.e. any modern browser).\n"
@@ -1332,13 +1380,22 @@ void addConfigOptions(Config *cfg)
   //----
   cb = cfg->addBool(
                  "SEARCHENGINE",
-                 "When the SEARCHENGINE tag is enable doxygen will generate a search box for the HTML output. The underlying search engine uses javascript\n"
-                 "and DHTML and should work on any modern browser. Note that when using HTML help (GENERATE_HTMLHELP) or Qt help (GENERATE_QHP)\n"
-                 "there is already a search function so this one should typically\n"
-                 "be disabled.",
+                 "When the SEARCHENGINE tag is enabled doxygen will generate a search box for the HTML output. The underlying search engine uses javascript\n"
+                 "and DHTML and should work on any modern browser. Note that when using HTML help (GENERATE_HTMLHELP), Qt help (GENERATE_QHP), or docsets (GENERATE_DOCSET) there is already a search function so this one should\n"
+                 "typically be disabled. For large projects the javascript based search engine\n"
+                 "can be slow, then enabling SERVER_BASED_SEARCH may provide a better solution.",
                  TRUE
                 );
   cb->addDependency("GENERATE_HTML");
+  //----
+  cb = cfg->addBool(
+                 "SERVER_BASED_SEARCH",
+                 "When the SERVER_BASED_SEARCH tag is enabled the search engine will be implemented using a PHP enabled web server instead of at the web client using Javascript. Doxygen will generate the search PHP script and index\n"
+                 "file to put on the web server. The advantage of the server based approach is that it scales better to large projects and allows full text search. The disadvances is that it is more difficult to setup\n"
+                 "and does not have live searching capabilities.",
+                 FALSE
+                );
+  cb->addDependency("SEARCHENGINE");
   //---------------------------------------------------------------------------
   cfg->addInfo("LaTeX","configuration options related to the LaTeX output");
   //---------------------------------------------------------------------------
@@ -1364,7 +1421,10 @@ void addConfigOptions(Config *cfg)
   cs = cfg->addString(
                  "LATEX_CMD_NAME",
                  "The LATEX_CMD_NAME tag can be used to specify the LaTeX command name to be\n"
-                 "invoked. If left blank `latex' will be used as the default command name."
+                 "invoked. If left blank `latex' will be used as the default command name.\n"
+                 "Note that when enabling USE_PDFLATEX this option is only used for\n"
+                 "generating bitmaps for formulas in the HTML output, but not in the\n"
+                 "Makefile that is written to the output directory."
                 );
   cs->setDefaultValue("latex");
   cs->setWidgetType(ConfigString::File);
@@ -2088,8 +2148,6 @@ void addConfigOptions(Config *cfg)
                  TRUE
                 );
   cb->addDependency("HAVE_DOT");
-  //----
-  cfg->addObsolete("SHOW_USED_FILES");
   //----
   cfg->addObsolete("USE_WINDOWS_ENCODING");
   //----

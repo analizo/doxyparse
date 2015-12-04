@@ -46,16 +46,21 @@
 #include "debug.h"
 #include "bufstr.h"
 #include "portable.h"
+#include "bufstr.h"
 
 #define YY_NEVER_INTERACTIVE 1
   
 
 struct FileState
 {
+  FileState(int size) : fileBuf(size), oldFileBuf(0), oldFileBufPos(0) {}
   int lineNr;
-  FILE *filePtr;
-  FILE *oldYYin;
-  bool isPlainFile;
+  //FILE *filePtr;
+  BufStr fileBuf;
+  //FILE *oldYYin;
+  BufStr *oldFileBuf;
+  int oldFileBufPos;
+  //bool isPlainFile;
   YY_BUFFER_STATE bufState;
   QCString fileName;
 };  
@@ -83,6 +88,8 @@ static int                g_level;
 static int                g_lastCContext;
 static int                g_lastCPPContext;
 static QArray<int>        g_levelGuard;
+static BufStr            *g_inputBuf;
+static int                g_inputBufPos;
 static BufStr            *g_outputBuf;
 static int                g_roundCount;
 static bool               g_quoteArg;
@@ -179,26 +186,31 @@ static Define *isDefined(const char *name)
 
 static QDict<void> g_allIncludes(10009);
 
-static FileState *checkAndOpenFile(const QCString &fileName)
+static FileState *checkAndOpenFile(const QCString &fileName,bool &alreadyIncluded)
 {
+  alreadyIncluded = FALSE;
   FileState *fs = 0;
-  //printf("checkAndOpenFile(%s)\n",absName.data());
+  //printf("checkAndOpenFile(%s)\n",fileName.data());
   QFileInfo fi(fileName);
   if (fi.exists() && fi.isFile())
   {
     QCString absName = convertToQCString(fi.absFilePath());
 
-#if 1
     // global guard
-    if (g_allIncludes.find(absName)) return 0; // already done
-    g_allIncludes.insert(absName,(void *)0x8);
+    if (g_curlyCount==0) // not #include inside { ... }
+    {
+      if (g_allIncludes.find(absName)!=0)
+      {
+        alreadyIncluded = TRUE;
+        //printf("  already included 1\n");
+        return 0; // already done
+      }
+      g_allIncludes.insert(absName,(void *)0x8);
+    }
     // check include stack for absName
-#endif
 
-#if 0 // stack based recusive inclusion detection
     QStack<FileState> tmpStack;
     g_includeStack.setAutoDelete(FALSE);
-    bool alreadyIncluded=FALSE;
     while ((fs=g_includeStack.pop()))
     {
       if (fs->fileName==absName) alreadyIncluded=TRUE;
@@ -210,37 +222,66 @@ static FileState *checkAndOpenFile(const QCString &fileName)
     }
     g_includeStack.setAutoDelete(TRUE);
 
-    if (alreadyIncluded) return 0; 
-#endif
+    if (alreadyIncluded)
+    {
+      //printf("  already included 2\n");
+      return 0;
+    }
     //printf("#include %s\n",absName.data());
 
-    fs = new FileState;
-    
+    fs = new FileState(fi.size()+4096);
+    alreadyIncluded = FALSE;
+    if (!readInputFile(absName,fs->fileBuf))
+    { // error
+      //printf("  error reading\n");
+      delete fs;
+      fs=0;
+    }
+    else
+    {
+      fs->oldFileBuf    = g_inputBuf;
+      fs->oldFileBufPos = g_inputBufPos;
+    }
+
+#if 0
     QCString filterName = getFileFilter(absName);
     if (!filterName.isEmpty())
     {
       fs->isPlainFile = FALSE;
       QCString cmd = filterName+" \""+absName+"\"";
       fs->filePtr=portable_popen(cmd,"r");
-      if (!fs->filePtr) err("Error: could not execute filter %s\n",cmd.data());
+      if (!fs->filePtr)
+      {
+        err("Error: could not execute filter %s, reason: %s\n",cmd.data(),
+            strerror(errno));
+      }
     }
     else
     {
       fs->isPlainFile = TRUE;
       fs->filePtr=fopen(absName,"r");
-      if (!fs->filePtr) err("Error: could not open file %s for reading\n",absName.data());
+      if (!fs->filePtr)
+      {
+        err("Error: could not open file %s for reading, reason: %s \n",
+            absName.data(),strerror(errno));
+      }
     }
     if (!fs->filePtr) // error -> cleanup
     {
       delete fs;
       fs=0;
     }
-    fs->oldYYin = preYYin;
+    else
+    {
+      fs->oldYYin = preYYin;
+    }
+#endif
+
   }
   return fs;
 }
 
-static FileState *findFile(const char *fileName,bool localInclude)
+static FileState *findFile(const char *fileName,bool localInclude,bool &alreadyIncluded)
 {
   //printf("** findFile(%s,%d) g_yyFileName=%s\n",fileName,localInclude,g_yyFileName.data());
   if (localInclude && !g_yyFileName.isEmpty())
@@ -249,12 +290,16 @@ static FileState *findFile(const char *fileName,bool localInclude)
     if (fi.exists())
     {
       QCString absName = QCString(fi.dirPath(TRUE).data())+"/"+fileName;
-      FileState *fs = checkAndOpenFile(absName);
+      FileState *fs = checkAndOpenFile(absName,alreadyIncluded);
       if (fs)
       {
 	setFileName(absName);
 	g_yyLineNr=1;
 	return fs;
+      }
+      else if (alreadyIncluded)
+      {
+	return 0;
       }
     }
   }
@@ -266,12 +311,16 @@ static FileState *findFile(const char *fileName,bool localInclude)
   while (s)
   {
     QCString absName = (QCString)s+"/"+fileName;
-    FileState *fs = checkAndOpenFile(absName);
+    FileState *fs = checkAndOpenFile(absName,alreadyIncluded);
     if (fs)
     {
       setFileName(absName);
       g_yyLineNr=1;
       return fs;
+    }
+    else if (alreadyIncluded)
+    {
+      return 0;
     }
 
     s=g_pathList->next();
@@ -463,7 +512,7 @@ static bool replaceFunctionMacro(const QCString &expr,QCString *rest,int pos,int
   len=0;
   result.resize(0);
   int cc;
-  while ((cc=getCurrentChar(expr,rest,j))!=EOF && cc==' ') 
+  while ((cc=getCurrentChar(expr,rest,j))!=EOF && isspace(cc)) 
   { 
     len++; 
     getNextChar(expr,rest,j); 
@@ -723,6 +772,7 @@ static int getNextId(const QCString &expr,int p,int *l)
 	c=expr.at(p);
 	p++;
       }
+      if (p<(int)expr.length()) ++p; // skip closing quote
     }
     else if (c=='/') // skip C Comment
     {
@@ -1081,10 +1131,10 @@ void addDefine()
   int l=g_defLitText.find('\n');
   if (l>0 && g_defLitText.left(l).stripWhiteSpace()=="\\")
   {
-    // strip first line if it only contains a slash 
+    // strip first line if it only contains a slash
     g_defLitText = g_defLitText.right(g_defLitText.length()-l-1);
   }
-  else if (l>0) 
+  else if (l>0)
   {
     // align the items on the first line with the items on the second line
     int k=l+1;
@@ -1094,7 +1144,7 @@ void addDefine()
     g_defLitText=g_defLitText.mid(l+1,k-l-1)+g_defLitText.stripWhiteSpace();
   }
   md->setInitializer(g_defLitText.stripWhiteSpace());
-  
+
   md->setFileDef(g_inputFileDef);
   md->setDefinition("#define "+g_defName);
 
@@ -1106,7 +1156,7 @@ void addDefine()
   }
   mn->append(md);
   if (g_yyFileDef) g_yyFileDef->insertMember(md);
-  
+
   //Define *d;
   //if ((d=defineDict[g_defName])==0) defineDict.insert(g_defName,newDefine()); 
 }
@@ -1114,7 +1164,7 @@ void addDefine()
 static inline void outputChar(char c)
 {
   if (g_includeStack.isEmpty() || g_curlyCount>0) g_outputBuf->addChar(c);
-} 
+}
 
 static inline void outputArray(const char *a,int len)
 {
@@ -1125,32 +1175,34 @@ static void readIncludeFile(const QCString &inc)
 {
   if (!Config_getBool("SEARCH_INCLUDES")) return; // do not read include files
   uint i=0;
-  
+
   // find the start of the include file name
-  while (i<inc.length() && 
+  while (i<inc.length() &&
          (inc.at(i)==' ' || inc.at(i)=='"' || inc.at(i)=='<')
-	) i++;
+        ) i++;
   uint s=i;
-  
+
   // was it a local include?
   bool localInclude = s>0 && inc.at(s-1)=='"';
-  
+
   // find the end of the include file name
-  while (i<inc.length() && inc.at(i)!='"' && inc.at(i)!='>') i++; 
+  while (i<inc.length() && inc.at(i)!='"' && inc.at(i)!='>') i++;
 
   if (s<inc.length() && i>s) // valid include file name found
   {
     // extract include path+name
-    QCString incFileName=inc.mid(s,i-s).stripWhiteSpace(); 
+    QCString incFileName=inc.mid(s,i-s).stripWhiteSpace();
 
     QCString oldFileName = g_yyFileName.copy();
     FileDef *oldFileDef  = g_yyFileDef;
     int oldLineNr        = g_yyLineNr;
     //printf("Searching for `%s'\n",incFileName.data());
-    
+
     // findFile will overwrite g_yyFileDef if found
     FileState *fs;
-    if ((fs=findFile(incFileName,localInclude))) // see if the include file can be found
+    bool alreadyIncluded = FALSE;
+    //printf("calling findFile(%s)\n",incFileName.data());
+    if ((fs=findFile(incFileName,localInclude,alreadyIncluded))) // see if the include file can be found
     {
       //printf("Found include file!\n");
       if (Debug::isFlagSet(Debug::Preprocessor))
@@ -1158,15 +1210,15 @@ static void readIncludeFile(const QCString &inc)
         for (i=0;i<g_includeStack.count();i++) msg("  ");
         msg("#include %s: parsing...\n",incFileName.data());
       }
-      if (oldFileDef) 
+      if (oldFileDef)
       {
-	// add include dependency to the file in which the #include was found
-	oldFileDef->addIncludeDependency(g_yyFileDef,incFileName,localInclude,g_isImported);
-	// add included by dependency
+        // add include dependency to the file in which the #include was found
+        oldFileDef->addIncludeDependency(g_yyFileDef,incFileName,localInclude,g_isImported);
+        // add included by dependency
         if (g_yyFileDef)
         {
-	  //printf("Adding include dependency %s->%s\n",oldFileDef->name().data(),incFileName.data());
-  	  g_yyFileDef->addIncludedByDependency(oldFileDef,oldFileDef->docName(),localInclude,g_isImported);
+          //printf("Adding include dependency %s->%s\n",oldFileDef->name().data(),incFileName.data());
+          g_yyFileDef->addIncludedByDependency(oldFileDef,oldFileDef->docName(),localInclude,g_isImported);
         }
       }
       fs->bufState=YY_CURRENT_BUFFER;
@@ -1181,14 +1233,18 @@ static void readIncludeFile(const QCString &inc)
       QCString lineStr(g_yyFileName.length()+20);
       lineStr.sprintf("# 1 \"%s\" 1\n",g_yyFileName.data());
       outputArray(lineStr.data(),lineStr.length());
-      
+
       //fprintf(stderr,"Switching to include file %s\n",incFileName.data());
-      preYYin=fs->filePtr;
-      yy_switch_to_buffer(yy_create_buffer(preYYin, YY_BUF_SIZE));
-    } 
+      //preYYin=fs->filePtr;
+      //yy_switch_to_buffer(yy_create_buffer(preYYin, YY_BUF_SIZE));
+      g_inputBuf=&fs->fileBuf;
+      g_inputBufPos=0;
+      yy_switch_to_buffer(yy_create_buffer(0, YY_BUF_SIZE));
+    }
     else
     {
-      if (oldFileDef) 
+      //printf("  calling findFile(%s) alreadyInc=%d\n",incFileName.data(),alreadyIncluded);
+      if (oldFileDef)
       {
 	bool ambig;
 	FileDef *fd = findFileDef(Doxygen::inputNameDict,incFileName,ambig);
@@ -1199,7 +1255,7 @@ static void readIncludeFile(const QCString &inc)
         if (fd)
         {
           //printf("Adding include dependency (2) %s->%s ambig=%d\n",oldFileDef->name().data(),fd->name().data(),ambig);
-  	  fd->addIncludedByDependency(oldFileDef,oldFileDef->docName(),localInclude,g_isImported);
+          fd->addIncludedByDependency(oldFileDef,oldFileDef->docName(),localInclude,g_isImported);
         }
       }
       if (Debug::isFlagSet(Debug::Preprocessor))
@@ -1207,7 +1263,7 @@ static void readIncludeFile(const QCString &inc)
         msg("#include %s: not found or already included! skipping...\n",incFileName.data());
         //printf("Error: include file %s not found\n",yytext);
       }
-      if (g_curlyCount>0) // failed to find #include inside { ... }
+      if (g_curlyCount>0 && !alreadyIncluded) // failed to find #include inside { ... }
       {
 	warn(g_yyFileName,g_yyLineNr,"Warning: include file %s not found, perhaps you forgot to add its directory to INCLUDE_PATH?",incFileName.data());
       }
@@ -1278,6 +1334,7 @@ static char resolveTrigraph(char c)
 
 static int yyread(char *buf,int max_size)
 {
+#if 0
   int len = fread( buf, 1, max_size, preYYin );
   if (len==0 && ferror( yyin ))
   {
@@ -1285,6 +1342,13 @@ static int yyread(char *buf,int max_size)
     return len;
   }
   return filterCRLF(buf,len);
+#endif
+
+  int bytesInBuf = g_inputBuf->curPos()-g_inputBufPos;
+  int bytesToCopy = QMIN(max_size,bytesInBuf);
+  memcpy(buf,g_inputBuf->data()+g_inputBufPos,bytesToCopy);
+  g_inputBufPos+=bytesToCopy;
+  return bytesToCopy;
 }
 
 /* ----------------------------------------------------------------- */
@@ -1343,7 +1407,7 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
  					  outputArray(yytext,yyleng); 
   					  BEGIN(CopyLine); 
 					}
-<Start>^{B}*[_A-Z][_A-Z0-9]*"("[^\)\n]*")"/{BN}{1,10}*[:{] { // constructors?
+<Start>^{B}*[_A-Z][_A-Z0-9]*{B}*"("[^\)\n]*")"/{BN}{1,10}*[:{] { // constructors?
 					  int i;
 					  for (i=yyleng-1;i>=0;i--)
 					  {
@@ -1559,7 +1623,7 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
 					  g_incName=c;
   					  BEGIN(Include); 
 					}
-<Command>"define"{B}+			{ 
+<Command>("cmake")?"define"{B}+		{ 
   			                  //printf("!!!DefName\n"); 
   					  BEGIN(DefName); 
 					}
@@ -1949,8 +2013,8 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
   					    BEGIN(g_lastCContext);  
 					  }
   					}
-<SkipCComment>"//"			{
-  					  outputChar('/');outputChar('/');
+<SkipCComment>"//"("/")*		{
+  					  outputArray(yytext,yyleng);
   					}
 <SkipCComment>"/*"			{
   					  outputChar('/');outputChar('*');
@@ -2200,6 +2264,7 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
 					  {
 					    FileState *fs=g_includeStack.pop();
 					    //fileDefineCache->merge(g_yyFileName,fs->fileName);
+#if 0
 					    if (fs->isPlainFile)
 					    {
 					      if (fs->filePtr && fclose(fs->filePtr)!=0)
@@ -2216,11 +2281,14 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
 					      }
 				    	      fs->filePtr=0;
 					    }
+#endif
 					    YY_BUFFER_STATE oldBuf = YY_CURRENT_BUFFER;
 					    yy_switch_to_buffer( fs->bufState );
 					    yy_delete_buffer( oldBuf );
 					    g_yyLineNr=fs->lineNr;
-                                            preYYin = fs->oldYYin;
+                                            //preYYin = fs->oldYYin;
+                                            g_inputBuf = fs->oldFileBuf;
+					    g_inputBufPos = fs->oldFileBufPos;
 					    setFileName(fs->fileName.copy());
 					    //fprintf(stderr,"######## FileName %s\n",g_yyFileName.data());
 					    
@@ -2233,6 +2301,7 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
 					    delete fs; fs=0;
 					  }
   					}
+<*>"/*"/"*/"				|
 <*>"/*"[*]?				{
 					  outputArray(yytext,yyleng);
   					  g_lastCContext=YY_START;
@@ -2354,14 +2423,18 @@ void cleanUpPreprocessor()
 }
 
 
-void preprocessFile(const char *fileName,BufStr &output)
+void preprocessFile(const char *fileName,BufStr &input,BufStr &output)
 {
   uint orgOffset=output.curPos();
+  //printf("##########################\n%s\n####################\n",
+  //    input.data());
 
   g_macroExpansion = Config_getBool("MACRO_EXPANSION");
   g_expandOnlyPredef = Config_getBool("EXPAND_ONLY_PREDEF");
   g_curlyCount=0;
   g_nospaces=FALSE;
+  g_inputBuf=&input;
+  g_inputBufPos=0;
   g_outputBuf=&output;
   g_includeStack.setAutoDelete(TRUE);
   g_includeStack.clear();
@@ -2480,6 +2553,7 @@ void preprocessFile(const char *fileName,BufStr &output)
     firstTime=FALSE;
   }
  
+#if 0
   QCString inputFilter = getFileFilter(fileName);
   if (inputFilter.isEmpty())
   {
@@ -2501,6 +2575,7 @@ void preprocessFile(const char *fileName,BufStr &output)
       return;
     }
   }
+#endif
   g_yyLineNr = 1;
   g_level    = 0;
   g_ifcount  = 0;
@@ -2513,10 +2588,13 @@ void preprocessFile(const char *fileName,BufStr &output)
   
   preYYlex();
   g_lexInit=TRUE;
+
+#if 0
   if (inputFilter.isEmpty())
     fclose(preYYin);
   else
     portable_pclose(preYYin);
+#endif
   
   if (Debug::isFlagSet(Debug::Preprocessor))
   {

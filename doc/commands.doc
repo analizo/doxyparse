@@ -176,6 +176,7 @@ documentation:
 \refitem cmdgt \\\>
 \refitem cmdhash \\\#
 \refitem cmdperc \\\%
+\refitem cmdquot \\\"
 \endsecreflist
 
 The following subsections provide a list of all commands that are recognized by
@@ -224,6 +225,7 @@ Structural indicators
   \sa page \ref grouping "Grouping", sections \ref cmddefgroup "\\defgroup", \ref cmdingroup "\\ingroup" and
   \ref cmdweakgroup "\\weakgroup".
 
+<hr>
 \section cmdcallgraph \\callgraph 
 
   \addindex \\callgraph
@@ -324,7 +326,6 @@ Structural indicators
   stripped from the full path before it appears in the output.
 
 <hr>
-
 \section cmdenum \\enum <name>
 
   \addindex \\enum
@@ -465,10 +466,34 @@ Structural indicators
   The \<header-name\> argument can be used to overwrite the 
   name of the link that is used in the class documentation to something other 
   than \<header-file\>. This can be useful if the include name is not located 
-  on the default include path (like \<X11/X.h\>). With the \<header-name\>
+  on the default include path (like \<X11/X.h\>). 
+
+  With the \<header-name\>
   argument you can also specify how the include statement should look like, 
-  by adding either quotes or sharp brackets around the name. 
-  Sharp brackets are used if just the name is given.
+  by adding either double quotes or sharp brackets around the name. 
+  By default sharp brackets are used if just the name is given. 
+
+  If a pair of double quotes is given for either the header-file or 
+  header-name argument, the current file (in which the command was found) 
+  will be used but with quotes. So for a comment block with a \\headerfile
+  command inside a file test.h, the following three commands are equivalent:
+  \verbatim
+  \headerfile test.h "test.h"
+  \headerfile test.h ""
+  \headerfile "" \endverbatim
+  To get sharp brackets you do not need to specify anything,
+  but if you want to be explicit you could use any of the following:
+  \verbatim
+  \headerfile test.h <test.h>
+  \headerfile test.h <>
+  \headerfile <> \endverbatim
+
+  To globally reverse the default include representation to 
+  local includes you can set
+  \ref cfg_force_local_includes "FORCE_LOCAL_INCLUDES" to \c YES.
+
+  To disable the include information altogether set
+  \ref cfg_show_include_files "SHOW_INCLUDE_FILES" to \c NO.
 
 <hr>
 \section cmdhideinitializer \\hideinitializer
@@ -884,6 +909,7 @@ Section indicators
   The \\attention command ends when a blank line or some other 
   sectioning command is encountered. 
 
+<hr>
 \section cmdauthor \\author { list of authors }
 
   \addindex \\author
@@ -1423,6 +1449,7 @@ void memcpy(void *dest, const void *src, size_t n);
   sectioning command is encountered. See section \ref cmdauthor "\\author" 
   for an example.
 
+<hr>
 \section cmdxrefitem \\xrefitem <key> "(heading)" "(list title)" {text}
 
  \addindex \\xrefitem
@@ -1465,6 +1492,7 @@ Commands to create links
 </h2>
 \htmlonly </center>\endhtmlonly
 
+<hr>
 \section cmdaddindex \\addindex (text)
 
   \addindex \\addindex
@@ -1644,6 +1672,7 @@ Commands for displaying examples
 </h2>
 \htmlonly </center>\endhtmlonly
 
+<hr>
 \section cmddontinclude \\dontinclude <file-name>
 
   \addindex \\dontinclude
@@ -2453,6 +2482,7 @@ class Receiver
   This command writes the \> character to the output. This 
   character has to be escaped because it has a special meaning in HTML.
 
+<hr>
 \section cmdperc \\\%
 
   \addindex \\\%
@@ -2461,7 +2491,14 @@ class Receiver
   prevent auto-linking to word that is also a documented class or struct. 
 
 <hr>
+\section cmdquot \\"
 
+  \addindex \\\"
+  This command writes the \" character to the output. This 
+  character has to be escaped in some cases, because it is used in pairs
+  to indicate an unformated text fragment.
+
+<hr>
 \htmlonly <center> \endhtmlonly 
 <h2>
 \htmlonly --- \endhtmlonly 

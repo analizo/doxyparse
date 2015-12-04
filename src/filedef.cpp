@@ -514,11 +514,11 @@ void FileDef::writeDocumentation(OutputList &ol)
     ol.enableAll();
   }
   
-  //if (Config_getBool("SEARCHENGINE"))
-  //{
-  //  Doxygen::searchIndex->setCurrentDoc(pageTitle,getOutputFileBase());
-  //  Doxygen::searchIndex->addWord(localName(),TRUE);
-  //}
+  if (Doxygen::searchIndex)
+  {
+    Doxygen::searchIndex->setCurrentDoc(pageTitle,getOutputFileBase());
+    Doxygen::searchIndex->addWord(localName(),TRUE);
+  }
   
   if (!Config_getString("GENERATE_TAGFILE").isEmpty()) 
   {
@@ -1094,8 +1094,10 @@ void FileDef::addListReferences()
   {
     LockingPtr< QList<ListItemInfo> > xrefItems = xrefListItems();
     addRefItem(xrefItems.pointer(),
+               getOutputFileBase(),
                theTranslator->trFile(TRUE,TRUE),
-               getOutputFileBase(),name()
+               getOutputFileBase(),name(),
+               0
               );
   }
   if (memberGroupSDict)

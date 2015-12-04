@@ -69,6 +69,10 @@ class BufStr
       }
       m_buf = (char *)realloc(m_buf,m_size);
     }
+    int size() const
+    {
+      return m_size;
+    }
     char *data() const
     {
       return m_buf;
@@ -88,6 +92,13 @@ class BufStr
     uint curPos() const
     { 
       return m_writeOffset; 
+    }
+    void dropFromStart(uint bytes)
+    {
+      if (bytes>m_size) bytes=m_size;
+      if (bytes>0) qmemmove(m_buf,m_buf+bytes,m_size-bytes);
+      m_size-=bytes;
+      m_writeOffset-=bytes;
     }
   private:
     void makeRoomFor(uint size)

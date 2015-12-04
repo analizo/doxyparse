@@ -451,12 +451,6 @@ static bool makeStructuralIndicator(Entry::Sections s)
 {
   if (!getDocSectionName(current->section).isEmpty())
   {
-    //warn(yyFileName,yyLineNr,
-    //	    "Warning: found a structural command %s for a section already "
-    //	    "marked with structural command %s. Ignoring the latter command.",
-    //	     getDocSectionName(s).data(),
-    //         getDocSectionName(current->section).data()
-    //	);
     return TRUE;
   }
   else
@@ -813,7 +807,7 @@ LC        "\\"{B}*"\n"
 NW	  [^a-z_A-Z0-9]
 FILESCHAR [a-z_A-Z0-9\x80-\xFF\\:\\\/\-\+]
 FILEECHAR [a-z_A-Z0-9\x80-\xFF\-\+]
-FILE      ({FILESCHAR}*{FILEECHAR}+("."{FILESCHAR}*{FILEECHAR}+)*)|("\""[^\n\"]+"\"")
+FILE      ({FILESCHAR}*{FILEECHAR}+("."{FILESCHAR}*{FILEECHAR}+)*)|("\""[^\n\"]*"\"")
 ID        "$"?[a-z_A-Z\x80-\xFF][a-z_A-Z0-9\x80-\xFF]*
 LABELID   [a-z_A-Z\x80-\xFF][a-z_A-Z0-9\x80-\xFF\-]*
 SCOPEID   {ID}({ID}*{BN}*"::"{BN}*)*({ID}?)
@@ -926,6 +920,10 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
   					}
 <Comment>"</remarks>"			{ // end of a brief or detailed description
   					}
+<Comment>{RCSTAG}			{ // RCS tag which end a brief description
+  					  setOutput(OutputDoc);
+					  REJECT;
+  					}
 <Comment>"<!--"				{ 
   					  BEGIN(HtmlComment);
 					}
@@ -1021,7 +1019,7 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
 <Comment>^{B}*"."{B}*/\n                { // explicit end autolist: e.g "  ."
   				          addOutput(yytext); 
 					}
-<Comment>"."[a-z_A-Z0-9]		{ // . at start or in the middle of a word
+<Comment>("."+)[a-z_A-Z0-9]		{ // . at start or in the middle of a word, or ellipsis
   					  addOutput(yytext);
   					}
 <Comment>".\\"[ \t]			{ // . with escaped space.
@@ -1198,8 +1196,8 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
 <ClassDocArg1,CategoryDocArg1>.		{ // ignore other stuff
   					}
 
-<ClassDocArg2>{FILE}			{ // second argument; include file
-					  current->includeFile = stripQuotes(yytext);
+<ClassDocArg2>{FILE}|"<>"		{ // second argument; include file
+					  current->includeFile = yytext;
 					  BEGIN( ClassDocArg3 );
 					}
 <ClassDocArg2>{LC}			{ // line continuation
@@ -1214,7 +1212,7 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
 <ClassDocArg2>.				{ // ignore other stuff
   					}
 
-<ClassDocArg3>[<]?{FILE}[>]?		{ // third argument; include file name
+<ClassDocArg3>[<]?{FILE}?[>]?		{ // third argument; include file name
  					  current->includeName = yytext;
 					  BEGIN( Comment );
 					}
@@ -2005,7 +2003,10 @@ static bool handlePage(const QCString &)
 static bool handleMainpage(const QCString &)
 {
   bool stop=makeStructuralIndicator(Entry::MAINPAGEDOC_SEC);
-  if (!stop) current->name = "mainpage";
+  if (!stop) 
+  {
+    current->name = "mainpage";
+  }
   BEGIN( PageDocArg2 );
   return stop;
 }
@@ -2013,7 +2014,10 @@ static bool handleMainpage(const QCString &)
 static bool handleFile(const QCString &)
 {
   bool stop=makeStructuralIndicator(Entry::FILEDOC_SEC);
-  if (!stop) current->name = yyFileName;
+  if (!stop) 
+  {
+    current->name = yyFileName;
+  }
   BEGIN( FileDocArg1 );
   return stop;
 }
@@ -2372,7 +2376,7 @@ bool parseCommentBlock(/* in */     ParserInterface *parser,
                        /* in */     Entry *curEntry,
                        /* in */     const QCString &comment,
 		       /* in */     const QCString &fileName,
-		       /* in */     int lineNr,
+		       /* in,out */ int  &lineNr,
 		       /* in */     bool isBrief,
 		       /* in */     bool isAutoBriefOn,
 		       /* in */     bool isInbody,
@@ -2456,7 +2460,15 @@ bool parseCommentBlock(/* in */     ParserInterface *parser,
 
   newEntryNeeded = needNewEntry;
 
+  // if we did not proceed during this call, it does not make
+  // sence to continue, since we get stuck. See bug 567346 for situations
+  // were this happens
+  if (parseMore && position==inputPosition) parseMore=FALSE;
+
   if (parseMore) position=inputPosition; else position=0;
+
+  lineNr = yyLineNr;
+  //printf("position=%d parseMore=%d\n",position,parseMore);
 
   return parseMore;
 }
@@ -2507,9 +2519,10 @@ void groupEnterCompound(const char *fileName,int line,const char *name)
   {
     g_compoundName=fileName;
   }
+  //printf("groupEnterCompound(%s)\n",name);
 }
 
-void groupLeaveCompound(const char *,int,const char *)
+void groupLeaveCompound(const char *,int,const char * /*name*/)
 {
   //printf("groupLeaveCompound(%s)\n",name);
   //if (g_memberGroupId!=DOX_NOGROUP)
@@ -2530,7 +2543,8 @@ static int findExistingGroup(int &groupId,const MemberGroupInfo *info)
   for (di.toFirst();(mi=di.current());++di)
   {
     if (g_compoundName==mi->compoundName &&  // same file or scope
-	stricmp(mi->header,info->header)==0  // same header
+	!mi->header.isEmpty() &&             // not a nameless group
+	stricmp(mi->header,info->header)==0  // same header name
        )
     {
       //printf("Found it!\n");
@@ -2543,14 +2557,15 @@ static int findExistingGroup(int &groupId,const MemberGroupInfo *info)
 
 void openGroup(Entry *e,const char *,int)
 {
+  //printf("==> openGroup(name=%s,sec=%x) g_autoGroupStack=%d\n",
+  //  	e->name.data(),e->section,g_autoGroupStack.count());
   if (e->section==Entry::GROUPDOC_SEC) // auto group
   {
     g_autoGroupStack.push(new Grouping(e->name,e->groupingPri()));
-    //printf("==> openGroup(name=%s,sec=%x) g_autoGroupStack=%d\n",
-    //	e->name.data(),e->section,g_autoGroupStack.count());
   }
   else // start of a member group
   {
+    //printf("    membergroup id=%d\n",g_memberGroupId);
     if (g_memberGroupId==DOX_NOGROUP) // no group started yet
     {
       static int curGroupId=0;
@@ -2559,6 +2574,7 @@ void openGroup(Entry *e,const char *,int)
       info->header = g_memberGroupHeader.stripWhiteSpace();
       info->compoundName = g_compoundName;
       g_memberGroupId = findExistingGroup(curGroupId,info);
+      //printf("    use membergroup %d\n",g_memberGroupId);
       Doxygen::memGrpInfoDict.insert(g_memberGroupId,info);
 
       g_memberGroupRelates = e->relates;
@@ -2626,6 +2642,7 @@ static void groupAddDocs(Entry *e,const char *fileName)
     {
       info->doc = g_memberGroupDocs;
       info->docFile = fileName;
+      info->setRefItems(e->sli);
     }
     e->doc.resize(0);
     e->brief.resize(0);

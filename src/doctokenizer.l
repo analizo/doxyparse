@@ -305,7 +305,7 @@ FILEMASK  ({FILESCHAR}*{FILEECHAR}+("."{FILESCHAR}*{FILEECHAR}+)*)|{HFILEMASK}
 LINKMASK  [^ \t\n\r\\@<&${}]+("("[^\n)]*")")?({BLANK}*("const"|"volatile"){BLANK}+)? 
 VERBATIM  "verbatim"{BLANK}*
 SPCMD1    {CMD}([a-z_A-Z0-9]+|{VERBATIM})
-SPCMD2    {CMD}[\\@<>&$#%~]
+SPCMD2    {CMD}[\\@<>&$#%~"]
 SPCMD3    {CMD}form#[0-9]+
 INOUT	  "in"|"out"|("in"{BLANK}*","{BLANK}*"out")|("out"{BLANK}*","{BLANK}*"in")
 PARAMIO   {CMD}param{BLANK}*"["{BLANK}*{INOUT}{BLANK}*"]"
@@ -339,7 +339,8 @@ HTMLKEYL  "strong"|"center"|"table"|"caption"|"small"|"code"|"dfn"|"var"|"img"|"
 HTMLKEYU  "STRONG"|"CENTER"|"TABLE"|"CAPTION"|"SMALL"|"CODE"|"DFN"|"VAR"|"IMG"|"PRE"|"SUB"|"SUP"|"TR"|"TD"|"TH"|"OL"|"UL"|"LI"|"TT"|"KBD"|"EM"|"HR"|"DL"|"DT"|"DD"|"BR"|"I"|"A"|"B"|"P"
 HTMLKEYW  {HTMLKEYL}|{HTMLKEYU}
 LABELID   [a-z_A-Z][a-z_A-Z0-9\-]*
-REFWORD   ("#"|"::")?({ID}{TEMPLPART}?("."|"#"|"::"|"-"|"/"))*({ID}(":")?){FUNCARG}?
+REFWORD2  ("#"|"::")?({ID}{TEMPLPART}?("."|"#"|"::"|"-"|"/"))*({ID}(":")?){FUNCARG}?
+REFWORD   {LABELID}|{REFWORD2}
 
 %option noyywrap
 %option yylineno
@@ -725,7 +726,7 @@ REFWORD   ("#"|"::")?({ID}{TEMPLPART}?("."|"#"|"::"|"-"|"/"))*({ID}(":")?){FUNCA
   			 unput(' ');
   			 return 0;
                        }
-<St_Ref>{WS}+"\""      { // white space following by quoted string
+<St_Ref>{WS}+"\""{WS}* { // white space following by quoted string
   			 BEGIN(St_Ref2);
                        }
 <St_Ref>\n	       { // new line
@@ -924,7 +925,7 @@ REFWORD   ("#"|"::")?({ID}{TEMPLPART}?("."|"#"|"::"|"-"|"/"))*({ID}(":")?){FUNCA
 <*>\n                  { 
                          warn(g_fileName,yylineno,"Error: Unexpected new line character"); 
 		       }
-<*>[\\@<>&$#%~]        { /* unescaped special character */
+<*>[\\@<>&$#%~"]       { /* unescaped special character */
                          //warn(g_fileName,yylineno,"Warning: Unexpected character `%s', assuming command \\%s was meant.",yytext,yytext); 
 			 g_token->name = yytext;
 			 return TK_COMMAND;

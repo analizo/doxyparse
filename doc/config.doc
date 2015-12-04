@@ -61,8 +61,8 @@ followed by the descriptions of the tags grouped by category.
 \refitem cfg_alphabetical_index ALPHABETICAL_INDEX 
 \refitem cfg_always_detailed_sec ALWAYS_DETAILED_SEC
 \refitem cfg_binary_toc BINARY_TOC
-\refitem cfg_builtin_stl_support BUILTIN_STL_SUPPORT
 \refitem cfg_brief_member_desc BRIEF_MEMBER_DESC 
+\refitem cfg_builtin_stl_support BUILTIN_STL_SUPPORT
 \refitem cfg_call_graph CALL_GRAPH
 \refitem cfg_caller_graph CALLER_GRAPH
 \refitem cfg_case_sense_names CASE_SENSE_NAMES 
@@ -80,6 +80,7 @@ followed by the descriptions of the tags grouped by category.
 \refitem cfg_distribute_group_doc DISTRIBUTE_GROUP_DOC
 \refitem cfg_docset_bundle_id DOCSET_BUNDLE_ID
 \refitem cfg_docset_feedname DOCSET_FEEDNAME
+\refitem cfg_dot_cleanup DOT_CLEANUP
 \refitem cfg_dot_fontname DOT_FONTNAME
 \refitem cfg_dot_fontpath DOT_FONTPATH
 \refitem cfg_dot_fontsize DOT_FONTSIZE
@@ -90,9 +91,10 @@ followed by the descriptions of the tags grouped by category.
 \refitem cfg_dot_transparent DOT_TRANSPARENT
 \refitem cfg_dotfile_dirs DOTFILE_DIRS
 \refitem cfg_doxyfile_encoding DOXYFILE_ENCODING
+\refitem cfg_eclipse_doc_id ECLIPSE_DOC_ID
 \refitem cfg_enable_preprocessing ENABLE_PREPROCESSING
-\refitem cfg_enum_values_per_line ENUM_VALUES_PER_LINE
 \refitem cfg_enabled_sections ENABLED_SECTIONS
+\refitem cfg_enum_values_per_line ENUM_VALUES_PER_LINE
 \refitem cfg_example_path EXAMPLE_PATH
 \refitem cfg_example_patterns EXAMPLE_PATTERNS
 \refitem cfg_example_recursive EXAMPLE_RECURSIVE
@@ -114,6 +116,7 @@ followed by the descriptions of the tags grouped by category.
 \refitem cfg_file_version_filter FILE_VERSION_FILTER
 \refitem cfg_filter_patterns FILTER_PATTERNS
 \refitem cfg_filter_source_files FILTER_SOURCE_FILES
+\refitem cfg_force_local_includes FORCE_LOCAL_INCLUDES
 \refitem cfg_formula_fontsize FORMULA_FONTSIZE
 \refitem cfg_full_path_names FULL_PATH_NAMES
 \refitem cfg_generate_autogen_def GENERATE_AUTOGEN_DEF
@@ -121,6 +124,7 @@ followed by the descriptions of the tags grouped by category.
 \refitem cfg_generate_chi GENERATE_CHI
 \refitem cfg_generate_deprecatedlist GENERATE_DEPRECIATEDLIST
 \refitem cfg_generate_docset GENERATE_DOCSET
+\refitem cfg_generate_eclipsehelp GENERATE_ECLIPSEHELP
 \refitem cfg_generate_html GENERATE_HTML
 \refitem cfg_generate_htmlhelp GENERATE_HTMLHELP
 \refitem cfg_generate_latex GENERATE_LATEX
@@ -146,15 +150,18 @@ followed by the descriptions of the tags grouped by category.
 \refitem cfg_hide_undoc_relations HIDE_UNDOC_RELATIONS
 \refitem cfg_html_align_members HTML_ALIGN_MEMBERS
 \refitem cfg_html_dynamic_sections HTML_DYNAMIC_SECTIONS
+\refitem cfg_html_file_extension HTML_FILE_EXTENSION
 \refitem cfg_html_footer HTML_FOOTER
 \refitem cfg_html_header HTML_HEADER
 \refitem cfg_html_output HTML_OUTPUT
 \refitem cfg_html_stylesheet HTML_STYLESHEET
+\refitem cfg_html_timestamp HTML_TIMESTAMP
 \refitem cfg_idl_property_support IDL_PROPERTY_SUPPORT
 \refitem cfg_ignore_prefix IGNORE_PREFIX
 \refitem cfg_image_path IMAGE_PATH
 \refitem cfg_include_graph INCLUDE_GRAPH
 \refitem cfg_include_path INCLUDE_PATH
+\refitem cfg_included_by_graph INCLUDED_BY_GRAPH
 \refitem cfg_inherit_docs INHERIT_DOCS
 \refitem cfg_inline_info INLINE_INFO
 \refitem cfg_inline_inherited_memb INLINE_INHERITED_MEMB
@@ -189,23 +196,23 @@ followed by the descriptions of the tags grouped by category.
 \refitem cfg_pdf_hyperlinks PDF_HYPERLINKS
 \refitem cfg_perl_path PERL_PATH
 \refitem cfg_perlmod_latex PERLMOD_LATEX
-\refitem cfg_perlmod_pretty PERLMOD_PRETTY
 \refitem cfg_perlmod_makevar_prefix PERLMOD_MAKEVAR_PREFIX
+\refitem cfg_perlmod_pretty PERLMOD_PRETTY
 \refitem cfg_predefined PREDEFINED
 \refitem cfg_project_name PROJECT_NAME
 \refitem cfg_project_number PROJECT_NUMBER
-\refitem cfg_qhp_namespace QHP_NAMESPACE
-\refitem cfg_qhp_virtual_folder QHP_VIRTUAL_FOLDER
-\refitem cfg_qhp_cust_filter_name QHP_CUST_FILTER_NAME
-\refitem cfg_qhp_cust_filter_attrs QHP_CUST_FILTER_ATTRS
-\refitem cfg_qhp_sect_filter_attrs QHP_SECT_FILTER_ATTRS
 \refitem cfg_qhg_location QHG_LOCATION
+\refitem cfg_qhp_cust_filter_attrs QHP_CUST_FILTER_ATTRS
+\refitem cfg_qhp_cust_filter_name QHP_CUST_FILTER_NAME
+\refitem cfg_qhp_namespace QHP_NAMESPACE
+\refitem cfg_qhp_sect_filter_attrs QHP_SECT_FILTER_ATTRS
+\refitem cfg_qhp_virtual_folder QHP_VIRTUAL_FOLDER
 \refitem cfg_qt_autobrief QT_AUTOBRIEF
 \refitem cfg_quiet QUIET
 \refitem cfg_recursive RECURSIVE
 \refitem cfg_referenced_by_relation REFERENCED_BY_RELATION
-\refitem cfg_references_relation REFERENCES_RELATION
 \refitem cfg_references_link_source REFERENCES_LINK_SOURCE
+\refitem cfg_references_relation REFERENCES_RELATION
 \refitem cfg_repeat_brief REPEAT_BRIEF
 \refitem cfg_rtf_extensions_file RTF_EXTENSIONS_FILE
 \refitem cfg_rtf_hyperlinks RTF_HYPERLINKS
@@ -214,18 +221,20 @@ followed by the descriptions of the tags grouped by category.
 \refitem cfg_search_includes SEARCH_INCLUDES
 \refitem cfg_searchengine SEARCHENGINE
 \refitem cfg_separate_member_pages SEPARATE_MEMBER_PAGES
+\refitem cfg_server_based_search SERVER_BASED_SEARCH
 \refitem cfg_short_names SHORT_NAMES
 \refitem cfg_show_dirs SHOW_DIRECTORIES
 \refitem cfg_show_files SHOW_FILES
 \refitem cfg_show_include_files SHOW_INCLUDE_FILES
 \refitem cfg_show_namespaces SHOW_NAMESPACES
+\refitem cfg_show_used_files SHOW_USED_FILES
 \refitem cfg_sip_support SIP_SUPPORT
 \refitem cfg_skip_function_macros SKIP_FUNCTION_MACROS
 \refitem cfg_sort_brief_docs SORT_BRIEF_DOCS
 \refitem cfg_sort_by_scope_name SORT_BY_SCOPE_NAME
-\refitem cfg_sort_members_constructors_first SORT_MEMBERS_CTORS_1ST
 \refitem cfg_sort_group_names SORT_GROUP_NAMES
 \refitem cfg_sort_member_docs SORT_MEMBER_DOCS
+\refitem cfg_sort_members_constructors_first SORT_MEMBERS_CTORS_1ST
 \refitem cfg_source_browser SOURCE_BROWSER
 \refitem cfg_strip_code_comments STRIP_CODE_COMMENTS
 \refitem cfg_strip_from_inc_path STRIP_FROM_INC_PATH
@@ -240,8 +249,8 @@ followed by the descriptions of the tags grouped by category.
 \refitem cfg_typedef_hides_struct TYPEDEF_HIDES_STRUCT
 \refitem cfg_uml_look UML_LOOK
 \refitem cfg_use_htags USE_HTAGS
+\refitem cfg_use_inline_trees USE_INLINE_TREES
 \refitem cfg_use_pdflatex USE_PDFLATEX
-\refitem cfg_use_windows_encoding USE_WINDOWS_ENCODING
 \refitem cfg_verbatim_headers VERBATIM_HEADERS
 \refitem cfg_warn_format WARN_FORMAT
 \refitem cfg_warn_if_doc_error WARN_IF_DOC_ERROR
@@ -311,17 +320,6 @@ followed by the descriptions of the tags grouped by category.
  Finnish, French, German, Greek, Hungarian, Italian, Japanese, Korean, 
  Lithuanian, Norwegian, Persian, Polish, Portuguese, Romanian, Russian, Serbian, 
  Slovak, Slovene, Spanish, Swedish, and Ukrainian.
-
-\anchor cfg_use_windows_encoding
-<dt>\c USE_WINDOWS_ENCODING <dd>
- \addindex USE_WINDOWS_ENCODING
- This tag can be used to specify the encoding used in the generated output. 
- The encoding is not always determined by the language that is chosen, 
- but also whether or not the output is meant for Windows or non-Windows users.
- In case there is a difference, setting the \c USE_WINDOWS_ENCODING tag to \c YES
- forces the Windows encoding, (this is the default for the Windows binary),
- whereas setting the tag to \c NO uses a Unix-style encoding (the default for
- all platforms other than Windows).
 
 \anchor cfg_brief_member_desc
 <dt>\c BRIEF_MEMBER_DESC <dd>
@@ -715,9 +713,16 @@ function's detailed documentation block.
 \anchor cfg_show_include_files
 <dt>\c SHOW_INCLUDE_FILES <dd>
  \addindex SHOW_INCLUDE_FILES
- If the SHOW_INCLUDE_FILES tag is set to YES (the default) then doxygen
+ If the SHOW_INCLUDE_FILES tag is set to \c YES (the default) then doxygen
  will put a list of the files that are included by a file in the documentation 
  of that file.
+
+\anchor cfg_force_local_includes
+<dt>\c FORCE_LOCAL_INCLUDES <dd>
+ \addindex FORCE_LOCAL_INCLUDES
+ If the \c FORCE_LOCAL_INCLUDES tag is set to \c YES then Doxygen 
+ will list include files with double quotes in the documentation 
+ rather than with sharp brackets.
 
 \anchor cfg_inline_info
 <dt>\c INLINE_INFO <dd>
@@ -1287,6 +1292,14 @@ FILE_VERSION_INFO = "cleartool desc -fmt \%Vn"
  See also section \ref doxygen_usage for information on how to generate
  the style sheet that doxygen normally uses.
 
+\anchor cfg_html_timestamp
+<dt>\c HTML_TIMESTAMP <dd>
+ \addindex HTML_TIMESTAMP
+ If the \c HTML_TIMESTAMP tag is set to \c YES then the footer of 
+ each generated HTML page will contain the date and time when the page 
+ was generated. Setting this to NO can help when comparing the output of 
+ multiple runs.
+
 \anchor cfg_html_align_members
 <dt>\c HTML_ALIGN_MEMBERS <dd>
  \addindex HTML_ALIGN_MEMBERS
@@ -1444,15 +1457,42 @@ FILE_VERSION_INFO = "cleartool desc -fmt \%Vn"
  If non-empty doxygen will try to run qhelpgenerator on the generated
  .qhp file.
 
+\anchor cfg_generate_eclipsehelp
+<dt>\c GENERATE_ECLIPSEHELP <dd>
+ \addindex GENERATE_ECLIPSEHELP
+ If the \c GENERATE_ECLIPSEHELP tag is set to \c YES, additional index files  
+ will be generated, which together with the HTML files, form an Eclipse help  
+ plugin. 
+
+ To install this plugin and make it available under the help contents 
+ menu in Eclipse, the contents of the directory containing the HTML and XML 
+ files needs to be copied into the plugins directory of eclipse. The name of 
+ the directory within the plugins directory should be the same as 
+ the \ref cfg_eclipse_doc_id "ECLIPSE_DOC_ID" value. 
+
+ After copying Eclipse needs to be restarted before the help appears.
+
+\anchor cfg_eclipse_doc_id
+<dt>\c ECLIPSE_DOC_ID <dd>
+ \addindex ECLIPSE_DOC_ID
+ A unique identifier for the eclipse help plugin. When installing the plugin 
+ the directory name containing the HTML and XML files should also have 
+ this name. Each documentation set should have its own identifier.
+
 \anchor cfg_searchengine
 <dt>\c SEARCHENGINE <dd>
  \addindex SEARCHENGINE
- The \c SEARCHENGINE tag specifies whether or not the HTML output should
- contain a search function. Possible values are \c YES and \c NO. 
- If set to YES, doxygen will produce a search index, and a search box at
- the top of each page (or in the side bar in case GENERATE_TREE is enabled).
- The search engine is implemented using javascript and DHTML and should
- work on any modern browser. 
+
+ When the \c SEARCHENGINE tag is enabled doxygen will generate a search box
+ for the HTML output. The underlying search engine uses javascript 
+ and DHTML and should work on any modern browser. Note that when using
+ HTML help (\ref cfg_generate_htmlhelp "GENERATE_HTMLHELP"), 
+ Qt help (\ref cfg_generate_qhp "GENERATE_QHP"), or docsets
+ (\ref cfg_generate_docset "GENERATE_DOCSET") there is already a search 
+ function so this one should typically be disabled. For large projects 
+ the javascript based search engine can be slow, then enabling 
+ \ref cfg_server_based_search "SERVER_BASED_SEARCH" may provide a 
+ better solution. 
 
  It is possible to search using the keyboard;
  to jump to the search box use access key + S (what the access key is
@@ -1464,29 +1504,17 @@ FILE_VERSION_INFO = "cleartool desc -fmt \%Vn"
  by pressing Shift+cursor down. Also here use the cursor keys to 
  select a filter and enter or escape to activate or cancel the filter option.
 
-<!--
-\anchor cfg_qthelp_file 
-<dt>\c QTHELP_FILE <dd>
- \addindex QTHELP_FILE
-  If the \c GENERATE_HTMLHELP tag is set to \c YES, the \c QTHELP_FILE tag can
-  be used to specify the file name of the resulting .(qch|qhp) file. 
-  You can add a path in front of the file if the result should not be
-  written to the html output directory.
+\anchor cfg_server_based_search
+<dt>\c SERVER_BASED_SEARCH <dd>
+ \addindex SERVER_BASED_SEARCH
 
-\anchor cfg_qthelp_config 
-<dt>\c QTHELP_CONFIG <dd>
- \addindex QTHELP_CONFIG
-  If \c DOXYGEN2QTHELP_LOC is set, \c QTHELP_CONFIG must specify the file name
-  of a config file to pass to doxygen2qthelp.
-
-\anchor cfg_doxygen2qthelp_loc 
-<dt>\c DOXYGEN2QTHELP_LOC <dd>
- \addindex DOXYGEN2QTHELP_LOC
-  If the \c GENERATE_HTMLHELP tag is set to \c YES, the \c DOXYGEN2QTHELP_LOC tag
-  can be used to specify the location (absolute path including file name) of 
-  the doxygen2qthelp tool. If non-empty doxygen will try to run doxygen2qthelp 
-  on the generated index.hhp.
--->
+When the SERVER_BASED_SEARCH tag is enabled the search engine will be
+implemented using a PHP enabled web server instead of at the web client
+using Javascript. Doxygen will generate the search PHP script and index 
+file to put on the web server. The advantage of the server
+based approach is that it scales better to large projects and also allows
+full text search. The disadvances is that it is more difficult to setup 
+and does not have live searching capabilities.
 
 \anchor cfg_disable_index
 <dt>\c DISABLE_INDEX <dd>
@@ -1508,16 +1536,16 @@ FILE_VERSION_INFO = "cleartool desc -fmt \%Vn"
  \addindex GENERATE_TREEVIEW
  The GENERATE_TREEVIEW tag is used to specify whether a tree-like index
  structure should be generated to display hierarchical information.
- If the tag value is set to FRAME, a side panel will be generated
+ If the tag value is set to YES, a side panel will be generated
  containing a tree-like index structure (just like the one that
  is generated for HTML Help). For this to work a browser that supports
- JavaScript, DHTML, CSS and frames is required (i.e. any modern browser). 
- Windows users are probably better off using the HTML help feature. 
+ JavaScript, DHTML, CSS and frames is required (i.e. any modern browser).
+ Windows users are probably better off using the HTML help feature.
 
  Via custom stylesheets (see \ref cfg_html_stylesheet "HTML_STYLESHEET")
- one can further \ref doxygen_finetune "fine tune" the look of the index. 
- As an example, the default style sheet generated by doxygen has an 
- example that shows how to put an image at the root of the tree instead of 
+ one can further \ref doxygen_finetune "fine tune" the look of the index.
+ As an example, the default style sheet generated by doxygen has an
+ example that shows how to put an image at the root of the tree instead of
  the \ref cfg_project_name "project name".
 
 \anchor cfg_use_inline_trees
@@ -1565,6 +1593,9 @@ and Class Hierarchy pages using a tree view instead of an ordered list.
  \addindex LATEX_CMD_NAME
  The \c LATEX_CMD_NAME tag can be used to specify the LaTeX command name to be invoked. 
  If left blank `latex' will be used as the default command name.
+ Note that when enabling USE_PDFLATEX this option is only used for
+ generating bitmaps for formulas in the HTML output, but not in the
+ Makefile that is written to the output directory.
 
 \anchor cfg_makeindex_cmd_name
 <dt>\c MAKEINDEX_CMD_NAME <dd>
