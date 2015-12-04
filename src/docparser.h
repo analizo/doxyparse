@@ -129,7 +129,8 @@ class DocNode
                 Kind_Copy           = 46,
                 Kind_Text           = 47,
                 Kind_MscFile        = 48,
-                Kind_HtmlBlockQuote = 49
+                Kind_HtmlBlockQuote = 49,
+                Kind_VhdlFlow       = 50
               };
     /*! Creates a new node */
     DocNode() : m_parent(0), m_insidePre(FALSE) {}
@@ -504,7 +505,7 @@ class DocIndexEntry : public DocNode
 {
   public:
     DocIndexEntry(DocNode *parent,Definition *scope,MemberDef *md) 
-      : m_scope(scope), m_member(md) { m_parent = parent; }
+      : m_scope(scope), m_member(md){ m_parent = parent; }
     Kind kind() const { return Kind_IndexEntry; }
     int parse();
     Definition *scope() const    { return m_scope;  }
@@ -686,6 +687,17 @@ class DocMscFile : public CompAccept<DocMscFile>, public DocNode
     QCString  m_context;
 };
 
+/** Node representing a VHDL flow chart */
+class DocVhdlFlow : public CompAccept<DocVhdlFlow>, public DocNode
+{
+  public:
+    DocVhdlFlow(DocNode *parent);
+    void parse();
+    Kind kind() const    { return Kind_VhdlFlow; }
+    bool hasCaption()    { return !m_children.isEmpty(); }
+    void accept(DocVisitor *v) { CompAccept<DocVhdlFlow>::accept(this,v); }
+  private:
+};
 
 /** Node representing a link to some item */
 class DocLink : public CompAccept<DocLink>, public DocNode
@@ -1021,6 +1033,7 @@ class DocPara : public CompAccept<DocPara>, public DocNode
     void handleRef(const QCString &cmdName);
     void handleSection(const QCString &cmdName);
     void handleInheritDoc();
+    void handleVhdlFlow();
     int handleStartCode();
     int handleHtmlHeader(const HtmlAttribList &tagHtmlAttribs,int level);
 

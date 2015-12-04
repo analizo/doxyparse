@@ -24,8 +24,6 @@
 #ifndef FTVHELP_H
 #define FTVHELP_H
 
-#include "qtbc.h"
-#include <qtextstream.h>
 #include <qlist.h>
 #include "index.h"
 
@@ -53,7 +51,7 @@ class FTVHelp : public IndexIntf
                          bool separateIndex,
                          bool addToNavIndex,
                          Definition *def);
-    void addIndexItem(Definition *,MemberDef *,const char *) {}
+    void addIndexItem(Definition *,MemberDef *,const char *,const char *) {}
     void addIndexFile(const char *) {}
     void addImageFile(const char *) {}
     void addStyleSheetFile(const char *) {}

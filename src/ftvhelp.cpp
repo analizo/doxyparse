@@ -34,6 +34,8 @@
 #include "pagedef.h"
 #include "docparser.h"
 #include "htmldocvisitor.h"
+#include "filedef.h"
+#include "util.h"
 
 #define MAX_INDENT 1024
 
@@ -1025,7 +1027,7 @@ class NavIndexEntryList : public QList<NavIndexEntry>
   public:
     NavIndexEntryList() : QList<NavIndexEntry>() { setAutoDelete(TRUE); }
    ~NavIndexEntryList() {}
-    int compareItems(GCI item1,GCI item2)
+    int compareItems(QCollection::Item item1,QCollection::Item item2)
     {
       // sort list based on url
       return qstrcmp(((NavIndexEntry*)item1)->url,((NavIndexEntry*)item2)->url);
@@ -1296,7 +1298,11 @@ void FTVHelp::generateTreeViewScripts()
     if (f.open(IO_WriteOnly))
     {
       FTextStream t(&f);
-      t << replaceColorMarkers(navtree_css);
+      t << substitute(
+              replaceColorMarkers(navtree_css),
+              "$width",
+              QCString().setNum(Config_getInt("TREEVIEW_WIDTH"))+"px"
+             );
     }
   }
 }

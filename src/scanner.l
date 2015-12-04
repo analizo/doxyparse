@@ -25,7 +25,6 @@
 #include <assert.h>
 #include <ctype.h>
 
-#include "qtbc.h"
 #include <qarray.h>
 #include <qstack.h>
 #include <qregexp.h>
@@ -303,6 +302,7 @@ static inline int computeIndent(const char *s,int startIndent)
   while ((c=*p++))
   {
     if (c=='\t') col+=tabSize-(col%tabSize);
+    else if (c=='\n') col=0;
     else col++;
   }
   return col;
@@ -2454,7 +2454,11 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
 					  docBlockInBody    = FALSE;
 					  docBlockAutoBrief = ( yytext[yyleng-2]=='*' && Config_getBool("JAVADOC_AUTOBRIEF") ) ||
 					                      ( yytext[yyleng-2]=='!' && Config_getBool("QT_AUTOBRIEF") );
-					  docBlock.resize(0);
+
+                                          QCString indent;
+                                          indent.fill(' ',computeIndent(yytext+1,g_column));
+                                          docBlock=indent;
+
 					  docBlockTerm = ';';
                                           if (YY_START==EnumBaseType && current->section==Entry::ENUM_SEC)
                                           {
@@ -2479,7 +2483,11 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
 					  docBlockInBody    = FALSE;
 					  docBlockAutoBrief = ( yytext[yyleng-2]=='*' && Config_getBool("JAVADOC_AUTOBRIEF") ) ||
 					                      ( yytext[yyleng-2]=='!' && Config_getBool("QT_AUTOBRIEF") );
-					  docBlock.resize(0);
+
+                                          QCString indent;
+                                          indent.fill(' ',computeIndent(yytext+1,g_column));
+                                          docBlock=indent;
+
 					  docBlockTerm = ',';
                                           if (YY_START==EnumBaseType && current->section==Entry::ENUM_SEC)
                                           {
@@ -2508,7 +2516,10 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
 					  docBlockInBody    = FALSE;
 					  docBlockAutoBrief = ( yytext[yyleng-2]=='*' && Config_getBool("JAVADOC_AUTOBRIEF") ) ||
 					                      ( yytext[yyleng-2]=='!' && Config_getBool("QT_AUTOBRIEF") );
-					  docBlock.resize(0);
+                                          QCString indent;
+                                          indent.fill(' ',computeIndent(yytext,g_column));
+                                          docBlock=indent;
+
 					  docBlockTerm = 0;
 					  if (yytext[yyleng-3]=='/')
 					  {
@@ -3554,7 +3565,7 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
   					}
 <MemberSpec>([*&]*{BN}*)*{ID}{BN}*("["[^\]\n]*"]")* { // the [] part could be improved.
   					  lineCount();
-  					  int i=0,l=yyleng,j;
+  					  int i=0,l=(int)yyleng,j;
 					  while (i<l && (!isId(yytext[i]))) i++;
 					  msName = QCString(yytext).right(l-i).stripWhiteSpace();
 					  j=msName.find("[");
@@ -4001,7 +4012,7 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
 					  {
 					    // for defines we interpret a comment
 					    // as documentation for the define 
-					    int i;for (i=yyleng-1;i>=0;i--)
+					    int i;for (i=(int)yyleng-1;i>=0;i--)
 					    {
 					      unput(yytext[i]);
 					    }
@@ -4052,7 +4063,7 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
 					  {
 					    // for defines we interpret a comment
 					    // as documentation for the define 
-					    int i;for (i=yyleng-1;i>0;i--)
+					    int i;for (i=(int)yyleng-1;i>0;i--)
 					    {
 					      unput(yytext[i]);
 					    }
@@ -4291,11 +4302,20 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
   					  current->args += " volatile "; 
 					  current->argList->volatileSpecifier=TRUE;
 					}
-<FuncQual>{BN}*"noexcept"{BN}*    	{ // volatile member function
+<FuncQual>{BN}*"noexcept"{BN}*    	{ // noexcept qualifier
   					  lineCount() ; 
   					  current->args += " noexcept "; 
 					  current->spec |= Entry::NoExcept;
 					}
+<FuncQual>{BN}*"noexcept"{BN}*"("    	{ // noexcept expression
+  					  lineCount() ; 
+  					  current->args += " noexcept("; 
+					  current->spec |= Entry::NoExcept;
+  					  lastRoundContext=FuncQual;
+  					  pCopyRoundString=&current->args;
+					  roundCount=0;
+                                          BEGIN(CopyRound);
+                                        }
 <FuncQual,TrailingReturn>{BN}*"="{BN}*"0"{BN}*  	{ // pure virtual member function
   					  lineCount() ; 
 					  current->args += " = 0"; 
@@ -5602,11 +5622,10 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
 					  docBlockInBody  = YY_START==SkipCurly;
                                           static bool javadocAutoBrief = Config_getBool("JAVADOC_AUTOBRIEF");
 					  docBlockAutoBrief = javadocAutoBrief;
-					  docBlock.resize(0);
 
                                           QCString indent;
                                           indent.fill(' ',computeIndent(yytext,g_column));
-                                          docBlock+=indent;
+                                          docBlock=indent;
 
 					  if (docBlockAutoBrief)
 					  {

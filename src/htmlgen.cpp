@@ -17,7 +17,6 @@
 
 #include <stdlib.h>
 
-#include "qtbc.h"
 #include <qdir.h>
 #include <qregexp.h>
 #include "message.h"
@@ -117,10 +116,10 @@ static unsigned char tab_a_png[36] =
 // normal tab background luma
 static unsigned char tab_b_png[36] =
 {
-    221, 231, 238, 236, 233, 230, 228, 225, 224,
-    221, 220, 218, 217, 216, 215, 214, 213, 212,
-    212, 194, 195, 196, 197, 198, 199, 200, 201,
-    202, 204, 206, 208, 210, 214, 216, 203, 185 
+    218, 228, 235, 233, 230, 227, 225, 222, 221,
+    218, 217, 215, 214, 213, 212, 211, 210, 209,
+    209, 197, 198, 199, 200, 201, 202, 203, 204,
+    205, 207, 209, 211, 213, 217, 219, 206, 188 
 };
 
 // hovering tab background luma
@@ -808,7 +807,7 @@ static void writeImgData(const char *dir,img_data_item *data)
     {
       fprintf(stderr,"Warning: Cannot open file %s for writing\n",data->name);
     }
-    Doxygen::indexList.addImageFile(QCString("/search/")+data->name);
+    Doxygen::indexList->addImageFile(QCString("/search/")+data->name);
     data++;
   }
 }
@@ -907,7 +906,7 @@ QCString substitute(const char *s,const char *src,const char *dst)
   {
     int count;
     for (count=0, p=s; (q=strstr(p,src))!=0; p=q+srcLen) count++;
-    resLen = p-s+strlen(p)+count*(dstLen-srcLen);
+    resLen = (int)(p-s)+strlen(p)+count*(dstLen-srcLen);
   }
   else // result has same size as s
   {
@@ -939,7 +938,7 @@ QCString clearBlock(const char *s,const char *begin,const char *end)
   int resLen = 0;
   for (p=s; (q=strstr(p,begin))!=0; p=q+endLen)
   {
-    resLen+=q-p;
+    resLen+=(int)(q-p);
     p=q+beginLen;
     if ((q=strstr(p,end))==0)
     {
@@ -1011,22 +1010,25 @@ static QCString removeEmptyLines(const QCString &s)
 {
   BufStr out(s.length()+1);
   char *p=s.data();
-  char c;
-  while ((c=*p++))
+  if (p)
   {
-    if (c=='\n')
+    char c;
+    while ((c=*p++))
     {
-      char *e = p;
-      while (*e==' ' || *e=='\t') e++;
-      if (*e=='\n') 
+      if (c=='\n')
       {
-        p=e;
+        char *e = p;
+        while (*e==' ' || *e=='\t') e++;
+        if (*e=='\n') 
+        {
+          p=e;
+        }
+        else out.addChar(c);
       }
-      else out.addChar(c);
-    }
-    else
-    {
-      out.addChar(c);
+      else
+      {
+        out.addChar(c);
+      }
     }
   }
   out.addChar('\0');
@@ -1055,6 +1057,7 @@ static QCString substituteHtmlKeywords(const QCString &s,
   static bool searchEngine = Config_getBool("SEARCHENGINE");
   static bool serverBasedSearch = Config_getBool("SERVER_BASED_SEARCH");
   static bool mathJax = Config_getBool("USE_MATHJAX");
+  static QCString mathJaxFormat = Config_getEnum("MATHJAX_FORMAT");
   static bool disableIndex = Config_getBool("DISABLE_INDEX");
   static bool hasProjectName = !projectName.isEmpty();
   static bool hasProjectNumber = !Config_getString("PROJECT_NUMBER").isEmpty();
@@ -1082,7 +1085,7 @@ static QCString substituteHtmlKeywords(const QCString &s,
   extraCssFile = Config_getString("HTML_EXTRA_STYLESHEET");
   if (!extraCssFile.isEmpty())
   {
-    extraCssText = "<link href=\"$relpath$"+extraCssFile+"\" rel=\"stylesheet\" type=\"text/css\"/>\n";
+    extraCssText = "<link href=\"$relpath$"+stripPath(extraCssFile)+"\" rel=\"stylesheet\" type=\"text/css\"/>\n";
   }
 
   if (timeStamp) {
@@ -1099,6 +1102,7 @@ static QCString substituteHtmlKeywords(const QCString &s,
                     "<script type=\"text/javascript\" src=\"$relpath$navtree.js\"></script>\n"
                     "<script type=\"text/javascript\">\n"
                     "  $(document).ready(initResizable);\n"
+                    "  $(window).load(resizeHeight);\n"
                     "</script>";
   }
 
@@ -1153,8 +1157,12 @@ static QCString substituteHtmlKeywords(const QCString &s,
       mathJaxJs+= ", \""+QCString(s)+".js\"";
       s = mathJaxExtensions.next();
     }
+    if (mathJaxFormat.isEmpty())
+    {
+      mathJaxFormat = "HTML-CSS";
+    }
     mathJaxJs += "],\n"
-                 "    jax: [\"input/TeX\",\"output/HTML-CSS\"],\n"
+                 "    jax: [\"input/TeX\",\"output/"+mathJaxFormat+"\"],\n"
                  "});\n"
                  "</script>";
     mathJaxJs += "<script src=\"" + path + "MathJax.js\"></script>\n";
@@ -1478,7 +1486,7 @@ void HtmlGenerator::init()
 /// Additional initialization after indices have been created
 void HtmlGenerator::writeTabData()
 {
-  Doxygen::indexList.addStyleSheetFile("tabs.css");
+  Doxygen::indexList->addStyleSheetFile("tabs.css");
   QCString dname=Config_getString("HTML_OUTPUT");
   writeColoredImgData(dname,colored_tab_data);
 
@@ -1500,6 +1508,7 @@ void HtmlGenerator::writeSearchData(const char *dir)
   {
     FTextStream t(&f);
     QCString searchCss = replaceColorMarkers(search_styleSheet);
+    searchCss = substitute(searchCss,"$doxygenversion",versionString);
     if (Config_getBool("DISABLE_INDEX"))
     {
       // move up the search box if there are no tabs
@@ -1507,35 +1516,27 @@ void HtmlGenerator::writeSearchData(const char *dir)
     }
     t << searchCss;
   }
-  Doxygen::indexList.addStyleSheetFile("search/search.css");
+  Doxygen::indexList->addStyleSheetFile("search/search.css");
 }
 
 void HtmlGenerator::writeStyleSheetFile(QFile &file)
 {
   FTextStream t(&file);
-  t << replaceColorMarkers(defaultStyleSheet);
+  t << replaceColorMarkers(substitute(defaultStyleSheet,"$doxygenversion",versionString));
 }
 
 void HtmlGenerator::writeHeaderFile(QFile &file, const char * /*cssname*/)
 {
   FTextStream t(&file);
+  t << "<!-- HTML header for doxygen " << versionString << "-->" << endl;
   QCString contents(defaultHtmlHeader);
   t << contents;
-  
-//  QString relPathStr = "$relpath$";
-
-//  QCString id(file.name().utf8());
-//  if (id.right(Doxygen::htmlFileExtension.length())==Doxygen::htmlFileExtension) 
-//  {
-//    id=id.left(id.length()-Doxygen::htmlFileExtension.length());
-//  }
-
-//  t << substitute(defaultHtmlHeader, "$stylesheet", cssname);
 }
 
 void HtmlGenerator::writeFooterFile(QFile &file)
 {
   FTextStream t(&file);
+  t << "<!-- HTML footer for doxygen " << versionString << "-->" <<  endl;
   QCString contents(defaultHtmlFooter);
   t << contents;
 }
@@ -1555,7 +1556,7 @@ void HtmlGenerator::startFile(const char *name,const char *,
   startPlainFile(fileName);
   m_codeGen.setTextStream(t);
   m_codeGen.setRelativePath(relPath);
-  Doxygen::indexList.addIndexFile(fileName);
+  Doxygen::indexList->addIndexFile(fileName);
   
   lastFile = fileName;
   t << substituteHtmlKeywords(g_header,convertToHtml(title),relPath);
@@ -1675,9 +1676,9 @@ void HtmlGenerator::writeStyleInfo(int part)
       //t << "H1 { text-align: center; border-width: thin none thin none;" << endl;
       //t << "     border-style : double; border-color : blue; padding-left : 1em; padding-right : 1em }" << endl;
 
-      t << replaceColorMarkers(defaultStyleSheet);
+      t << replaceColorMarkers(substitute(defaultStyleSheet,"$doxygenversion",versionString));
       endPlainFile();
-      Doxygen::indexList.addStyleSheetFile("doxygen.css");
+      Doxygen::indexList->addStyleSheetFile("doxygen.css");
     }
     else // write user defined style sheet
     {
@@ -1696,7 +1697,7 @@ void HtmlGenerator::writeStyleInfo(int part)
         t << fileStr;
         endPlainFile();
       }
-      Doxygen::indexList.addStyleSheetFile(cssfi.fileName().utf8());
+      Doxygen::indexList->addStyleSheetFile(cssfi.fileName().utf8());
     }
   }
 }

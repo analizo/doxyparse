@@ -15,8 +15,7 @@
 /******************************************************************************
  * Parser for syntax hightlighting and references for vhdl subset
  * written by M. Kreis
- * supports VHDL-87
- * does not support VHDL-AMS 
+ * supports VHDL-87/93/2008
  ******************************************************************************/
 
 %{
@@ -31,7 +30,6 @@
 #include <qdir.h>
 #include <qstringlist.h>
 
-#include "qtbc.h"
 #include "entry.h"
 #include "doxygen.h"
 #include "message.h"
@@ -41,6 +39,9 @@
 #include "searchindex.h"
 #include "vhdldocgen.h"
 #include "arguments.h"
+#include "config.h"
+#include "classdef.h"
+#include "filedef.h"
 
 #define YY_NEVER_INTERACTIVE 1
 #define YY_NO_INPUT 1
@@ -361,7 +362,7 @@ static void codifyLines(const char *text,const char *cl=0,bool classlink=FALSE)
     {
       g_yyLineNr++;
       QCString line = sp;
-      line = line.left(p-sp-1);
+      line = line.left((int)(p-sp)-1);
       //*(p-1)='\0';
       //g_code->codify(sp);
       writeWord(line,cl,classlink);

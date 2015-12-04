@@ -19,13 +19,18 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <ctype.h>
-#include "qtbc.h"
+#include <unistd.h> 
+
+#include <qstring.h>
+#include <qstringlist.h>
+#include <qlist.h>
+#include <qmap.h>
 #include <qarray.h>
 #include <qstack.h>
 #include <qregexp.h>
-#include <unistd.h> 
 #include <qfile.h>
 #include <qdict.h>
+
 #include "entry.h"
 #include "message.h"
 #include "config.h"
@@ -42,11 +47,9 @@
 #include "commentcnv.h"
 #include "bufstr.h"
 #include "portable.h"
-#include <qstring.h>
-#include <qstringlist.h>
-#include <qlist.h>
-#include <qmap.h>
 #include "arguments.h"
+#include "namespacedef.h"
+#include "filedef.h"
 
 #define YY_NEVER_INTERACTIVE 1
 #define YY_NO_INPUT 1
@@ -172,7 +175,7 @@ int TclFindElement(
 	} 
 	else if (openBraces == 1) 
 	{
-	  size = (p - elemStart);
+	  size = (int)(p - elemStart);
 	  p++;
 	  if ((p >= limit) || isspace(UCHAR(*p))) 
 	  {	/* INTL: ISO space. */
@@ -211,7 +214,7 @@ int TclFindElement(
       case '\v':
 	if ((openBraces == 0) && !inQuotes) 
 	{
-	  size = (p - elemStart);
+	  size = (int)(p - elemStart);
 	  goto done;
 	}
 	break;
@@ -223,7 +226,7 @@ int TclFindElement(
       case '"':
 	if (inQuotes) 
 	{
-	  size = (p - elemStart);
+	  size = (int)(p - elemStart);
 	  p++;
 	  if ((p >= limit) || isspace(UCHAR(*p))) 
 	  {	/* INTL: ISO space */
@@ -254,7 +257,7 @@ int TclFindElement(
     {
       return TCL_ERROR;
     }
-    size = (p - elemStart);
+    size = (int)(p - elemStart);
   }
 
 done:
@@ -316,7 +319,7 @@ int Tcl_SplitList(
       }
     }
   }
-  length = l - list;
+  length = (int)(l - list);
   argv = (CONST char **) ckalloc((unsigned)
       ((size * sizeof(char *)) + length + 1));
   for (i = 0, p = ((char *) argv) + size*sizeof(char *);
@@ -326,7 +329,7 @@ int Tcl_SplitList(
 
     result = TclFindElement(list, length, &element, &list,
 	&elSize, &brace);
-    length -= (list - prevList);
+    length -= (int)(list - prevList);
     if (result != TCL_OK) 
     {
       ckfree((char *) argv);

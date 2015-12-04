@@ -18,7 +18,6 @@
 #ifndef _SEARCHINDEX_H
 #define _SEARCHINDEX_H
 
-#include "qtbc.h"
 #include <qintdict.h>
 #include <qlist.h>
 #include <qdict.h>
@@ -89,7 +88,8 @@ class SearchIndex : public SearchIndexIntf
     void addWord(const char *word,bool hiPrio,bool recurse);
     QDict<IndexWord> m_words;
     QVector< QList<IndexWord> > m_index;
-    QIntDict<URL>  m_urls;
+    QDict<int> m_url2IdMap;
+    QIntDict<URL> m_urls;
     int m_urlIndex;
 };
 

@@ -18,6 +18,7 @@
 %{
 
 #define YY_NEVER_INTERACTIVE 1
+
   
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +34,7 @@
 #include "config.h"
 #include "doxygen.h"
 #include "util.h"
+#include "condparser.h"
 
 #include <assert.h>
 
@@ -41,6 +43,12 @@
 #define ADDCHAR(c)    g_outBuf->addChar(c)
 #define ADDARRAY(a,s) g_outBuf->addArray(a,s)
   
+enum GuardType
+{
+  Guard_Cond,
+  Guard_CondNot
+}; 
+
 struct CondCtx
 {
   CondCtx(int line,QCString id,bool b) 
@@ -77,6 +85,7 @@ static bool     g_lastEscaped;
 static int      g_lastBlockContext;
 static bool     g_pythonDocString;
 
+static GuardType        guardType;           // kind of guard for conditional section
 
 static SrcLangExt g_lang;
 
@@ -118,7 +127,7 @@ static void replaceCommentMarker(const char *s,int len)
     ADDCHAR(' ');
   }
   // copy comment line to output
-  ADDARRAY(p,len-(p-s));
+  ADDARRAY(p,len-(int)(p-s));
 }
 
 static inline int computeIndent(const char *s)
@@ -171,15 +180,22 @@ static inline void copyToOutput(const char *s,int len)
 
 static void startCondSection(const char *sectId)
 {
+  CondParser prs;
+  bool expResult = prs.parse(g_fileName,g_lineNr,sectId);
   g_condStack.push(new CondCtx(g_lineNr,sectId,g_skip));
-  if (Config_getList("ENABLED_SECTIONS").find(sectId)!=-1)
+  if (guardType == Guard_Cond)
   {
-    //printf("*** Section is enabled!\n");
+    if (expResult)
+    {
+      g_skip=TRUE;
+    }
   }
-  else
+  else if (guardType == Guard_CondNot)
   {
-    //printf("*** Section is disabled!\n");
-    g_skip=TRUE;
+    if (!expResult)
+    {
+      g_skip=TRUE;
+    }
   }
 }
 
@@ -254,7 +270,7 @@ void replaceComment(int offset);
 				       BEGIN(CComment);
 				     }
                                    }
-<Scan>"!>"			   {
+<Scan>"!>"|"!<"|"!!"		   {
   			             if (g_lang!=SrcLangExt_Fortran)
 				     {
 				       REJECT;
@@ -338,7 +354,7 @@ void replaceComment(int offset);
 				       BEGIN(CComment);
 				     }
   				   }
-<Scan>"!>"			   {
+<Scan>"!>"|"!<"|"!!"		   {
                                      if (g_lang!=SrcLangExt_Fortran)
 				     {
 				       REJECT;
@@ -660,6 +676,12 @@ void replaceComment(int offset);
   				   }
 <CComment,ReadLine>[\\@]"cond"[ \t]+	   { // conditional section
   				     g_condCtx = YY_START; 
+                                     guardType = Guard_Cond;
+  				     BEGIN(CondLine);
+  				   }
+<CComment,ReadLine>[\\@]"condnot"[ \t]+	   { // conditional section
+  				     g_condCtx = YY_START; 
+                                     guardType = Guard_CondNot;
   				     BEGIN(CondLine);
   				   }
 <CComment,ReadLine>[\\@]"endcond"/[^a-z_A-Z0-9] { // end of conditional section
@@ -681,7 +703,7 @@ void replaceComment(int offset);
 				       }
     				     }
 				    }
-<CondLine>[a-z_A-Z][a-z_A-Z0-9.\-]* {
+<CondLine>[!()&| \ta-z_A-Z0-9.\-]+ {
   				     bool oldSkip=g_skip;
                                      startCondSection(yytext);
 				     if (g_condCtx==CComment && !oldSkip && g_skip) 
@@ -700,6 +722,7 @@ void replaceComment(int offset);
 <CondLine>[ \t]*
 <CComment,ReadLine>[\\@]"cond"[ \t\r]*/\n |
 <CondLine>.			   { // forgot section id?
+                                     guardType = Guard_Cond;
   				     if (YY_START!=CondLine) g_condCtx=YY_START;
   				     bool oldSkip=g_skip;
   				     startCondSection(" "); // fake section id causing the section to be hidden unconditionally

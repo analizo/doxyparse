@@ -18,14 +18,11 @@
 #ifndef MEMBERDEF_H
 #define MEMBERDEF_H
 
-#include "qtbc.h"
 #include <qlist.h>
-#include <qdict.h>
-#include <qstack.h>
+#include <sys/types.h>
 
 #include "types.h"
 #include "definition.h"
-#include "sortdict.h"
 
 class ClassDef;
 class NamespaceDef;
@@ -39,27 +36,14 @@ class GroupDef;
 class QTextStream;
 class ArgumentList;
 class MemberDefImpl;
+class QStrList;
+struct TagInfo;
 
 /** A model of a class/file/namespace member symbol. */
 class MemberDef : public Definition
 {
   public:
     
-    enum MemberType { 
-      Define,
-      Function, 
-      Variable, 
-      Typedef, 
-      Enumeration, 
-      EnumValue,
-      Signal,
-      Slot,
-      Friend,
-      DCOP,
-      Property,
-      Event
-    };
-
     MemberDef(const char *defFileName,int defLine,
               const char *type,const char *name,const char *args,
               const char *excp,Protection prot,Specifier virt,bool stat,
@@ -258,7 +242,7 @@ class MemberDef : public Definition
     void setMemberType(MemberType t);
     void setDefinition(const char *d);
     void setFileDef(FileDef *fd);
-    void setAnchor(const char *a);
+    void setAnchor();
     void setProtection(Protection p);
     void setMemberSpecifiers(int s);
     void mergeMemberSpecifiers(int s);
@@ -367,13 +351,12 @@ class MemberDef : public Definition
                             bool inGroup,bool showEnumValues=FALSE,bool
                             showInline=FALSE);
     void writeMemberDocSimple(OutputList &ol,Definition *container);
+    void writeEnumDeclaration(OutputList &typeDecl,
+            ClassDef *cd,NamespaceDef *nd,FileDef *fd,GroupDef *gd);
     void warnIfUndocumented();
     
     MemberDef *createTemplateInstanceMember(ArgumentList *formalArgs,
                ArgumentList *actualArgs);
-
-    void writeEnumDeclaration(OutputList &typeDecl,
-            ClassDef *cd,NamespaceDef *nd,FileDef *fd,GroupDef *gd);
 
     void findSectionsInDocumentation();
     
@@ -401,6 +384,8 @@ class MemberDef : public Definition
                           const QCString &cfname,const QCString &ciname,
                           const QCString &cname);
     void _writeCategoryRelation(OutputList &ol);
+    void _writeTagData();
+    void _addToSearchIndex();
 
     static int s_indentLevel;
 

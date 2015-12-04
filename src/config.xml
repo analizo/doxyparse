@@ -284,11 +284,11 @@ Doxygen will parse them like normal C++ but will assume all classes use public
 instead of private inheritance when no explicit protection keyword is present. 
 ' defval='0'/>
     <option type='bool' id='IDL_PROPERTY_SUPPORT' docs='
-For Microsoft&apos;s IDL there are propget and propput attributes to indicate
-getter and setter methods for a property. Setting this option to YES (the
-default) will make doxygen replace the get and set methods by a property in
-the documentation. This will only work if the methods are indeed getting or
-setting a simple type. If this is not the case, or you want to show the
+For Microsoft&apos;s IDL there are propget and propput attributes to indicate 
+getter and setter methods for a property. Setting this option to YES (the 
+default) will make doxygen replace the get and set methods by a property in 
+the documentation. This will only work if the methods are indeed getting or 
+setting a simple type. If this is not the case, or you want to show the 
 methods anyway, you should set this option to NO.
 ' defval='1'/>
     <option type='bool' id='DISTRIBUTE_GROUP_DOC' docs='
@@ -510,7 +510,8 @@ disable (NO) the deprecated list. This list is created by putting
 ' defval='1'/>
     <option type='list' id='ENABLED_SECTIONS' format='string' docs='
 The ENABLED_SECTIONS tag can be used to enable conditional 
-documentation sections, marked by \if sectionname ... \endif. 
+documentation sections, marked by \if section-label ... \endif 
+and \cond section-label ... \endcond blocks. 
 '>
     </option>
     <option type='int' id='MAX_INITIALIZER_LINES' docs='
@@ -561,7 +562,8 @@ containing the references data. This must be a list of .bib files. The
 requires the bibtex tool to be installed. See also 
 http://en.wikipedia.org/wiki/BibTeX for more info. For LaTeX the style 
 of the bibliography can be controlled using LATEX_BIB_STYLE. To use this 
-feature you need bibtex and perl available in the search path. 
+feature you need bibtex and perl available in the search path. Do not use 
+file names with spaces, bibtex cannot handle them.
 ' defval=''/>
   </group>
   <group name='Messages' docs='configuration options related to warning and progress messages'>
@@ -756,6 +758,12 @@ and it is also possible to disable source filtering for a specific pattern
 using *.ext= (so without naming a filter). This option only has effect when 
 FILTER_SOURCE_FILES is enabled.
 ' depends='FILTER_SOURCE_FILES'/>
+    <option type='string' id='USE_MDFILE_AS_MAINPAGE' format='string' docs='
+If the USE_MD_FILE_AS_MAINPAGE tag refers to the name of a markdown file that 
+is part of the input, its contents will be placed on the main page (index.html). 
+This can be useful if you have a project on for instance GitHub and want reuse 
+the introduction page also for the doxygen output.
+' defval=''/>
   </group>
   <group name='Source Browser' docs='configuration options related to source browsing'>
     <option type='bool' id='SOURCE_BROWSER' docs='
@@ -1104,6 +1112,16 @@ have LaTeX installed or if you want to formulas look prettier in the HTML
 output. When enabled you may also need to install MathJax separately and 
 configure the path to it using the MATHJAX_RELPATH option.
 ' defval='0'/> 
+    <option type='enum' id='MATHJAX_FORMAT' defval='HTML-CSS' docs='
+When MathJax is enabled you can set the default output format to be used for 
+thA MathJax output. Supported types are HTML-CSS, NativeMML (i.e. MathML) and 
+SVG. The default value is HTML-CSS, which is slower, but has the best 
+compatibility. 
+'>
+      <value name="HTML-CSS"/>
+      <value name="NativeMML"/>
+      <value name="SVG"/>
+    </option>   
     <option type='string' id='MATHJAX_RELPATH' docs=' 
 When MathJax is enabled you need to specify the location relative to the 
 HTML output directory using the MATHJAX_RELPATH option. The destination 

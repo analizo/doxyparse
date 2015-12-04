@@ -18,9 +18,8 @@
 #ifndef INDEX_H
 #define INDEX_H
 
-#include "qtbc.h"
-#include <qfile.h>
 #include <qlist.h>
+#include <qcstring.h>
 
 class Definition;
 class MemberDef;
@@ -39,7 +38,8 @@ class IndexIntf
     virtual void addContentsItem(bool isDir, const char *name, const char *ref, 
                                  const char *file, const char *anchor, bool separateIndex,
                                  bool addToNavIndex,Definition *def) = 0;
-    virtual void addIndexItem(Definition *context,MemberDef *md,const char *title) = 0;
+    virtual void addIndexItem(Definition *context,MemberDef *md,
+                              const char *sectionAnchor,const char *title) = 0;
     virtual void addIndexFile(const char *name) = 0;
     virtual void addImageFile(const char *name) = 0;
     virtual void addStyleSheetFile(const char *name) = 0;
@@ -139,9 +139,9 @@ class IndexList : public IndexIntf
                          Definition *def=0)
     { if (m_enabled) foreach<bool,const char *,const char *,const char *,const char*,bool,bool,Definition *>
              (&IndexIntf::addContentsItem,isDir,name,ref,file,anchor,separateIndex,addToNavIndex,def); }
-    void addIndexItem(Definition *context,MemberDef *md,const char *title=0)
-    { if (m_enabled) foreach<Definition *,MemberDef *>
-             (&IndexIntf::addIndexItem,context,md,title); }
+    void addIndexItem(Definition *context,MemberDef *md,const char *sectionAnchor=0,const char *title=0)
+    { if (m_enabled) foreach<Definition *,MemberDef *,const char *,const char *>
+             (&IndexIntf::addIndexItem,context,md,sectionAnchor,title); }
     void addIndexFile(const char *name) 
     { if (m_enabled) foreach<const char *>(&IndexIntf::addIndexFile,name); }
     void addImageFile(const char *name) 

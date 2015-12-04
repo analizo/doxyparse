@@ -26,7 +26,6 @@
 #include <qregexp.h>
 #include <qdir.h>
 
-#include "qtbc.h"
 #include "entry.h"
 #include "doxygen.h"
 #include "message.h"
@@ -35,6 +34,12 @@
 #include "membername.h"
 #include "searchindex.h"
 #include "arguments.h"
+#include "config.h"
+#include "groupdef.h"
+#include "classlist.h"
+#include "filedef.h"
+#include "filename.h"
+#include "namespacedef.h"
 
 #define YY_NEVER_INTERACTIVE 1
   
@@ -566,7 +571,7 @@ static void codifyLines(const char *text)
     {
       g_yyLineNr++;
       //*(p-1)='\0';
-      int l = p-sp-1;
+      int l = (int)(p-sp-1);
       char *tmp = (char*)malloc(l+1);
       memcpy(tmp,sp,l);
       tmp[l]='\0';
@@ -2007,7 +2012,7 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
 					    if (ambig) // multiple input files match the name
 					    {
 					      //printf("===== yes %s is ambiguous\n",yytext);
-					      QCString name = convertToQCString(QDir::cleanDirPath(yytext));
+					      QCString name = QDir::cleanDirPath(yytext).utf8();
 					      if (!name.isEmpty() && g_sourceFileDef)
 					      {
 					        FileName *fn = Doxygen::inputNameDict->find(name);

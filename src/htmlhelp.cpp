@@ -22,15 +22,19 @@
 #include <qlist.h>
 #include <qdict.h>
 #include <qregexp.h>
+#include <qfile.h>
+
 #include "qtextcodec.h"
 #include "sortdict.h"
-
 #include "htmlhelp.h"
 #include "config.h"
 #include "message.h"
 #include "doxygen.h"
 #include "language.h"
 #include "portable.h"
+#include "groupdef.h"
+#include "memberdef.h"
+#include "filedef.h"
 
 //----------------------------------------------------------------------------
 
@@ -50,7 +54,7 @@ class IndexFieldSDict : public SDict<IndexField>
   public:
     IndexFieldSDict() : SDict<IndexField>(17) {}
    ~IndexFieldSDict() {}
-    int compareItems(GCI item1, GCI item2)
+    int compareItems(QCollection::Item item1, QCollection::Item item2)
     {
       return stricmp(((IndexField *)item1)->name,((IndexField *)item2)->name);
     }
@@ -621,7 +625,7 @@ QCString HtmlHelp::recode(const QCString &s)
   char *oPtr       = output.data();
   if (!portable_iconv(m_fromUtf8,&iPtr,&iLeft,&oPtr,&oLeft))
   {
-    oSize -= oLeft;
+    oSize -= (int)oLeft;
     output.resize(oSize+1);
     output.at(oSize)='\0';
     return output;
@@ -692,7 +696,7 @@ void HtmlHelp::addContentsItem(bool isDir,
 
 
 void HtmlHelp::addIndexItem(Definition *context,MemberDef *md,
-                            const char *word)
+                            const char *sectionAnchor,const char *word)
 {
   if (md)
   {
@@ -712,14 +716,14 @@ void HtmlHelp::addIndexItem(Definition *context,MemberDef *md,
     QCString level2  = md->name();
     QCString contRef = separateMemberPages ? cfname : cfiname;
     QCString memRef  = cfname;
-    QCString anchor  = md->anchor();
+    QCString anchor  = sectionAnchor ? QCString(sectionAnchor) : md->anchor();
     index->addItem(level1,level2,contRef,anchor,TRUE,FALSE);
     index->addItem(level2,level1,memRef,anchor,TRUE,TRUE);
   }
   else if (context)
   {
     QCString level1  = word ? QCString(word) : context->name();
-    index->addItem(level1,0,context->getOutputFileBase(),0,TRUE,FALSE);
+    index->addItem(level1,0,context->getOutputFileBase(),sectionAnchor,TRUE,FALSE);
   }
 }
 

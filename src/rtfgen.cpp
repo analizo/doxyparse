@@ -19,9 +19,9 @@
 
 #include <stdlib.h>
 
-#include "qtbc.h"
 #include <qdir.h>
 #include <qregexp.h>
+#include <qtextstream.h>
 
 #include "rtfgen.h"
 #include "config.h"
@@ -39,6 +39,10 @@
 #include "dirdef.h"
 #include "vhdldocgen.h"
 #include "portable.h"
+#include "groupdef.h"
+#include "classlist.h"
+#include "filename.h"
+#include "namespacedef.h"
 
 //#define DBG_RTF(x) x;
 #define DBG_RTF(x)
@@ -263,7 +267,7 @@ void RTFGenerator::beginRTFDocument()
     }
     if (array.at(index) != 0)
     {
-      QCString key(convertToQCString(iter.currentKey()));
+      QCString key(iter.currentKey());
       msg("Style '%s' redefines \\s%d.\n", key.data(), index);
     }
     array.at(index) = style;
@@ -1964,9 +1968,11 @@ void RTFGenerator::endMemberList()
 //  // not yet implemented
 //}
 //
-void RTFGenerator::startDescTable()
+void RTFGenerator::startDescTable(const char *title)
 {
   DBG_RTF(t << "{\\comment (startDescTable) }"    << endl)
+  startSimpleSect(EnumValues,0,0,title);
+  startDescForItem();
   //t << "{" << endl;
   //incrementIndentLevel();
   //t << rtf_Style_Reset << rtf_CList_DepthStyle();
@@ -1976,6 +1982,8 @@ void RTFGenerator::endDescTable()
 {
   //decrementIndentLevel();
   DBG_RTF(t << "{\\comment (endDescTable)}"      << endl)
+  endDescForItem();
+  endSimpleSect();
   //t << "}" << endl;
   //t << rtf_Style_Reset << styleStack.top();
 }
@@ -2295,7 +2303,7 @@ static void encodeForOutput(FTextStream &t,const QCString &s)
       char *outputPtr = enc.data();
       if (!portable_iconv(cd, &inputPtr, &iLeft, &outputPtr, &oLeft))
       {
-        enc.resize(enc.size()-oLeft);
+        enc.resize(enc.size()-(unsigned int)oLeft);
         converted=TRUE;
       }
       portable_iconv_close(cd);
@@ -2560,7 +2568,7 @@ bool RTFGenerator::preProcessFileInplace(const char *path,const char *name)
     err("error: Output dir %s does not exist!\n",path);
     return FALSE;
   }
-  QCString oldDir = convertToQCString(QDir::currentDirPath());
+  QCString oldDir = QDir::currentDirPath().utf8();
 
   // go to the html output directory (i.e. path)
   QDir::setCurrent(d.absPath());

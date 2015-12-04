@@ -16,8 +16,6 @@
 #ifndef DOCSETS_H
 #define DOCSETS_H
 
-#include "qtbc.h"
-#include <qstrlist.h>
 #include "sortdict.h"
 #include "ftextstream.h"
 #include "index.h"
@@ -49,7 +47,8 @@ class DocSets  : public IndexIntf
                          bool addToNavIndex,
                          Definition *def
                         );
-    void addIndexItem(Definition *context,MemberDef *md,const char *title);
+    void addIndexItem(Definition *context,MemberDef *md,
+                      const char *sectionAnchor,const char *title);
     void addIndexFile(const char *name);
     void addImageFile(const char *) {}
     void addStyleSheetFile(const char *) {}

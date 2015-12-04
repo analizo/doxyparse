@@ -37,6 +37,11 @@
 #include "util.h"
 #include "membername.h"
 #include "searchindex.h"
+#include "config.h"
+#include "groupdef.h"
+#include "classlist.h"
+#include "filedef.h"
+#include "namespacedef.h"
 
 #define YY_NEVER_INTERACTIVE 1
 #define YY_NO_INPUT 1
@@ -1217,7 +1222,7 @@ TARGET           ({IDENTIFIER}|"("{TARGET_LIST}")"|"["{TARGET_LIST}"]"|{ATTRIBUT
                                  // should be improved.
 				 // (translate tabs to space, etc)
   		                 codifyLines(yytext);
-                                 adjustScopesAndSuites(yyleng);
+                                 adjustScopesAndSuites((int)yyleng);
                                }
 
     "\n"|({BB}"\n")            {

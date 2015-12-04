@@ -18,13 +18,11 @@
 #ifndef OUTPUTGEN_H
 #define OUTPUTGEN_H
 
-#include "qtbc.h"
-#include "ftextstream.h"
-#include <qbuffer.h>
-#include <qfile.h>
 #include <qstack.h>
+
 #include "index.h"
 #include "section.h"
+#include "ftextstream.h"
 
 class ClassDiagram;
 class DotClassGraph;
@@ -37,6 +35,7 @@ class DocNode;
 class MemberDef;
 class GroupDef;
 class Definition;
+class QFile;
 
 /** Output interface for code parser. 
  */
@@ -245,7 +244,7 @@ class BaseOutputDocInterface : public CodeOutputInterface
     virtual void addIndexItem(const char *s1,const char *s2) = 0;
 
     virtual void writeNonBreakableSpace(int) = 0;
-    virtual void startDescTable() = 0;
+    virtual void startDescTable(const char *title) = 0;
     virtual void endDescTable() = 0;
     virtual void startDescTableTitle() = 0;
     virtual void endDescTableTitle() = 0;

@@ -10,6 +10,7 @@
 #include "dot.h"
 #include "layout.h"
 #include "ftextstream.h"
+#include "config.h"
 
 //----------------------------------------------------------------------
 // method implementation
@@ -34,7 +35,7 @@ DirDef::DirDef(const char *path) : Definition(path,1,path)
   }
   setLocalName(m_shortName);
   m_dispName = fullPathNames ? stripFromPath(path) : m_shortName;
-  if (m_dispName.at(m_dispName.length()-1)=='/')
+  if (m_dispName.length()>0 && m_dispName.at(m_dispName.length()-1)=='/')
   { // strip trailing /
     m_dispName = m_dispName.left(m_dispName.length()-1);
   }
@@ -574,7 +575,7 @@ bool DirDef::depGraphIsTrivial() const
 
 //----------------------------------------------------------------------
 
-int FilePairDict::compareItems(GCI item1,GCI item2)
+int FilePairDict::compareItems(QCollection::Item item1,QCollection::Item item2)
 {
   FilePair *left  = (FilePair*)item1;
   FilePair *right = (FilePair*)item2;
@@ -648,7 +649,7 @@ DirDef *DirDef::mergeDirectoryInTree(const QCString &path)
   while ((i=path.find('/',p))!=-1)
   {
     QCString part=path.left(i+1);
-    if (!matchPath(part,Config_getList("STRIP_FROM_PATH")) && part!="/")
+    if (!matchPath(part,Config_getList("STRIP_FROM_PATH")) && (part!="/" && part!="//"))
     {
       dir=createNewDir(part); 
     }
