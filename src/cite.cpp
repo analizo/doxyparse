@@ -21,17 +21,8 @@
 #include "util.h"
 #include "language.h"
 #include "ftextstream.h"
+#include "resourcemgr.h"
 #include <qdir.h>
-
-//--------------------------------------------------------------------------
-
-static const char *doxygen_bst =
-#include "doxygen.bst.h"
-;
-
-static const char *bib2xhtml_pl =
-#include "bib2xhtml.pl.h"
-;
 
 //--------------------------------------------------------------------------
 
@@ -62,9 +53,14 @@ void CiteDict::writeLatexBibliography(FTextStream &t)
     unit = "chapter";
   t << "% Bibliography\n"
        "\\newpage\n"
-       "\\phantomsection\n"
-       "\\addcontentsline{toc}{" << unit << "}{" << theTranslator->trCiteReferences() << "}\n"
-       "\\bibliographystyle{" << style << "}\n"
+       "\\phantomsection\n";
+  bool pdfHyperlinks = Config_getBool("PDF_HYPERLINKS");
+  if (!pdfHyperlinks)
+  {
+    t << "\\clearemptydoublepage\n";
+    t << "\\addcontentsline{toc}{" << unit << "}{" << theTranslator->trCiteReferences() << "}\n";
+  }
+  t << "\\bibliographystyle{" << style << "}\n"
        "\\bibliography{";
   QStrList &citeDataList = Config_getList("CITE_BIB_FILES");
   QCString latexOutputDir = Config_getString("LATEX_OUTPUT")+"/";
@@ -87,8 +83,12 @@ void CiteDict::writeLatexBibliography(FTextStream &t)
     }
     bibdata = citeDataList.next();
   }
-  t << "}\n"
-       "\n";
+  t << "}\n";
+  if (pdfHyperlinks)
+  {
+    t << "\\addcontentsline{toc}{" << unit << "}{" << theTranslator->trCiteReferences() << "}\n";
+  }
+  t << "\n";
 }
 
 void CiteDict::insert(const char *label)
@@ -144,26 +144,12 @@ void CiteDict::generatePage() const
   f.close();
 
   // 2. generate bib2xhtml
-  QCString bib2xhtmlFile = outputDir+"/bib2xhtml.pl";
-  f.setName(bib2xhtmlFile);
-  QCString bib2xhtml = bib2xhtml_pl;
-  if (!f.open(IO_WriteOnly)) 
-  {
-    err("could not open file %s for writing\n",bib2xhtmlFile.data());
-  }
-  f.writeBlock(bib2xhtml, bib2xhtml.length());
-  f.close();
+  QCString bib2xhtmlFile  = outputDir+"/bib2xhtml.pl";
+  ResourceMgr::instance().copyResource("bib2xhtml.pl",outputDir);
 
   // 3. generate doxygen.bst
   QCString doxygenBstFile = outputDir+"/doxygen.bst";
-  QCString bstData = doxygen_bst;
-  f.setName(doxygenBstFile);
-  if (!f.open(IO_WriteOnly)) 
-  {
-    err("could not open file %s for writing\n",doxygenBstFile.data());
-  }
-  f.writeBlock(bstData, bstData.length());
-  f.close();
+  ResourceMgr::instance().copyResource("doxygen.bst",outputDir);
 
   // 4. for all formats we just copy the bib files to as special output directory
   //    so bibtex can find them without path (bibtex doesn't support paths or
@@ -202,8 +188,15 @@ void CiteDict::generatePage() const
 
   // 5. run bib2xhtml perl script on the generated file which will insert the
   //    bibliography in citelist.doc
-  portable_system("perl","\""+bib2xhtmlFile+"\" "+bibOutputFiles+" \""+
-                         citeListFile+"\"");
+  int exitCode;
+  portable_sysTimerStop();
+  if ((exitCode=portable_system("perl","\""+bib2xhtmlFile+"\" "+bibOutputFiles+" \""+
+                         citeListFile+"\"")) != 0)
+  {
+    err("Problems running bibtex. Verify that the command 'perl --version' works from the command line. Exit code: %d\n",
+        exitCode);
+  }
+  portable_sysTimerStop();
 
   QDir::setCurrent(oldDir);
 
@@ -294,7 +287,6 @@ void CiteDict::generatePage() const
   thisDir.remove(citeListFile);
   thisDir.remove(doxygenBstFile);
   thisDir.remove(bib2xhtmlFile);
-  bibdata = citeDataList.first();
   // we might try to remove too many files as empty files didn't get a coresponding new file
   // but the remove function does not emit an error for it and we don't catch the error return
   // so no problem.

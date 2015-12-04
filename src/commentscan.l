@@ -917,7 +917,7 @@ ID        "$"?[a-z_A-Z\x80-\xFF][a-z_A-Z0-9\x80-\xFF]*
 LABELID   [a-z_A-Z\x80-\xFF][a-z_A-Z0-9\x80-\xFF\-]*
 CITESCHAR [a-z_A-Z\x80-\xFF]
 CITEECHAR [a-z_A-Z0-9\x80-\xFF\-\+:\/]*
-CITEID    {CITESCHAR}*{CITEECHAR}+("."{CITESCHAR}*{CITEECHAR}+)*
+CITEID    {CITESCHAR}{CITEECHAR}*("."{CITESCHAR}{CITEECHAR}*)*
 SCOPEID   {ID}({ID}*{BN}*"::"{BN}*)*({ID}?)
 SCOPENAME "$"?(({ID}?{BN}*("::"|"."){BN}*)*)((~{BN}*)?{ID})
 TMPLSPEC  "<"{BN}*[^>]+{BN}*">"
@@ -1120,7 +1120,7 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
 <Comment>{B}*("\\\\"|"@@")"f"[$\[{]	{ // escaped formula command
   					  addOutput(yytext);
   					}
-<Comment>{B}*{CMD}"~"[a-z_A-Z]*		{ // language switch command
+<Comment>{B}*{CMD}"~"[a-z_A-Z-]*		{ // language switch command
                                           QCString langId = QString(yytext).stripWhiteSpace().data()+2;
 			       	          if (!langId.isEmpty() &&
 					      qstricmp(Config_getEnum("OUTPUT_LANGUAGE"),langId)!=0)
@@ -2160,7 +2160,7 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
 
   /* ----- handle language specific sections ------- */
 
-<SkipLang>[\\@]"~"[a-zA-Z]*        { /* language switch */
+<SkipLang>[\\@]"~"[a-zA-Z-]*        { /* language switch */
                                      QCString langId = &yytext[2];
 				     if (langId.isEmpty() ||
 					 qstricmp(Config_getEnum("OUTPUT_LANGUAGE"),langId)==0)

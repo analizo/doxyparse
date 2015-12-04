@@ -264,6 +264,7 @@ class MemberDef : public Definition
     QCString documentation() const;
     QCString briefDescription(bool abbr=FALSE) const;
     QCString fieldType() const;
+    bool isReference() const;
 
 
     //-----------------------------------------------------------------------------------
@@ -379,16 +380,15 @@ class MemberDef : public Definition
     // output generation
     void writeDeclaration(OutputList &ol,
                    ClassDef *cd,NamespaceDef *nd,FileDef *fd,GroupDef *gd,
-                   bool inGroup, const DefType compoundType,
-                   ClassDef *inheritFrom=0,const char *inheritId=0); 
+                   bool inGroup, ClassDef *inheritFrom=0,const char *inheritId=0); 
     void writeDocumentation(MemberList *ml,OutputList &ol,
                             const char *scopeName,Definition *container,
                             bool inGroup,bool showEnumValues=FALSE,bool
                             showInline=FALSE);
     void writeMemberDocSimple(OutputList &ol,Definition *container);
     void writeEnumDeclaration(OutputList &typeDecl,
-            ClassDef *cd,NamespaceDef *nd,FileDef *fd,GroupDef *gd, 
-            const DefType compoundType);
+            ClassDef *cd,NamespaceDef *nd,FileDef *fd,GroupDef *gd);
+    void writeTagFile(FTextStream &);
     void warnIfUndocumented();
     
     MemberDef *createTemplateInstanceMember(ArgumentList *formalArgs,

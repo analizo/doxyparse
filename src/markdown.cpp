@@ -1540,7 +1540,7 @@ static bool isTableBlock(const char *data,int size)
 
   i+=ret; // goto next line
   int cc2;
-  ret = findTableColumns(data+i,size-i,start,end,cc2);
+  findTableColumns(data+i,size-i,start,end,cc2);
 
   //printf("isTableBlock: %d\n",cc1==cc2);
   return cc1==cc2;
@@ -2374,8 +2374,8 @@ void MarkdownFileParser::parseInput(const char *fileName,
   bool markdownEnabled = Doxygen::markdownSupport;
   Doxygen::markdownSupport = TRUE;
 
-  bool needsEntry;
-  Protection prot;
+  bool needsEntry = FALSE;
+  Protection prot=Public;
   while (parseCommentBlock(
         this,
         current,
