@@ -22,13 +22,13 @@
 was introduced in doxygen version 1.8.0. It is a plain text formatting
 syntax written by John Gruber, with the following underlying design goal:
 
-> The design goal for Markdown’s formatting syntax is to 
+> The design goal for Markdown's formatting syntax is to 
 > make it as readable as possible. The idea is that a Markdown-formatted 
 > document should be publishable as-is, as plain text, without 
-> looking like it’s been marked up with tags or formatting instructions. 
-> While Markdown’s syntax has been influenced by several existing 
+> looking like it's been marked up with tags or formatting instructions. 
+> While Markdown's syntax has been influenced by several existing 
 > text-to-HTML filters, the single biggest source of inspiration 
-> for Markdown’s syntax is the format of plain text email.
+> for Markdown's syntax is the format of plain text email.
 
 In the \ref markdown_std "next section" the standard Markdown features
 are briefly discussed. The reader is referred to the [Markdown site][markdown]
@@ -72,7 +72,8 @@ Level 1 or 2 headers can be made as the follows
     -------------------------
 
 A header is followed by a line containing only ='s or -'s.
-Note that the exact amount of ='s or -'s is not important.
+Note that the exact amount of ='s or -'s is not important as long as
+there are at least two.
 
 Alternatively, you can use #'s at the start of a line to make a header. 
 The number of #'s at the start of the line determines the level (up to 6 levels are supported).
@@ -515,7 +516,7 @@ Futhermore, a `*` or `_` only starts an emphasis if
 - it is preceded by a space, newline, or one the following characters `<{([,:;`
 
 An emphasis ends if
-- it is not following by an alphanumerical character, and
+- it is not followed by an alphanumerical character, and
 - it is not preceded by a space, newline, or one the following characters `({[<=+-\@`
 
 Lastly, the span of the emphasis is limited to a single paragraph.

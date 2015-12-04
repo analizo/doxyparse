@@ -524,7 +524,7 @@ void ManGenerator::endAnonTypeScope(int indentLevel)
 }
 
 
-void ManGenerator::startMemberItem(const char *,int) 
+void ManGenerator::startMemberItem(const char *,int,const char *) 
 { 
   if (firstCol && !insideTabbing) t << ".in +1c\n";
   t << "\n.ti -1c\n.RI \""; 
@@ -784,4 +784,19 @@ void ManGenerator::endInlineMemberDoc()
   t << ".PP" << endl;
   firstCol=TRUE;
 }
+
+void ManGenerator::startLabels()
+{
+}
+
+void ManGenerator::writeLabel(const char *l,bool isLast)
+{
+  t << "\\fC [" << l << "]\\fP";
+  if (!isLast) t << ", ";
+}
+
+void ManGenerator::endLabels()
+{
+}
+
 

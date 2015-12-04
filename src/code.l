@@ -518,7 +518,7 @@ static void startCodeLine()
       g_code->writeLineNumber(0,0,0,g_yyLineNr);
     }
   }
-  g_code->startCodeLine(); 
+  g_code->startCodeLine(g_sourceFileDef && g_lineNumbers); 
   if (g_currentFontClass)
   {
     g_code->startFontClass(g_currentFontClass);
@@ -2289,7 +2289,15 @@ OPERATOR {ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP}
   					  g_name+=yytext; 
   					  BEGIN( FuncCall );
 					}
-<Body>{SCOPEPREFIX}?"operator"{B}*[^\(\n]+/"(" {
+<Body>{SCOPEPREFIX}?"operator"/"("      {
+  					  addType();
+					  generateFunctionLink(*g_code,yytext);
+  					  g_bracketCount=0;
+					  g_args.resize(0);
+  					  g_name+=yytext; 
+  					  BEGIN( FuncCall );
+                                        }
+<Body>{SCOPEPREFIX}?"operator"[^a-z_A-Z0-9\(\n]+/"(" {
   					  addType();
 					  generateFunctionLink(*g_code,yytext);
   					  g_bracketCount=0;
@@ -2409,6 +2417,13 @@ OPERATOR {ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP}
                                           startFontClass("keywordflow");
                                           codifyLines(yytext);
                                           endFontClass();
+                                        }
+<Body>"*"{B}*")"                        { // end of cast?
+  					  g_code->codify(yytext);
+					  g_theCallContext.popScope();
+					  g_bracketCount--;
+                                          g_parmType = g_name;
+					  BEGIN(FuncCall);
                                         }
 <Body>[\\|\)\+\-\/\%\~\!]		{
   					  g_code->codify(yytext);
@@ -2913,8 +2928,17 @@ OPERATOR {ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP}
 					  }
   					  g_code->codify(yytext);
   					}
-<MemberCall,MemberCall2,FuncCall>")"	{ 
-					  g_theVarContext.addVariable(g_parmType,g_parmName);
+<MemberCall,MemberCall2,FuncCall>("*"{B}*)?")"	{ 
+                                          if (yytext[0]==')') // no a pointer cast
+                                          {
+                                            //printf("addVariable(%s,%s)\n",g_parmType.data(),g_parmName.data());
+					    g_theVarContext.addVariable(g_parmType,g_parmName);
+                                          }
+                                          else
+                                          {
+                                            g_parmType.resize(0);
+                                            g_parmName.resize(0);
+                                          }
 					  g_theCallContext.popScope();
 					  g_inForEachExpression = FALSE;
 					  //g_theCallContext.setClass(0); // commented out, otherwise a()->b() does not work for b().
@@ -3149,6 +3173,10 @@ OPERATOR {ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP}
 <SkipComment>[ \t]*"*/"			{ 
   					  g_code->codify(yytext);
 					  endFontClass();
+  					  if (g_lastCContext==SkipCPP)
+                                          {
+                                            startFontClass("preprocessor");
+                                          }
   					  BEGIN( g_lastCContext ) ; 
 					}
 <SkipCxxComment>[^\r\n]*"\\"[\r]?\n	{ // line continuation
@@ -3301,7 +3329,7 @@ OPERATOR {ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP}
 					  }
   					}
 <*>"//"[!/][^\n]*\n			{ // strip special one-line comment
-                                          if (YY_START==SkipComment || YY_START==SkipString || YY_START==SkipCPP) REJECT;
+                                          if (YY_START==SkipComment || YY_START==SkipString) REJECT;
   					  if (Config_getBool("STRIP_CODE_COMMENTS"))
 					  {
 					    char c[2]; c[0]='\n'; c[1]=0;

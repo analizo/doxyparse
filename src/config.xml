@@ -519,11 +519,6 @@ Set the SHOW_USED_FILES tag to NO to disable the list of files generated
 at the bottom of the documentation of classes and structs. If set to YES the 
 list will mention the files that were used to generate the documentation.
 ' defval='1'/>
-    <option type='bool' id='SHOW_DIRECTORIES' docs='
-If the sources in your project are distributed over multiple directories 
-then setting the SHOW_DIRECTORIES tag to YES will show the directory hierarchy 
-in the documentation. The default is NO. 
-' defval='0'/>
     <option type='bool' id='SHOW_FILES' docs='
 Set the SHOW_FILES tag to NO to disable the generation of the Files page. 
 This will remove the Files entry from the Quick Index and from the 
@@ -652,6 +647,8 @@ blank the following patterns are tested:
       <value name='*.php3'/>
       <value name='*.inc'/>
       <value name='*.m'/>
+      <value name='*.markdown'/>
+      <value name='*.md'/>
       <value name='*.mm'/>
       <value name='*.dox'/>
       <value name='*.py'/>
@@ -891,11 +888,6 @@ If the HTML_TIMESTAMP tag is set to YES then the footer of each generated HTML
 page will contain the date and time when the page was generated. Setting 
 this to NO can help when comparing the output of multiple runs.
 ' defval='1' depends='GENERATE_HTML'/>
-    <option type='bool' id='HTML_ALIGN_MEMBERS' docs='
-If the HTML_ALIGN_MEMBERS tag is set to YES, the members of classes, 
-files or namespaces will be aligned in HTML using tables. If set to 
-NO a bullet list will be used. 
-' defval='1' depends='GENERATE_HTML'/>
     <option type='bool' id='HTML_DYNAMIC_SECTIONS' docs='
 If the HTML_DYNAMIC_SECTIONS tag is set to YES then the generated HTML 
 documentation will contain sections that can be hidden and shown after the 
@@ -903,6 +895,16 @@ page has loaded. For this to work a browser that supports
 JavaScript and DHTML is required (for instance Mozilla 1.0+, Firefox 
 Netscape 6.0+, Internet explorer 5.0+, Konqueror, or Safari). 
 ' defval='0' depends='GENERATE_HTML'/>
+    <option type='int' id='HTML_INDEX_NUM_ENTRIES' docs='
+With HTML_INDEX_NUM_ENTRIES one can control the preferred number of 
+entries shown in the various tree structured indices initially; the user 
+can expand and collapse entries dynamically later on. Doxygen will expand 
+the tree to such a level that at most the specified number of entries are 
+visible (unless a fully collapsed tree already exceeds this amount). 
+So setting the number of entries 1 will produce a full collapsed tree by 
+default. 0 is a special value representing an infinite number of entries 
+and will result in a full expanded tree by default.
+' minval='0' maxval='9999' defval='100'/>
     <option type='bool' id='GENERATE_DOCSET' docs='
 If the GENERATE_DOCSET tag is set to YES, additional index files 
 will be generated that can be used as input for Apple&apos;s Xcode 3 
@@ -1056,10 +1058,6 @@ The ENUM_VALUES_PER_LINE tag can be used to set the number of enum values
 documentation. Note that a value of 0 will completely suppress the enum 
 values from appearing in the overview section.
 ' minval='0' maxval='20' defval='4' depends='GENERATE_HTML'/>
-    <option type='bool' id='USE_INLINE_TREES' defval='0' docs='
-By enabling USE_INLINE_TREES, doxygen will generate the Groups, Directories, 
-and Class Hierarchy pages using a tree view instead of an ordered list.
-' depends='GENERATE_HTML'/>
     <option type='int' id='TREEVIEW_WIDTH' docs='
 If the treeview is enabled (see GENERATE_TREEVIEW) then this tag can be 
 used to set the initial width (in pixels) of the frame in which the tree 
@@ -1540,7 +1538,7 @@ If the GRAPHICAL_HIERARCHY and HAVE_DOT tags are set to YES then doxygen
 will generate a graphical hierarchy of all classes instead of a textual one. 
 ' defval='1' depends='HAVE_DOT'/>
     <option type='bool' id='DIRECTORY_GRAPH' docs='
-If the DIRECTORY_GRAPH, SHOW_DIRECTORIES and HAVE_DOT tags are set to YES 
+If the DIRECTORY_GRAPH and HAVE_DOT tags are set to YES 
 then doxygen will show the dependencies a directory has on other directories 
 in a graphical way. The dependency relations are determined by the #include 
 relations between the files in the directories. 
@@ -1635,5 +1633,8 @@ the various graphs.
     <option type='obsolete' id='DOC_ABSPATH'/>
     <option type='obsolete' id='BIN_ABSPATH'/>
     <option type='obsolete' id='EXT_DOC_PATHS'/>
+    <option type='obsolete' id='USE_INLINE_TREES'/>
+    <option type='obsolete' id='SHOW_DIRECTORIES'/>
+    <option type='obsolete' id='HTML_ALIGN_MEMBERS'/>
   </group>
 </doxygenconfig>

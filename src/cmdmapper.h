@@ -118,7 +118,9 @@ enum CommandType
   CMD_DCOLON       = 84,
   CMD_COPYRIGHT    = 85 | SIMPLESECT_BIT,
   CMD_CITE         = 86,
-  CMD_SNIPPET      = 87
+  CMD_SNIPPET      = 87,
+  CMD_RTFONLY      = 88, 
+  CMD_ENDRTFONLY   = 89
 };
 
 enum HtmlTagType
@@ -181,7 +183,8 @@ enum HtmlTagType
   XML_TERM         = XML_CmdMask + 18,
   XML_TYPEPARAM    = XML_CmdMask + 19,
   XML_TYPEPARAMREF = XML_CmdMask + 20,
-  XML_VALUE        = XML_CmdMask + 21
+  XML_VALUE        = XML_CmdMask + 21,
+  XML_INHERITDOC   = XML_CmdMask + 22
 };
 
 class Mapper

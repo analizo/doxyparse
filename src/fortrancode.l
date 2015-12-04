@@ -246,7 +246,7 @@ static void startCodeLine()
       g_code->writeLineNumber(0,0,0,g_yyLineNr);
     }
   }
-  g_code->startCodeLine(); 
+  g_code->startCodeLine(g_sourceFileDef); 
   if (g_currentFontClass)
   {
     g_code->startFontClass(g_currentFontClass);
@@ -388,11 +388,13 @@ static bool getFortranTypeDefs(const QCString &tname, const QCString &moduleName
   {
     UseEntry *use;
     for (UseSDict::Iterator di(*usedict); (use=di.current()); ++di)
-      if ((cd= Doxygen::classSDict->find(use->module+"::"+tname))) 
+    {
+      if ((cd= Doxygen::classSDict->find(use->module+"::"+tname)))
       {
  	//cout << "===  type found in used module" << endl;
         return TRUE;
       }
+    }
   }
 
   return FALSE;
@@ -420,6 +422,10 @@ static bool getFortranDefs(const QCString &memberName, const QCString &moduleNam
 
   // search for function
   MemberName *mn = Doxygen::functionNameSDict->find(memberName);
+  if (!mn)
+  {
+    mn = Doxygen::memberNameSDict->find(memberName);
+  }
 
   if (mn) // name is known
   {
@@ -462,8 +468,10 @@ static bool getFortranDefs(const QCString &memberName, const QCString &moduleNam
 	         for ( QStringList::Iterator it = only.begin(); it != only.end(); ++it)
                  {
                    //cout << " search in only: " << moduleName << ":: " << memberName << "==" << (*it)<<  endl;
-		   if (memberName == (QCString)(*it))
+		   if (memberName == (*it).utf8())
+	           {
                      return TRUE; // found in ONLY-part of use list
+	           }
 	         }
 	       }
              }
@@ -526,35 +534,37 @@ static bool getLink(UseSDict *usedict, // dictonary with used modules
 static void generateLink(CodeOutputInterface &ol, char *lname)
 {
   ClassDef *cd=0;
+  QCString tmp = lname;
+  tmp = removeRedundantWhiteSpace(tmp.lower());
  
-  // check if lname is a linkable type or interface
-  if ( (getFortranTypeDefs(lname, currentModule, cd, useMembers)) && cd->isLinkable() )
+  // check if lowercase lname is a linkable type or interface
+  if ( (getFortranTypeDefs(tmp, currentModule, cd, useMembers)) && cd->isLinkable() )
   {
     if ( (cd->compoundType() == ClassDef::Class) && // was  Entry::INTERFACE_SEC) &&
-         (getGenericProcedureLink(cd, lname, ol)) ) 
+         (getGenericProcedureLink(cd, tmp, ol)) ) 
     {
       //cout << "=== generic procedure resolved" << endl; 
     } 
     else 
     { // write type or interface link
-      ol.linkableSymbol(g_yyLineNr, lname, cd, g_currentMemberDef?g_currentMemberDef:g_currentDefinition);
-      writeMultiLineCodeLink(ol,cd->getReference(),cd->getOutputFileBase(),cd->anchor(),lname);
-      addToSearchIndex(lname);
+      ol.linkableSymbol(g_yyLineNr, tmp, cd, g_currentMemberDef?g_currentMemberDef:g_currentDefinition);
+      writeMultiLineCodeLink(ol,cd->getReference(),cd->getOutputFileBase(),cd->anchor(),tmp);
+      addToSearchIndex(tmp.data());
     }
   }
   // check for function/variable
-  else if (getLink(useMembers, lname, ol, lname)) 
+  else if (getLink(useMembers, tmp, ol, tmp)) 
   {
-    //cout << "=== found link for " << lname << endl;
+    //cout << "=== found link for lowercase " << lname << endl;
   }
   else 
   {
     // nothing found, just write out the word
-    ol.linkableSymbol(g_yyLineNr, lname, 0, g_currentMemberDef?g_currentMemberDef:g_currentDefinition);
+    ol.linkableSymbol(g_yyLineNr, tmp, 0, g_currentMemberDef?g_currentMemberDef:g_currentDefinition);
     //startFontClass("charliteral"); //test
-    codifyLines(lname);
+    codifyLines(tmp);
     //endFontClass(); //test
-    addToSearchIndex(lname);
+    addToSearchIndex(tmp.data());
   }
 }
 
@@ -580,7 +590,7 @@ static int countLines()
 
 //----------------------------------------------------------------------------
 /** start scope */
-void startScope() 
+static void startScope() 
 {
   // fprintf(stderr, "===> startScope %s",yytext);
   Scope *scope = new Scope;
@@ -588,32 +598,31 @@ void startScope()
 }
 
 /** end scope */
-void endScope() 
+static void endScope() 
 {
   // fprintf(stderr,"===> endScope %s",yytext);
   if (scopeStack.isEmpty()) 
   {
-    fprintf(stderr,"WARNING: fortrancode.l: stack empty!"); 
+    //fprintf(stderr,"WARNING: fortrancode.l: stack empty!\n"); 
     return;
-    //exit(-1);
   }
 
   Scope *scope = scopeStack.getLast();
   scopeStack.removeLast();
   for ( QStringList::Iterator it = scope->useNames.begin(); it != scope->useNames.end(); ++it) 
   {
-    useMembers->remove(*it);
+    useMembers->remove((*it).utf8());
   }
   delete scope;
 }
 
-void addUse(QString moduleName) 
+static void addUse(const QCString &moduleName) 
 {
   if (!scopeStack.isEmpty())
     scopeStack.last()->useNames.append(moduleName);
 }
 
-void addLocalVar(QString varName) 
+static void addLocalVar(const QCString &varName) 
 {
   if (!scopeStack.isEmpty())
     scopeStack.last()->localVars.insert(varName, (void*)1);
@@ -655,7 +664,7 @@ NUM_TYPE  (complex|integer|logical|real)
 LOG_OPER  (\.and\.|\.eq\.|\.eqv\.|\.ge\.|\.gt\.|\.le\.|\.lt\.|\.ne\.|\.neqv\.|\.or\.|\.not\.)
 KIND      {ARGS}
 CHAR      (CHARACTER{ARGS}?|CHARACTER{BS}"*"({BS}[0-9]+|{ARGS}))
-TYPE_SPEC (({NUM_TYPE}({BS}"*"{BS}[0-9]+)?)|({NUM_TYPE}{KIND})|DOUBLE{BS_}COMPLEX|DOUBLE{BS_}PRECISION|{CHAR}|TYPE{ARGS})
+TYPE_SPEC (({NUM_TYPE}({BS}"*"{BS}[0-9]+)?)|({NUM_TYPE}{KIND})|DOUBLE{BS_}COMPLEX|DOUBLE{BS_}PRECISION|{CHAR})
 
 INTENT_SPEC intent{BS}"("{BS}(in|out|in{BS}out){BS}")"
 ATTR_SPEC (ALLOCATABLE|DIMENSION{ARGS}|EXTERNAL|{INTENT_SPEC}|INTRINSIC|OPTIONAL|PARAMETER|POINTER|PRIVATE|PUBLIC|SAVE|TARGET|RECURSIVE|PURE|ELEMENTAL)
@@ -664,6 +673,7 @@ ACCESS_SPEC (PRIVATE|PUBLIC)
 ATTR_STMT {ATTR_SPEC}|DIMENSION
 COMMANDS  (DO|SELECT|CASE|WHERE|IF|THEN|ELSE|MODULE{BS_}PROCEDURE|CONTAINS|IMPLICIT{BS}NONE|CONTAINS|WRITE|READ|ALLOCATE|ALLOCATED|ASSOCIATED|DEALLOCATE|SIZE|END{BS}IF|END{BS}DO|WHILE|INQUIRE|OPEN|CLOSE|DATA)
 IGNORE (CALL)
+PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTAL)?
 
 /* |  */
 
@@ -686,6 +696,7 @@ IGNORE (CALL)
 %x DeclContLine
 %x Parameterlist
 %x String
+%x Subprogend
 
 %%
  /*==================================================================*/
@@ -711,20 +722,27 @@ IGNORE (CALL)
 
  /*-------- use statement -------------------------------------------*/
 <Start>"use"{BS_}                       { 
+  					  startFontClass("keyword"); 
   					  codifyLines(yytext);
+					  endFontClass();
                                           yy_push_state(YY_START);
 					  BEGIN(Use);     
                                         }
 <Use>{ID}                               {
-  					  startFontClass("keywordflow");
-  					  codifyLines(yytext);
-					  endFontClass();
+                                          QCString tmp = yytext;
+                                          tmp = tmp.lower();
+					  g_insideBody=TRUE;
+                                          generateLink(*g_code, yytext);
+					  g_insideBody=FALSE;
 
 					  /* append module name to use dict */
                                           useEntry = new UseEntry();
-					  useEntry->module = yytext;
-                                          useMembers->append(yytext, useEntry);
-					  addUse(yytext);
+					  //useEntry->module = yytext;
+                                          //useMembers->append(yytext, useEntry);
+					  //addUse(yytext);
+					  useEntry->module = tmp;
+                                          useMembers->append(tmp, useEntry);
+					  addUse(tmp);
                                         }           
 <Use>,{BS}"ONLY"                        { // TODO: rename
  					  codifyLines(yytext);
@@ -752,7 +770,11 @@ IGNORE (CALL)
 	                                  if (!stricmp(yytext,"module")) currentModule="module";
 					}
 <ClassName>{ID}               	        {
-	                                  if (currentModule == "module") currentModule=yytext;
+	                                  if (currentModule == "module")
+                                          {
+                                            currentModule=yytext;
+                                            currentModule = currentModule.lower();
+                                          }
 					  generateLink(*g_code,yytext);
                                           yy_pop_state();
  					}
@@ -764,20 +786,13 @@ IGNORE (CALL)
                                           currentModule=0;
 					  REJECT;
                                         }
-<Start>^{BS}"end"({BS}("program"|"module"|"type"|"interface")({BS_}{ID})?)?{BS}/(\n|!) {  //
-                                          endScope();
- 					  startFontClass("keyword"); 
-  					  codifyLines(yytext);
-					  endFontClass();
-                                        }
-
  /*-------- subprog definition -------------------------------------*/
-<Start>{TYPE_SPEC}{BS}/{SUBPROG}{BS_}  {   // TYPE_SPEC is for old function style function result
+<Start>({PREFIX}{BS_})?{TYPE_SPEC}{BS_}({PREFIX}{BS_})?{BS}/{SUBPROG}{BS_}  {   // TYPE_SPEC is for old function style function result
    					  startFontClass("keyword");
   					  codifyLines(yytext);
 					  endFontClass();
                                        }              
-<Start>{SUBPROG}{BS_}                  {  // Fortran subroutine or function found
+<Start>({PREFIX}{BS_})?{SUBPROG}{BS_}                  {  // Fortran subroutine or function found
    					  startFontClass("keyword");
   					  codifyLines(yytext);
 					  endFontClass();
@@ -792,10 +807,23 @@ IGNORE (CALL)
 <Subprog>"(".*                          { // ignore rest of line 
  					  codifyLines(yytext);
                                         }
-<Subprog>"\n"                           { codifyLines(yytext);
+<Subprog,Subprogend>"\n"                { codifyLines(yytext);
                                           yy_pop_state();
                                         }
-<Start>^{BS}"end"({BS}{SUBPROG}({BS_}{ID})?)?{BS}/(\n|!) {  // Fortran subroutine or function ends
+<Start>^{BS}"end"{BS}({SUBPROG}|"module"|"program"|"type"|"interface"){BS}     {  // Fortran subroutine or function ends
+                                          //cout << "===> end function " << yytext << endl;
+                                          endScope();
+   					  startFontClass("keyword");
+  					  codifyLines(yytext);
+					  endFontClass();
+                                          yy_push_state(YY_START);
+                                          BEGIN(Subprogend);
+                                        }
+<Subprogend>{ID}/{BS}(\n|!)             {
+					  generateLink(*g_code,yytext);
+                                          yy_pop_state();
+                                        }
+<Start>^{BS}"end"{BS}({SUBPROG}|"module"|"program"|"type"|"interface"){BS}/(\n|!) {  // Fortran subroutine or function ends
                                           //cout << "===> end function " << yytext << endl;
                                           endScope();
    					  startFontClass("keyword");
@@ -803,7 +831,7 @@ IGNORE (CALL)
 					  endFontClass();
                                         }
  /*-------- variable declaration ----------------------------------*/
-<Start>"TYPE"{BS}"("                    {
+<Start>"type"{BS}"("                    {
                                           yy_push_state(YY_START);
 					  BEGIN(TypeDecl);
    					  startFontClass("keywordtype");
@@ -839,9 +867,15 @@ IGNORE (CALL)
 					  endFontClass();
   					}
 <Declaration>{ID}                       { // local var
-					  g_code->codify(yytext);
-					  if (g_currentMemberDef && g_currentMemberDef->isFunction())
-					    addLocalVar(yytext);
+                                          if (g_currentMemberDef && !g_currentMemberDef->isFunction())
+                                          {
+                                            g_code->codify(yytext);
+                                            addLocalVar(yytext);
+                                          }
+                                           else
+                                          {
+                                            generateLink(*g_code, yytext);
+                                          }
 					}
 <Declaration>[(]			{ // start of array specification
 					  bracketCount++;
@@ -854,6 +888,7 @@ IGNORE (CALL)
 					}
 
 <Declaration>"&"                        { // continuation line
+					  g_code->codify(yytext);
                                           yy_push_state(YY_START);
 					  BEGIN(DeclContLine);					  
  					}

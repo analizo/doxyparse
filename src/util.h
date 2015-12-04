@@ -96,7 +96,7 @@ QCString getLanguageSpecificSeparator(SrcLangExt lang,bool classScope=FALSE);
 void linkifyText(const TextGeneratorIntf &ol,
                  Definition *scope,
                  FileDef *fileScope,
-                 const char *name,
+                 Definition *self,
                  const char *text,
                  bool autoBreak=FALSE,
                  bool external=TRUE,
@@ -329,7 +329,7 @@ bool containsWord(const QCString &s,const QCString &word);
 
 bool findAndRemoveWord(QCString &s,const QCString &word);
 
-QCString stripLeadingAndTrailingEmptyLines(const QCString &s);
+QCString stripLeadingAndTrailingEmptyLines(const QCString &s,int &docLine);
 
 //void stringToSearchIndex(const QCString &docUrlBase,const QCString &title,
 //                         const QCString &str, bool priority=FALSE,
@@ -367,7 +367,6 @@ void writeTypeConstraints(OutputList &ol,Definition *d,ArgumentList *al);
 
 QCString convertCharEntitiesToUTF8(const QCString &s);
 
-bool usingTreeIndex();
 void stackTrace();
 
 bool readInputFile(const char *fileName,BufStr &inBuf);

@@ -106,7 +106,7 @@ static void newEntry();
 static void initEntry(Entry *e);
 static bool isFuncProcProced();
 static void popConfig();
-static void pushLabel(QCString label);
+static void pushLabel(const QCString &label);
 static void popLabel();
 static void addConfigureNode(const char* a,const char*b,
                          bool isRoot,bool isLeave,bool inlineConf=FALSE);
@@ -115,7 +115,6 @@ static bool isFuncProcProced();
 static void initEntry(Entry *e);
 static void addProto(const char *s1,const char *s2,const char *s3,
                      const char *s4,const char *s5,const char *s6);
-static bool findInstant(QCString inst);
 static void createFunction(const QCString &impure,int spec,
                            const QCString &fname);
 
@@ -416,7 +415,7 @@ use_clause : t_USE sel_list t_Semicolon
                    for (uint j=0;j<ql1.count();j++)
                    {
                      QStringList ql=QStringList::split(".",ql1[j],FALSE);
-                     QCString it=(QCString)ql[1];;
+                     QCString it=ql[1].utf8();
                      if ( parse_sec == 0 )
                      {
                        addVhdlType(it,getParsedLine(t_USE),Entry::VARIABLE_SEC,VhdlDocGen::USE,it.data(),"_use_");
@@ -2068,7 +2067,7 @@ extern YYSTYPE vhdlScanYYlval;
 
 void vhdlScanYYerror(const char* /*str*/)
 {
- // fprintf(stderr,"\n<---error at line %d  : [ %s]   in file : %s ---->",s_str.yyLineNr,s_str.qstr.data(),s_str.fileName);
+//  fprintf(stderr,"\n<---error at line %d  : [ %s]   in file : %s ---->",s_str.yyLineNr,s_str.qstr.data(),s_str.fileName);
  // exit(0);
 }
 
@@ -2115,12 +2114,16 @@ static void addCompInst(char *n, char* instName, char* comp,int iLine)
   if (lastCompound)
   {
     current->args=lastCompound->name;
-    if (!findInstant(current->type))
+    if (true) // !findInstant(current->type))
     {
       initEntry(current);
       instFiles.append(new Entry(*current));
     }
-    current->reset();
+  
+    Entry *temp=current;  // hold  current pointer  (temp=oldEntry)
+    current=new Entry;     // (oldEntry != current)
+    delete  temp;
+   
   }
   else
   {
@@ -2128,7 +2131,7 @@ static void addCompInst(char *n, char* instName, char* comp,int iLine)
   }
 }
 
-static void pushLabel(QCString label)
+static void pushLabel(const QCString &label)
 {
   genLabels+="|"+label;
 }
@@ -2205,6 +2208,7 @@ static void initEntry(Entry *e)
 {
   e->fileName = s_str.fileName;
   e->lang=SrcLangExt_VHDL;
+  isVhdlDocPending();
   initGroupInfo(e);
 }
 
@@ -2220,7 +2224,7 @@ static void addProto(const char *s1,const char *s2,const char *s3,
   for (uint u=0;u<ql.count();u++)
   {
     Argument *arg=new Argument;
-    arg->name=(QCString)ql[u];
+    arg->name=ql[u].utf8();
     if (s3)
     {
       arg->type=s3;
@@ -2249,21 +2253,6 @@ static void addProto(const char *s1,const char *s2,const char *s3,
     current->args+=",";
   }
 }
-
-static bool findInstant(QCString inst)
-{
-  QListIterator<Entry> eli(instFiles);
-  Entry *cur;
-
-  for (eli.toFirst();(cur=eli.current());++eli)
-  {
-    if (stricmp(inst.data(),cur->type.data())==0)
-    {
-      return TRUE;
-    }
-  }
-  return FALSE;
-}//findInst
 
 static void createFunction(const QCString &impure,int spec,
                            const QCString &fname)
@@ -2303,7 +2292,7 @@ static void createFunction(const QCString &impure,int spec,
       for (uint ii=0;ii<q1.count();ii++)
       {
         Argument *arg=new Argument;
-        arg->name=(QCString)q1[ii];
+        arg->name=q1[ii].utf8();
         current->argList->append(arg);
       }
     }
@@ -2335,11 +2324,12 @@ static void addVhdlType(const QCString &name,int startLine,int section,int spec,
 
   for (uint u=0;u<ql.count();u++)
   {
-    current->name=(QCString)ql[u];
-    if (section==Entry::VARIABLE_SEC &&  !(spec == VhdlDocGen::USE || spec == VhdlDocGen::LIBRARY) )
-    {
-      current->name.prepend(VhdlDocGen::getRecordNumber());
-    }
+    current->name=ql[u].utf8();
+ //   if (section==Entry::VARIABLE_SEC &&  !(spec == VhdlDocGen::USE || spec == VhdlDocGen::LIBRARY) )
+ //   {
+ //     current->name.prepend(VhdlDocGen::getRecordNumber());
+ //   }
+   
     current->startLine=startLine;
     current->bodyLine=startLine;
     current->section=section;

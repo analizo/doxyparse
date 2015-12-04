@@ -219,6 +219,7 @@ void ManDocVisitor::visit(DocVerbatim *s)
     case DocVerbatim::HtmlOnly: 
     case DocVerbatim::XmlOnly: 
     case DocVerbatim::LatexOnly: 
+    case DocVerbatim::RtfOnly: 
     case DocVerbatim::Dot: 
     case DocVerbatim::Msc: 
       /* nothing */ 
@@ -242,7 +243,7 @@ void ManDocVisitor::visit(DocInclude *inc)
          m_t << ".PP" << endl;
          m_t << ".nf" << endl;
          QFileInfo cfi( inc->file() );
-         FileDef fd( cfi.dirPath(), cfi.fileName() );
+         FileDef fd( cfi.dirPath().utf8(), cfi.fileName().utf8() );
          Doxygen::parserManager->getParser(inc->extension())
                                ->parseCode(m_ci,inc->context(),
                                            inc->text(),

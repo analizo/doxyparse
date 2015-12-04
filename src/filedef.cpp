@@ -49,7 +49,7 @@ class DevNullCodeDocInterface : public CodeOutputInterface
                                const char *) {}
     virtual void writeLineNumber(const char *,const char *,
                                  const char *,int) {}
-    virtual void startCodeLine() {}
+    virtual void startCodeLine(bool) {}
     virtual void endCodeLine() {}
     virtual void startCodeAnchor(const char *) {}
     virtual void endCodeAnchor() {}
@@ -341,7 +341,11 @@ void FileDef::writeIncludeGraph(OutputList &ol)
   {
     //printf("Graph for file %s\n",name().data());
     DotInclDepGraph incDepGraph(this,FALSE);
-    if (!incDepGraph.isTrivial() && !incDepGraph.isTooBig())
+    if (incDepGraph.isTooBig())
+    {
+       err("warning: Include graph for '%s' not generated, too many nodes. Consider increasing DOT_GRAPH_MAX_NODES.\n",name().data());
+    }
+    else if (!incDepGraph.isTrivial())
     {
       ol.startTextBlock(); 
       ol.disable(OutputGenerator::Man);
@@ -361,7 +365,11 @@ void FileDef::writeIncludedByGraph(OutputList &ol)
   {
     //printf("Graph for file %s\n",name().data());
     DotInclDepGraph incDepGraph(this,TRUE);
-    if (!incDepGraph.isTrivial() && !incDepGraph.isTooBig())
+    if (incDepGraph.isTooBig())
+    {
+       err("warning: Included by graph for '%s' not generated, too many nodes. Consider increasing DOT_GRAPH_MAX_NODES.\n",name().data());
+    }
+    if (!incDepGraph.isTrivial())
     {
       ol.startTextBlock(); 
       ol.disable(OutputGenerator::Man);
@@ -526,7 +534,7 @@ void FileDef::writeDocumentation(OutputList &ol)
   QCString title = docname+versionTitle;
   QCString pageTitle=theTranslator->trFileReference(docname);
 
-  if (Config_getBool("SHOW_DIRECTORIES") && getDirDef())
+  if (getDirDef())
   {
     startFile(ol,getOutputFileBase(),name(),pageTitle,HLI_FileVisible,!generateTreeView);
     if (!generateTreeView)
@@ -785,7 +793,7 @@ void FileDef::writeSource(OutputList &ol)
   ol.disable(OutputGenerator::RTF);
   if (!latexSourceCode) ol.disable(OutputGenerator::Latex);
 
-  if (Config_getBool("SHOW_DIRECTORIES") && getDirDef())
+  if (getDirDef())
   {
     startFile(ol,getSourceFileBase(),0,pageTitle,HLI_FileVisible,
         !generateTreeView,getOutputFileBase());
@@ -1159,7 +1167,8 @@ bool FileDef::generateSourceFile() const
          (Config_getBool("SOURCE_BROWSER") || 
            (Config_getBool("VERBATIM_HEADERS") && guessSection(name())==Entry::HEADER_SEC) 
          ) &&
-         extension!=".doc" && extension!=".txt" && extension!=".dox"; 
+         extension!=".doc" && extension!=".txt" && extension!=".dox" &&
+         extension!=".md" && extension!=".markdown";  
 }
 
 
@@ -1485,7 +1494,9 @@ bool FileDef::isDocumentationFile() const
 {
   return name().right(4)==".doc" ||
          name().right(4)==".txt" ||
-         name().right(4)==".dox";
+         name().right(4)==".dox" ||
+         name().right(3)==".md"  ||
+         name().right(9)==".markdown";
 }
 
 void FileDef::acquireFileVersion()

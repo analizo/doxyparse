@@ -149,6 +149,7 @@ class PrintDocVisitor : public DocVisitor
         case DocVerbatim::Code: printf("<code>"); break;
         case DocVerbatim::Verbatim: printf("<verbatim>"); break;
         case DocVerbatim::HtmlOnly: printf("<htmlonly>"); break;
+        case DocVerbatim::RtfOnly: printf("<rtfonly>"); break;
         case DocVerbatim::ManOnly: printf("<manonly>"); break;
         case DocVerbatim::LatexOnly: printf("<latexonly>"); break;
         case DocVerbatim::XmlOnly: printf("<xmlonly>"); break;
@@ -161,6 +162,7 @@ class PrintDocVisitor : public DocVisitor
         case DocVerbatim::Code: printf("</code>"); break;
         case DocVerbatim::Verbatim: printf("</verbatim>"); break;
         case DocVerbatim::HtmlOnly: printf("</htmlonly>"); break;
+        case DocVerbatim::RtfOnly: printf("</rtfonly>"); break;
         case DocVerbatim::ManOnly: printf("</manonly>"); break;
         case DocVerbatim::LatexOnly: printf("</latexonly>"); break;
         case DocVerbatim::XmlOnly: printf("</xmlonly>"); break;
@@ -420,7 +422,7 @@ class PrintDocVisitor : public DocVisitor
     {
       indent_pre();
       printf("<table rows=\"%d\" cols=\"%d\">\n",
-          t->numRows(),t->numCols());
+          t->numRows(),t->numColumns());
     }
     void visitPost(DocHtmlTable *) 
     {

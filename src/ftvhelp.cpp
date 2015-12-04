@@ -32,6 +32,8 @@
 #include "htmlgen.h"
 #include "layout.h"
 #include "pagedef.h"
+#include "docparser.h"
+#include "htmldocvisitor.h"
 
 #define MAX_INDENT 1024
 
@@ -230,6 +232,112 @@ static unsigned char doc_a_png[528] =
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
 };
 
+static unsigned char module_png[528] =
+{
+  255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+  255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+  255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+  255,255,128,128,128,128,128,128,128,128,128,128,128,128,255,255,255,255,255,255,255,255,255,255,
+  255,128,128,128,128,128,128,128,128,128,128,128,128,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,128,128,128,128,128,128,128,128,128,128,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,255,255,255,193,128,136,255,255,255,217,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,255,255,255,213,128,170,255,255,255,217,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,255,255,247,247,128,196,255,247,255,217,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,255,255,213,255,153,230,255,213,255,217,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,255,255,187,255,187,255,230,204,255,217,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,255,255,153,255,247,255,196,204,255,217,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,255,255,128,247,255,255,170,204,255,217,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,255,255,128,213,255,255,136,204,255,217,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,255,255,128,187,255,230,138,204,255,217,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,128,128,128,128,128,128,128,128,128,128,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,128,128,128,128,128,128,128,128,128,128,128,128,255,255,255,255,255,255,255,255,255,
+  255,255,128,128,128,128,128,128,128,128,128,128,128,128,255,255,255,255,255,255,255,255,255,255,
+  255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+  255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+  255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+  255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255
+};
+
+static unsigned char namespace_png[528] =
+{
+  255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+  255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+  255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+  255,255,128,128,128,128,128,128,128,128,128,128,128,128,255,255,255,255,255,255,255,255,255,255,
+  255,128,128,128,128,128,128,128,128,128,128,128,128,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,128,128,128,128,128,128,128,128,128,128,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,157,255,255,226,128,128,198,255,255,157,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,157,255,255,255,189,128,198,255,255,157,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,157,255,255,255,244,141,198,255,255,157,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,157,255,255,255,255,220,198,255,255,157,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,157,255,255,226,255,255,220,255,255,157,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,157,255,255,198,220,255,255,255,255,157,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,157,255,255,198,141,250,255,255,255,157,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,157,255,255,198,128,198,255,255,255,157,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,157,255,255,198,128,128,226,255,255,157,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,128,128,128,128,128,128,128,128,128,128,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,128,128,128,128,128,128,128,128,128,128,128,128,255,255,255,255,255,255,255,255,255,
+  255,255,128,128,128,128,128,128,128,128,128,128,128,128,255,255,255,255,255,255,255,255,255,255,
+  255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+  255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+  255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+  255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255
+};
+
+static unsigned char class_png[528] =
+{
+  255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+  255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+  255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+  255,255,128,128,128,128,128,128,128,128,128,128,128,128,255,255,255,255,255,255,255,255,255,255,
+  255,128,128,128,128,128,128,128,128,128,128,128,128,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,128,128,128,128,128,128,128,128,128,128,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,128,128,187,247,255,255,230,170,128,128,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,128,196,255,255,255,255,255,255,170,128,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,145,255,255,230,128,136,230,247,179,128,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,179,255,255,170,128,128,128,128,128,128,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,179,255,255,162,128,128,128,128,128,128,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,179,255,255,170,128,128,128,128,128,128,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,145,255,255,221,128,128,221,255,179,128,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,128,196,255,255,255,255,255,255,187,128,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,128,128,187,247,255,255,240,179,128,128,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,128,128,128,128,128,128,128,128,128,128,128,128,255,255,255,255,255,255,255,255,255,
+  255,128,128,128,128,128,128,128,128,128,128,128,128,128,128,255,255,255,255,255,255,255,255,255,
+  255,255,128,128,128,128,128,128,128,128,128,128,128,128,255,255,255,255,255,255,255,255,255,255,
+  255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+  255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+  255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
+  255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255
+};
+
+
+static unsigned char letter_a_png[528] =
+{
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0, 60,156,204,204,204,204,204,204,204,204,156, 51,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0, 78,255,255,255,255,255,255,255,255,255,255,255,252, 72,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,210,255,255,255,255,255,255,255,255,255,255,255,255,207,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,240,255,255,255,255,255,255,255,255,255,255,255,255,240,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,240,255,255,255,255,255,255,255,255,255,255,255,255,240,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,240,255,255,255,255,255,255,255,255,255,255,255,255,240,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,240,255,255,255,255,255,255,255,255,255,255,255,255,240,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,240,255,255,255,255,255,255,255,255,255,255,255,255,240,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,240,255,255,255,255,255,255,255,255,255,255,255,255,240,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,240,255,255,255,255,255,255,255,255,255,255,255,255,240,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,240,255,255,255,255,255,255,255,255,255,255,255,255,240,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,240,255,255,255,255,255,255,255,255,255,255,255,255,240,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,222,255,255,255,255,255,255,255,255,255,255,255,255,219,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,111,255,255,255,255,255,255,255,255,255,255,255,255, 99,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0, 99,198,204,204,204,204,204,204,204,204,195, 90,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+};
+
+
 static unsigned char arrow_right_png[352] =
 {
   255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,
@@ -391,7 +499,7 @@ struct FTVImageInfo
   const char *alt;
   const char *name;
   const unsigned char *data;
-  unsigned int len;
+  //unsigned int len;
   unsigned short width, height;
 };
 
@@ -409,6 +517,9 @@ struct FTVImageInfo
 #define FTVIMG_plastnode    9
 #define FTVIMG_pnode       10
 #define FTVIMG_vertline    11
+#define FTVIMG_ns          12
+#define FTVIMG_cl          13
+#define FTVIMG_mo          14
 
 #define FTV_S(name) #name
 #define FTV_ICON_FILE(name) "ftv2" FTV_S(name) ".png"
@@ -423,19 +534,22 @@ struct FTVImageInfo
 
 static FTVImageInfo image_info[] =
 {
-  { "&#160;", "ftv2blank.png",    0 /*ftv2blank_png*/        ,174,16,22 },
-  { "*",  "ftv2doc.png",          0 /*ftv2doc_png*/          ,255,24,22 },
-  { "+",  "ftv2folderclosed.png", 0 /*ftv2folderclosed_png*/ ,259,24,22 },
-  { "-",  "ftv2folderopen.png",   0 /*ftv2folderopen_png*/   ,261,24,22 },
-  { "\\", "ftv2lastnode.png",     0 /*ftv2lastnode_png*/     ,233,16,22 },
-  { "-",  "ftv2link.png",         0 /*ftv2link_png*/         ,358,24,22 },
-  { "\\", "ftv2mlastnode.png",    0 /*ftv2mlastnode_png*/    ,160,16,22 },
-  { "o",  "ftv2mnode.png",        0 /*ftv2mnode_png*/        ,194,16,22 },
-  { "o",  "ftv2node.png",         0 /*ftv2node_png*/         ,235,16,22 },
-  { "\\", "ftv2plastnode.png",    0 /*ftv2plastnode_png*/    ,165,16,22 },
-  { "o",  "ftv2pnode.png",        0 /*ftv2pnode_png*/        ,200,16,22 },
-  { "|",  "ftv2vertline.png",     0 /*ftv2vertline_png*/     ,229,16,22 },
-  {   0,  0,                      0,                            0, 0, 0 }
+  { "&#160;", "ftv2blank.png",    0 /*ftv2blank_png*/        /*,174*/,16,22 },
+  { "*",  "ftv2doc.png",          0 /*ftv2doc_png*/          /*,255*/,24,22 },
+  { "+",  "ftv2folderclosed.png", 0 /*ftv2folderclosed_png*/ /*,259*/,24,22 },
+  { "-",  "ftv2folderopen.png",   0 /*ftv2folderopen_png*/   /*,261*/,24,22 },
+  { "\\", "ftv2lastnode.png",     0 /*ftv2lastnode_png*/     /*,233*/,16,22 },
+  { "-",  "ftv2link.png",         0 /*ftv2link_png*/         /*,358*/,24,22 },
+  { "\\", "ftv2mlastnode.png",    0 /*ftv2mlastnode_png*/    /*,160*/,16,22 },
+  { "o",  "ftv2mnode.png",        0 /*ftv2mnode_png*/        /*,194*/,16,22 },
+  { "o",  "ftv2node.png",         0 /*ftv2node_png*/         /*,235*/,16,22 },
+  { "\\", "ftv2plastnode.png",    0 /*ftv2plastnode_png*/    /*,165*/,16,22 },
+  { "o",  "ftv2pnode.png",        0 /*ftv2pnode_png*/        /*,200*/,16,22 },
+  { "|",  "ftv2vertline.png",     0 /*ftv2vertline_png*/     /*,229*/,16,22 },
+  { "N",  "ftv2ns.png",           0 /*ftv2vertline_png*/     /*,352*/,24,22 },
+  { "C",  "ftv2cl.png",           0 /*ftv2vertline_png*/     /*,352*/,24,22 },
+  { "M",  "ftv2mo.png",           0 /*ftv2vertline_png*/     /*,352*/,24,22 },
+  {   0,  0,                      0                          /*,  0*/, 0, 0 }
 };
 
 static ColoredImgDataItem ftv_image_data[] =
@@ -444,6 +558,9 @@ static ColoredImgDataItem ftv_image_data[] =
   { "ftv2doc.png",          24,  22, doc_png,          doc_a_png          },
   { "ftv2folderclosed.png", 24,  22, folderclosed_png, folderclosed_a_png },
   { "ftv2folderopen.png",   24,  22, folderopen_png,   folderopen_a_png   },
+  { "ftv2ns.png",           24,  22, namespace_png,    letter_a_png       },
+  { "ftv2mo.png",           24,  22, module_png,       letter_a_png       },
+  { "ftv2cl.png",           24,  22, class_png,        letter_a_png       },
   { "ftv2lastnode.png",     16,  22, blank_png,        blank_png          },
   { "ftv2link.png",         24,  22, doc_png,          doc_a_png          },
   { "ftv2mlastnode.png",    16,  22, arrow_down_png,   arrow_down_a_png   },
@@ -460,9 +577,13 @@ static int folderId=1;
 
 struct FTVNode
 {
-  FTVNode(bool dir,const char *r,const char *f,const char *a,const char *n,bool sepIndex,bool navIndex)
+  FTVNode(bool dir,const char *r,const char *f,const char *a,
+          const char *n,bool sepIndex,bool navIndex,Definition *df)
     : isLast(TRUE), isDir(dir),ref(r),file(f),anchor(a),name(n), index(0),
-      parent(0), separateIndex(sepIndex), addToNavIndex(navIndex) { children.setAutoDelete(TRUE); }
+      parent(0), separateIndex(sepIndex), addToNavIndex(navIndex),
+      def(df) { children.setAutoDelete(TRUE); }
+  int computeTreeDepth(int level) const;
+  int numNodesAtLevel(int level,int maxLevel) const;
   bool isLast;
   bool isDir;
   QCString ref;
@@ -474,8 +595,40 @@ struct FTVNode
   FTVNode *parent;
   bool separateIndex;
   bool addToNavIndex;
+  Definition *def;
 };
 
+int FTVNode::computeTreeDepth(int level) const
+{
+  int maxDepth=level;
+  QListIterator<FTVNode> li(children);
+  FTVNode *n;
+  for (;(n=li.current());++li)
+  {
+    if (n->children.count()>0)
+    {
+      int d = n->computeTreeDepth(level+1);
+      if (d>maxDepth) maxDepth=d;
+    }
+  }
+  return maxDepth;
+}
+
+int FTVNode::numNodesAtLevel(int level,int maxLevel) const
+{
+  int num=0;
+  if (level<maxLevel)
+  {
+    num++; // this node
+    QListIterator<FTVNode> li(children);
+    FTVNode *n;
+    for (;(n=li.current());++li)
+    {
+      num+=n->numNodesAtLevel(level+1,maxLevel);
+    }
+  }
+  return num;
+}
 
 //----------------------------------------------------------------------------
 
@@ -520,6 +673,7 @@ void FTVHelp::finalize()
  */
 void FTVHelp::incContentsDepth()
 {
+  //printf("incContentsDepth() indent=%d\n",m_indent);
   m_indent++;
   ASSERT(m_indent<MAX_INDENT);
 }
@@ -530,16 +684,20 @@ void FTVHelp::incContentsDepth()
  */
 void FTVHelp::decContentsDepth()
 {
+  //printf("decContentsDepth() indent=%d\n",m_indent);
   ASSERT(m_indent>0);
   if (m_indent>0)
   {
     m_indent--;
     QList<FTVNode> *nl = &m_indentNodes[m_indent];
     FTVNode *parent = nl->getLast();
-    QList<FTVNode> *children = &m_indentNodes[m_indent+1];
-    while (!children->isEmpty())
+    if (parent)
     {
-      parent->children.append(children->take(0));
+      QList<FTVNode> *children = &m_indentNodes[m_indent+1];
+      while (!children->isEmpty())
+      {
+        parent->children.append(children->take(0));
+      }
     }
   }
 }
@@ -552,6 +710,7 @@ void FTVHelp::decContentsDepth()
  *  \param name the name of the item.
  *  \param separateIndex put the entries in a separate index file
  *  \param addToNavIndex add this entry to the quick navigation index
+ *  \param def Definition corresponding to this entry
  */
 void FTVHelp::addContentsItem(bool isDir,
                               const char *name,
@@ -559,12 +718,13 @@ void FTVHelp::addContentsItem(bool isDir,
                               const char *file,
                               const char *anchor,
                               bool separateIndex,
-                              bool addToNavIndex
+                              bool addToNavIndex,
+                              Definition *def
                               )
 {
   //printf("addContentsItem(%s,%s,%s,%s)\n",name,ref,file,anchor);
   QList<FTVNode> *nl = &m_indentNodes[m_indent];
-  FTVNode *newNode = new FTVNode(isDir,ref,file,anchor,name,separateIndex,addToNavIndex);
+  FTVNode *newNode = new FTVNode(isDir,ref,file,anchor,name,separateIndex,addToNavIndex,def);
   if (!nl->isEmpty())
   {
     nl->getLast()->isLast=FALSE;
@@ -599,12 +759,22 @@ static QCString node2URL(FTVNode *n)
   return url;
 }
 
+QCString FTVHelp::generateIndentLabel(FTVNode *n,int level)
+{
+  QCString result;
+  if (n->parent)
+  {
+    result=generateIndentLabel(n->parent,level+1);
+  }
+  result+=QCString().sprintf("%d_",n->index);
+  return result;
+}
 
-void FTVHelp::generateIndent(FTextStream &t, FTVNode *n,int level)
+void FTVHelp::generateIndent(FTextStream &t, FTVNode *n,int level, bool opened)
 {
   if (n->parent)
   {
-    generateIndent(t,n->parent,level+1);
+    generateIndent(t,n->parent,level+1,opened);
   }
   // from the root up to node n do...
   if (level==0) // item before a dir or document
@@ -613,7 +783,15 @@ void FTVHelp::generateIndent(FTextStream &t, FTVNode *n,int level)
     {
       if (n->isDir)
       {
-        t << "<img " << FTV_IMGATTRIBS(plastnode) << "onclick=\"toggleFolder('folder" << folderId << "', this)\"/>";
+        t << "<img id=\"arr_" << generateIndentLabel(n,0) 
+          << "\" ";
+        if (opened)
+          t << FTV_IMGATTRIBS(mlastnode);
+        else 
+          t << FTV_IMGATTRIBS(plastnode);
+        t << "onclick=\"toggleFolder('" 
+          << generateIndentLabel(n,0) 
+          << "')\"/>";
       }
       else
       {
@@ -624,7 +802,15 @@ void FTVHelp::generateIndent(FTextStream &t, FTVNode *n,int level)
     {
       if (n->isDir)
       {
-        t << "<img " << FTV_IMGATTRIBS(pnode) << "onclick=\"toggleFolder('folder" << folderId << "', this)\"/>";
+        t << "<img id=\"arr_" << generateIndentLabel(n,0)
+          << "\" ";
+        if (opened)
+          t << FTV_IMGATTRIBS(mnode);
+        else
+          t << FTV_IMGATTRIBS(pnode);
+        t << "onclick=\"toggleFolder('" 
+          << generateIndentLabel(n,0)
+          << "')\"/>";
       }
       else
       {
@@ -680,7 +866,179 @@ void FTVHelp::generateLink(FTextStream &t,FTVNode *n)
   }
 }
 
-void FTVHelp::generateJSLink(FTextStream &t,FTVNode *n)
+static void generateBriefDoc(FTextStream &t,Definition *def)
+{
+  QCString brief = def->briefDescription(TRUE);
+  if (!brief.isEmpty())
+  {
+    DocNode *root = validatingParseDoc(def->briefFile(),def->briefLine(),
+        def,0,brief,FALSE,FALSE,0,TRUE,TRUE);
+    HtmlGenerator htmlGen;
+    HtmlDocVisitor *visitor = new HtmlDocVisitor(t,htmlGen,0);
+    root->accept(visitor);
+    delete visitor;
+    delete root;
+  }
+}
+
+void FTVHelp::generateTree(FTextStream &t, const QList<FTVNode> &nl,int level,int maxLevel,int &index)
+{
+  QListIterator<FTVNode> nli(nl);
+  FTVNode *n;
+  for (nli.toFirst();(n=nli.current());++nli)
+  {
+    t << "<tr id=\"row_" << generateIndentLabel(n,0) << "\"";
+    if ((index&1)==0) // even row
+      t << " class=\"even\"";
+    if (level>=maxLevel) // item invisible by default
+      t << " style=\"display:none;\"";
+    else // item visible by default
+      index++;
+    t << "><td class=\"entry\">";
+    bool nodeOpened = level+1<maxLevel;
+    generateIndent(t,n,0,nodeOpened);
+    if (n->isDir)
+    {
+      if (n->def && n->def->definitionType()==Definition::TypeGroup)
+      {
+        // no icon
+      }
+      else if (n->def && n->def->definitionType()==Definition::TypePage)
+      {
+        // no icon
+      }
+      else if (n->def && n->def->definitionType()==Definition::TypeNamespace)
+      {
+        t << "<img ";
+        t << FTV_IMGATTRIBS(ns);
+        t << "/>";
+      }
+      else if (n->def && n->def->definitionType()==Definition::TypeClass)
+      {
+        t << "<img ";
+        t << FTV_IMGATTRIBS(cl);
+        t << "/>";
+      }
+      else
+      {
+        t << "<img ";
+        t << "id=\"img_" << generateIndentLabel(n,0) 
+          << "\" ";
+        if (nodeOpened)
+          t << FTV_IMGATTRIBS(folderopen);
+        else
+          t << FTV_IMGATTRIBS(folderclosed);
+        t << "onclick=\"toggleFolder('"
+          << generateIndentLabel(n,0)
+          << "')\"";
+        t << "/>";
+      }
+      generateLink(t,n);
+      t << "</td><td class=\"desc\">";
+      if (n->def)
+      {
+        generateBriefDoc(t,n->def);
+      }
+      t << "</td></tr>" << endl;
+      folderId++;
+      generateTree(t,n->children,level+1,maxLevel,index);
+    }
+    else // leaf node
+    {
+      FileDef *srcRef=0;
+      if (n->def && n->def->definitionType()==Definition::TypeFile &&
+          ((FileDef*)n->def)->generateSourceFile())
+      {
+        srcRef = (FileDef*)n->def;
+      }
+      if (srcRef)
+      {
+        t << "<a href=\"" << srcRef->getSourceFileBase()
+          << Doxygen::htmlFileExtension 
+          << "\">";
+      }
+      if (n->def && n->def->definitionType()==Definition::TypeGroup)
+      {
+        // no icon
+      }
+      else if (n->def && n->def->definitionType()==Definition::TypePage)
+      {
+        // no icon
+      }
+      else if (n->def && n->def->definitionType()==Definition::TypeNamespace)
+      {
+        t << "<img ";
+        t << FTV_IMGATTRIBS(ns);
+        t << "/>";
+      }
+      else if (n->def && n->def->definitionType()==Definition::TypeClass)
+      {
+        t << "<img ";
+        t << FTV_IMGATTRIBS(cl);
+        t << "/>";
+      }
+      else
+      {
+        t << "<img ";
+        t << FTV_IMGATTRIBS(doc);
+        t << "/>";
+      }
+      if (srcRef)
+      {
+        t << "</a>";
+      }
+      generateLink(t,n);
+      t << "</td><td class=\"desc\">";
+      if (n->def)
+      {
+        generateBriefDoc(t,n->def);
+      }
+      t << "</td></tr>" << endl;
+    }
+  }
+}
+
+//-----------------------------------------------------------
+
+struct NavIndexEntry
+{
+  NavIndexEntry(const QCString &u,const QCString &p) : url(u), path(p) {}
+  QCString url;
+  QCString path;
+};
+
+class NavIndexEntryList : public QList<NavIndexEntry> 
+{
+  public:
+    NavIndexEntryList() : QList<NavIndexEntry>() { setAutoDelete(TRUE); }
+   ~NavIndexEntryList() {}
+    int compareItems(GCI item1,GCI item2)
+    {
+      // sort list based on url
+      return qstrcmp(((NavIndexEntry*)item1)->url,((NavIndexEntry*)item2)->url);
+    }
+};
+
+static QCString pathToNode(FTVNode *leaf,FTVNode *n)
+{
+  QCString result;
+  if (n->parent)
+  {
+    result+=pathToNode(leaf,n->parent);
+  }
+  result+=QCString().setNum(n->index);
+  if (leaf!=n) result+=",";
+  return result;
+}
+
+static bool dupOfParent(const FTVNode *n)
+{
+  if (n->parent==0) return FALSE;
+  if (n->file==n->parent->file) return TRUE;
+  return FALSE;
+}
+
+static void generateJSLink(FTextStream &t,FTVNode *n)
 {
   if (n->file.isEmpty()) // no link
   {
@@ -688,7 +1046,6 @@ void FTVHelp::generateJSLink(FTextStream &t,FTVNode *n)
   }
   else // link into other page
   {
-    // TODO: use m_topLevelIndex
     t << "\"" << convertToJSString(n->name) << "\", \"";
     t << externalRef("",n->ref,TRUE);
     t << node2URL(n);
@@ -696,62 +1053,8 @@ void FTVHelp::generateJSLink(FTextStream &t,FTVNode *n)
   }
 }
 
-void FTVHelp::generateTree(FTextStream &t, const QList<FTVNode> &nl,int level)
-{
-  QCString spaces;
-  spaces.fill(' ',level*2+8);
-  QListIterator<FTVNode> nli(nl);
-  FTVNode *n;
-  for (nli.toFirst();(n=nli.current());++nli)
-  {
-    t << spaces << "<p>";
-    generateIndent(t,n,0);
-    if (n->isDir)
-    {
-      t << "<img " << FTV_IMGATTRIBS(folderclosed) << "onclick=\"toggleFolder('folder" << folderId << "', this)\"/>";
-      generateLink(t,n);
-      t << "</p>\n";
-      t << spaces << "<div id=\"folder" << folderId << "\">\n";
-      folderId++;
-      generateTree(t,n->children,level+1);
-      t << spaces << "</div>\n";
-    }
-    else
-    {
-      t << "<img " << FTV_IMGATTRIBS(doc) << "/>";
-      generateLink(t,n);
-      t << "</p>\n";
-    }
-  }
-}
-
-static void writePathToNode(FTextStream &tidx,FTVNode *leaf,FTVNode *n)
-{
-  if (n->parent)
-  {
-    writePathToNode(tidx,leaf,n->parent);
-  }
-  tidx << n->index;
-  if (leaf!=n) tidx << ",";
-}
-
-bool childOfHierarchy(const FTVNode *n)
-{
-  if (n==0) return FALSE;
-  if (n->file=="hierarchy") 
-    return TRUE;
-  else 
-    return childOfHierarchy(n->parent);
-}
-
-bool dupOfParent(const FTVNode *n)
-{
-  if (n->parent==0) return FALSE;
-  if (n->file==n->parent->file) return TRUE;
-  return FALSE;
-}
-
-bool FTVHelp::generateJSTree(FTextStream &tidx,FTextStream &t, const QList<FTVNode> &nl,int level,bool &first)
+static bool generateJSTree(NavIndexEntryList &navIndex,FTextStream &t, 
+                           const QList<FTVNode> &nl,int level,bool &first)
 {
   QCString indentStr;
   indentStr.fill(' ',level*2);
@@ -771,12 +1074,9 @@ bool FTVHelp::generateJSTree(FTextStream &tidx,FTextStream &t, const QList<FTVNo
     }
     found=TRUE;
 
-    //if (!n->file.isEmpty() && !childOfHierarchy(n->parent))
-    if (n->addToNavIndex)
+    if (n->addToNavIndex) // add entry to the navigation index
     {
-      tidx << "," << endl << "\"" << node2URL(n) << "\":[";
-      writePathToNode(tidx,n,n);
-      tidx << "]";
+      navIndex.append(new NavIndexEntry(node2URL(n),pathToNode(n,n)));
     }
 
     if (n->separateIndex) // store items in a separate file for dynamic loading
@@ -796,12 +1096,11 @@ bool FTVHelp::generateJSTree(FTextStream &tidx,FTextStream &t, const QList<FTVNo
           int i=fileId.findRev('/');
           if (i>=0) varId = varId.mid(i+1);
           tt << "var " << varId << " =" << endl;
-          generateJSTree(tidx,tt,n->children,1,firstChild);
+          generateJSTree(navIndex,tt,n->children,1,firstChild);
           tt << endl << "];"; 
         }
         // write file name without extension as marker
         t << "\"" << fileId << "\" ]";
-        //if (n->file!="hierarchy") addFilesToIndex(tidx,n);
       }
       else // no children
       {
@@ -813,7 +1112,7 @@ bool FTVHelp::generateJSTree(FTextStream &tidx,FTextStream &t, const QList<FTVNo
       bool firstChild=TRUE;
       t << indentStr << "  [ ";
       generateJSLink(t,n);
-      bool emptySection = !generateJSTree(tidx,t,n->children,level+1,firstChild);
+      bool emptySection = !generateJSTree(navIndex,t,n->children,level+1,firstChild);
       if (emptySection)
         t << "null ]";
       else
@@ -822,6 +1121,104 @@ bool FTVHelp::generateJSTree(FTextStream &tidx,FTextStream &t, const QList<FTVNo
   }
   return found;
 }
+
+static void generateJSNavTree(const QList<FTVNode> &nodeList)
+{
+  QCString htmlOutput = Config_getString("HTML_OUTPUT");
+  QFile f(htmlOutput+"/navtree.js");
+  NavIndexEntryList navIndex;
+  if (f.open(IO_WriteOnly) /*&& fidx.open(IO_WriteOnly)*/)
+  {
+    //FTextStream tidx(&fidx);
+    //tidx << "var NAVTREEINDEX =" << endl;
+    //tidx << "{" << endl;
+    FTextStream t(&f);
+    t << "var NAVTREE =" << endl;
+    t << "[" << endl;
+    t << "  [ ";
+    QCString &projName = Config_getString("PROJECT_NAME");
+    if (projName.isEmpty())
+    {
+      if (Doxygen::mainPage && !Doxygen::mainPage->title().isEmpty()) // Use title of main page as root
+      {
+        t << "\"" << convertToJSString(Doxygen::mainPage->title()) << "\", ";
+      }
+      else // Use default section title as root
+      {
+        LayoutNavEntry *lne = LayoutDocManager::instance().rootNavEntry()->find(LayoutNavEntry::MainPage);
+        t << "\"" << convertToJSString(lne->title()) << "\", ";
+      }
+    }
+    else // use PROJECT_NAME as root tree element
+    {
+      t << "\"" << convertToJSString(projName) << "\", ";
+    }
+    t << "\"index" << Doxygen::htmlFileExtension << "\", ";
+
+    // add special entry for index page
+    navIndex.append(new NavIndexEntry("index"+Doxygen::htmlFileExtension,""));
+    // related page index is written as a child of index.html, so add this as well
+    navIndex.append(new NavIndexEntry("pages"+Doxygen::htmlFileExtension,""));
+
+    bool first=TRUE;
+    generateJSTree(navIndex,t,nodeList,1,first);
+
+    if (first) 
+      t << "]" << endl;
+    else 
+      t << endl << "  ] ]" << endl;
+    t << "];" << endl;
+    t << endl << navtree_script;
+  }
+
+  // write the navigation index (and sub-indices)
+  navIndex.sort();
+  int subIndex=0;
+  int elemCount=0;
+  const int maxElemCount=250;
+  QFile fidx(htmlOutput+"/navtreeindex.js");
+  QFile fsidx(htmlOutput+"/navtreeindex0.js");
+  if (fidx.open(IO_WriteOnly) && fsidx.open(IO_WriteOnly))
+  {
+    FTextStream tidx(&fidx);
+    FTextStream tsidx(&fsidx);
+    tidx << "var NAVTREEINDEX =" << endl;
+    tidx << "[" << endl;
+    tsidx << "var NAVTREEINDEX" << subIndex << " =" << endl;
+    tsidx << "{" << endl;
+    QListIterator<NavIndexEntry> li(navIndex);
+    NavIndexEntry *e;
+    for (li.toFirst();(e=li.current());) // for each entry
+    {
+      if (elemCount==0)
+      {
+        tidx << "\"" << e->url << "\"," << endl;
+      }
+      tsidx << "\"" << e->url << "\":[" << e->path << "]";
+      ++li;
+      if (li.current()) tsidx << ","; // not last entry
+      tsidx << endl;
+
+      elemCount++;
+      if (li.current() && elemCount>=maxElemCount) // switch to new sub-index
+      {
+        tsidx << "};" << endl;
+        elemCount=0;
+        fsidx.close();
+        subIndex++;
+        fsidx.setName(htmlOutput+"/navtreeindex"+QCString().setNum(subIndex)+".js");
+        if (!fsidx.open(IO_WriteOnly)) break;
+        tsidx.setDevice(&fsidx);
+        tsidx << "var NAVTREEINDEX" << subIndex << " =" << endl;
+        tsidx << "{" << endl;
+      }
+    }
+    tsidx << "};" << endl;
+    tidx << "];" << endl;
+  }
+}
+
+//-----------------------------------------------------------
 
 // new style images
 void FTVHelp::generateTreeViewImages()
@@ -833,57 +1230,14 @@ void FTVHelp::generateTreeViewImages()
 // new style scripts
 void FTVHelp::generateTreeViewScripts()
 {
-  // generate navtree.js
-  {
-    QCString htmlOutput = Config_getString("HTML_OUTPUT");
-    QFile f(htmlOutput+"/navtree.js");
-    QFile fidx(htmlOutput+"/navtreeindex.js");
-    if (f.open(IO_WriteOnly) && fidx.open(IO_WriteOnly))
-    {
-      FTextStream tidx(&fidx);
-      tidx << "var NAVTREEINDEX =" << endl;
-      tidx << "{" << endl;
-      FTextStream t(&f);
-      t << "var NAVTREE =" << endl;
-      t << "[" << endl;
-      t << "  [ ";
-      QCString &projName = Config_getString("PROJECT_NAME");
-      if (projName.isEmpty())
-      {
-        if (Doxygen::mainPage && !Doxygen::mainPage->title().isEmpty()) // Use title of main page as root
-        {
-          t << "\"" << convertToJSString(Doxygen::mainPage->title()) << "\", ";
-        }
-        else // Use default section title as root
-        {
-          LayoutNavEntry *lne = LayoutDocManager::instance().rootNavEntry()->find(LayoutNavEntry::MainPage);
-          t << "\"" << convertToJSString(lne->title()) << "\", ";
-        }
-      }
-      else // use PROJECT_NAME as root tree element
-      {
-        t << "\"" << convertToJSString(projName) << "\", ";
-      }
-      t << "\"index" << Doxygen::htmlFileExtension << "\", ";
+  QCString htmlOutput = Config_getString("HTML_OUTPUT");
 
-      tidx << "\"index" << Doxygen::htmlFileExtension << "\":[]";
+  // generate navtree.js & navtreeindex.js
+  generateJSNavTree(m_indentNodes[0]);
 
-      bool first=TRUE;
-      generateJSTree(tidx,t,m_indentNodes[0],1,first);
-
-      if (first) 
-        t << "]" << endl;
-      else 
-        t << endl << "  ] ]" << endl;
-      t << "];" << endl;
-      t << endl << navtree_script;
-
-      tidx << endl << "};" << endl;
-    }
-  }
   // generate resize.js
   {
-    QFile f(Config_getString("HTML_OUTPUT")+"/resize.js");
+    QFile f(htmlOutput+"/resize.js");
     if (f.open(IO_WriteOnly))
     {
       FTextStream t(&f);
@@ -892,7 +1246,7 @@ void FTVHelp::generateTreeViewScripts()
   }
   // generate navtree.css
   {
-    QFile f(Config_getString("HTML_OUTPUT")+"/navtree.css");
+    QFile f(htmlOutput+"/navtree.css");
     if (f.open(IO_WriteOnly))
     {
       FTextStream t(&f);
@@ -901,81 +1255,67 @@ void FTVHelp::generateTreeViewScripts()
   }
 }
 
-// old style script (used for inline trees)
-void FTVHelp::generateScript(FTextStream &t)
-{
-  t << "    <script type=\"text/javascript\">\n";
-  t << "    <!-- // Hide script from old browsers\n";
-  t << "    \n";
-
-  /* User has clicked on a node (folder or +/-) in the tree */
-  t << "    function toggleFolder(id, imageNode) \n";
-  t << "    {\n";
-  t << "      var folder = document.getElementById(id);\n";
-  t << "      var l = imageNode.src.length;\n";
-  /* If the user clicks on the book icon, we move left one image so 
-   * the code (below) will also adjust the '+' icon. 
-   */
-  t << "      if (imageNode.src.substring(l-20,l)==\"" FTV_ICON_FILE(folderclosed) "\" || \n";
-  t << "          imageNode.src.substring(l-18,l)==\"" FTV_ICON_FILE(folderopen)  "\")\n";
-  t << "      {\n";
-  t << "        imageNode = imageNode.previousSibling;\n";
-  t << "        l = imageNode.src.length;\n";
-  t << "      }\n";
-  t << "      if (folder == null) \n";
-  t << "      {\n";
-  t << "      } \n";
-  /* Node controls a open section, we need to close it */
-  t << "      else if (folder.style.display == \"block\") \n";
-  t << "      {\n";
-  t << "        if (imageNode != null) \n";
-  t << "        {\n";
-  t << "          imageNode.nextSibling.src = \"" FTV_ICON_FILE(folderclosed) "\";\n";
-  t << "          if (imageNode.src.substring(l-13,l) == \"" FTV_ICON_FILE(mnode) "\")\n";
-  t << "          {\n";
-  t << "            imageNode.src = \"" FTV_ICON_FILE(pnode) "\";\n";
-  t << "          }\n";
-  t << "          else if (imageNode.src.substring(l-17,l) == \"" FTV_ICON_FILE(mlastnode) "\")\n";
-  t << "          {\n";
-  t << "            imageNode.src = \"" FTV_ICON_FILE(plastnode) "\";\n";
-  t << "          }\n";
-  t << "        }\n";
-  t << "        folder.style.display = \"none\";\n";
-  t << "      } \n";
-  t << "      else \n"; /* section is closed, we need to open it */
-  t << "      {\n";
-  t << "        if (imageNode != null) \n";
-  t << "        {\n";
-  t << "          imageNode.nextSibling.src = \"" FTV_ICON_FILE(folderopen) "\";\n";
-  t << "          if (imageNode.src.substring(l-13,l) == \"" FTV_ICON_FILE(pnode) "\")\n";
-  t << "          {\n";
-  t << "            imageNode.src = \"" FTV_ICON_FILE(mnode) "\";\n";
-  t << "          }\n";
-  t << "          else if (imageNode.src.substring(l-17,l) == \"" FTV_ICON_FILE(plastnode) "\")\n";
-  t << "          {\n";
-  t << "            imageNode.src = \"" FTV_ICON_FILE(mlastnode) "\";\n";
-  t << "          }\n";
-  t << "        }\n";
-  t << "        folder.style.display = \"block\";\n";
-  t << "      }\n";
-  t << "    }\n";
-  t << "\n";
-  t << "    // End script hiding -->        \n";
-  t << "    </script>\n";
-}
-
 // write tree inside page
 void FTVHelp::generateTreeViewInline(FTextStream &t)
 {
-  generateScript(t);
-  t << "    <div class=\"directory-alt\">\n";
-  t << "      <br/>\n";
-  t << "      <div style=\"display: block;\">\n";
+  int preferredNumEntries = Config_getInt("HTML_INDEX_NUM_ENTRIES");
+  t << "<div class=\"directory\">\n";
+  QListIterator<FTVNode> li(m_indentNodes[0]);
+  FTVNode *n;
+  int d=1, depth=1;
+  for (;(n=li.current());++li)
+  {
+    if (n->children.count()>0)
+    {
+      d = n->computeTreeDepth(2);
+      if (d>depth) depth=d;
+    }
+  }
+  int preferredDepth = depth;
+  // write level selector
+  if (depth>1)
+  {
+    t << "<div class=\"levels\">[";
+    t << theTranslator->trDetailLevel(); 
+    t << " ";
+    int i;
+    for (i=1;i<=depth;i++)
+    {
+      t << "<span onclick=\"javascript:toggleLevel(" << i << ");\">" << i << "</span>";
+    }
+    t << "]</div>";
 
-  generateTree(t,m_indentNodes[0],0);
+    if (preferredNumEntries>0)
+    {
+      preferredDepth=1;
+      for (int i=1;i<=depth;i++)
+      {
+        int num=0;
+        QListIterator<FTVNode> li(m_indentNodes[0]);
+        FTVNode *n;
+        for (;(n=li.current());++li)
+        {
+          num+=n->numNodesAtLevel(0,i);
+        }
+        if (num<=preferredNumEntries)
+        {
+          preferredDepth=i;
+        }
+        else
+        {
+          break;
+        }
+      }
+    }
+  }
+  //printf("preferred depth=%d\n",preferredDepth);
 
-  t << "      </div>\n";
-  t << "    </div>\n";
+  t << "<table class=\"directory\">\n";
+  int index=0;
+  generateTree(t,m_indentNodes[0],0,preferredDepth,index);
+  t << "</table>\n";
+
+  t << "</div><!-- directory -->\n";
 }
 
 // write old style index.html and tree.html

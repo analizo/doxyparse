@@ -746,14 +746,6 @@ void addConfigOptions(Config *cfg)
                 );
   //----
   cb = cfg->addBool(
-                 "SHOW_DIRECTORIES",
-                 "If the sources in your project are distributed over multiple directories\n"
-                 "then setting the SHOW_DIRECTORIES tag to YES will show the directory hierarchy\n"
-                 "in the documentation. The default is NO.",
-                 FALSE
-                );
-  //----
-  cb = cfg->addBool(
                  "SHOW_FILES",
                  "Set the SHOW_FILES tag to NO to disable the generation of the Files page.\n"
                  "This will remove the Files entry from the Quick Index and from the\n"
@@ -928,6 +920,8 @@ void addConfigOptions(Config *cfg)
   cl->addValue("*.php3");
   cl->addValue("*.inc");
   cl->addValue("*.m");
+  cl->addValue("*.markdown");
+  cl->addValue("*.md");
   cl->addValue("*.mm");
   cl->addValue("*.dox");
   cl->addValue("*.py");
@@ -1281,15 +1275,6 @@ void addConfigOptions(Config *cfg)
   cb->addDependency("GENERATE_HTML");
   //----
   cb = cfg->addBool(
-                 "HTML_ALIGN_MEMBERS",
-                 "If the HTML_ALIGN_MEMBERS tag is set to YES, the members of classes,\n"
-                 "files or namespaces will be aligned in HTML using tables. If set to\n"
-                 "NO a bullet list will be used.",
-                 TRUE
-                );
-  cb->addDependency("GENERATE_HTML");
-  //----
-  cb = cfg->addBool(
                  "HTML_DYNAMIC_SECTIONS",
                  "If the HTML_DYNAMIC_SECTIONS tag is set to YES then the generated HTML\n"
                  "documentation will contain sections that can be hidden and shown after the\n"
@@ -1299,6 +1284,19 @@ void addConfigOptions(Config *cfg)
                  FALSE
                 );
   cb->addDependency("GENERATE_HTML");
+  //----
+  ci = cfg->addInt(
+                 "HTML_INDEX_NUM_ENTRIES",
+                 "With HTML_INDEX_NUM_ENTRIES one can control the preferred number of\n"
+                 "entries shown in the various tree structured indices initially; the user\n"
+                 "can expand and collapse entries dynamically later on. Doxygen will expand\n"
+                 "the tree to such a level that at most the specified number of entries are\n"
+                 "visible (unless a fully collapsed tree already exceeds this amount).\n"
+                 "So setting the number of entries 1 will produce a full collapsed tree by\n"
+                 "default. 0 is a special value representing an infinite number of entries\n"
+                 "and will result in a full expanded tree by default.",
+                 0,9999,100
+                );
   //----
   cb = cfg->addBool(
                  "GENERATE_DOCSET",
@@ -1548,14 +1546,6 @@ void addConfigOptions(Config *cfg)
                  0,20,4
                 );
   ci->addDependency("GENERATE_HTML");
-  //----
-  cb = cfg->addBool(
-                 "USE_INLINE_TREES",
-                 "By enabling USE_INLINE_TREES, doxygen will generate the Groups, Directories,\n"
-                 "and Class Hierarchy pages using a tree view instead of an ordered list.",
-                 FALSE
-                );
-  cb->addDependency("GENERATE_HTML");
   //----
   ci = cfg->addInt(
                  "TREEVIEW_WIDTH",
@@ -2339,7 +2329,7 @@ void addConfigOptions(Config *cfg)
   //----
   cb = cfg->addBool(
                  "DIRECTORY_GRAPH",
-                 "If the DIRECTORY_GRAPH, SHOW_DIRECTORIES and HAVE_DOT tags are set to YES\n"
+                 "If the DIRECTORY_GRAPH and HAVE_DOT tags are set to YES\n"
                  "then doxygen will show the dependencies a directory has on other directories\n"
                  "in a graphical way. The dependency relations are determined by the #include\n"
                  "relations between the files in the directories.",
@@ -2489,4 +2479,10 @@ void addConfigOptions(Config *cfg)
   cfg->addObsolete("BIN_ABSPATH");
   //----
   cfg->addObsolete("EXT_DOC_PATHS");
+  //----
+  cfg->addObsolete("USE_INLINE_TREES");
+  //----
+  cfg->addObsolete("SHOW_DIRECTORIES");
+  //----
+  cfg->addObsolete("HTML_ALIGN_MEMBERS");
 }

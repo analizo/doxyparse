@@ -194,6 +194,11 @@ void XmlDocVisitor::visit(DocVerbatim *s)
       filter(s->text());
       m_t << "</htmlonly>";
       break;
+    case DocVerbatim::RtfOnly: 
+      m_t << "<rtfonly>";
+      filter(s->text());
+      m_t << "</rtfonly>";
+      break;
     case DocVerbatim::ManOnly: 
       m_t << "<manonly>";
       filter(s->text());
@@ -235,7 +240,7 @@ void XmlDocVisitor::visit(DocInclude *inc)
       { 
          m_t << "<programlisting>";
          QFileInfo cfi( inc->file() );
-         FileDef fd( cfi.dirPath(), cfi.fileName() );
+         FileDef fd( cfi.dirPath().utf8(), cfi.fileName().utf8() );
          Doxygen::parserManager->getParser(inc->extension())
                                ->parseCode(m_ci,inc->context(),
                                            inc->text(),
@@ -585,7 +590,7 @@ void XmlDocVisitor::visitPre(DocHtmlTable *t)
 {
   if (m_hide) return;
   m_t << "<table rows=\"" << t->numRows() 
-      << "\" cols=\"" << t->numCols() << "\">" ;
+      << "\" cols=\"" << t->numColumns() << "\">" ;
 }
 
 void XmlDocVisitor::visitPost(DocHtmlTable *) 

@@ -245,7 +245,7 @@ void Definition::addToMap(const char *name,Definition *d)
 
 void Definition::removeFromMap(Definition *d)
 {
-  QString symbolName = d->m_symbolName;
+  QCString symbolName = d->m_symbolName;
   if (!symbolName.isEmpty()) 
   {
     //printf("******* removing symbol `%s' (%p)\n",symbolName.data(),d);
@@ -377,13 +377,20 @@ void Definition::addSectionsToIndex()
     {
       //printf("  level=%d title=%s\n",level,si->title.data());
       int nextLevel = (int)si->type;
+      int i;
       if (nextLevel>level)
       {
-        Doxygen::indexList.incContentsDepth();
+        for (i=level;i<nextLevel;i++)
+        {
+          Doxygen::indexList.incContentsDepth();
+        }
       }
       else if (nextLevel<level)
       {
-        Doxygen::indexList.decContentsDepth();
+        for (i=nextLevel;i<level;i++)
+        {
+          Doxygen::indexList.decContentsDepth();
+        }
       }
       Doxygen::indexList.addContentsItem(TRUE,si->title,
                                          getReference(),
@@ -503,12 +510,12 @@ bool Definition::_docsAlreadyAdded(const QCString &doc)
 void Definition::_setDocumentation(const char *d,const char *docFile,int docLine,
                                    bool stripWhiteSpace,bool atTop)
 {
+  //printf("%s::setDocumentation(%s,%s,%d,%d)\n",name().data(),d,docFile,docLine,stripWhiteSpace);
   if (d==0) return;
-  //printf("Definition::setDocumentation(%s,%s,%d,%d)\n",d,docFile,docLine,stripWhiteSpace);
   QCString doc = d;
   if (stripWhiteSpace)
   {
-    doc = stripLeadingAndTrailingEmptyLines(doc);
+    doc = stripLeadingAndTrailingEmptyLines(doc,docLine);
   }
   else // don't strip whitespace
   {
@@ -1421,23 +1428,33 @@ QCString Definition::pathFragment() const
   return result;
 }
 
-void Definition::writePathFragment(OutputList &ol) const
+/*! Returns the string used in the footer for $navpath when 
+ *  GENERATE_TREEVIEW is enabled
+ */
+QCString Definition::navigationPathAsString() const
 {
   makeResident();
+  QCString result;
   if (m_impl->outerScope && m_impl->outerScope!=Doxygen::globalScope)
   {
-    m_impl->outerScope->writePathFragment(ol);
+    result+=m_impl->outerScope->navigationPathAsString();
   }
-  ol.writeString("      <li class=\"navelem\">");
+  else if (definitionType()==Definition::TypeFile && ((const FileDef*)this)->getDirDef())
+  {
+    result+=((const FileDef*)this)->getDirDef()->navigationPathAsString();
+  }
+  result+="<li class=\"navelem\">";
   if (isLinkable())
   {
     if (definitionType()==Definition::TypeGroup && ((const GroupDef*)this)->groupTitle())
     {
-      ol.writeObjectLink(getReference(),getOutputFileBase(),0,((const GroupDef*)this)->groupTitle());
+      result+="<a class=\"el\" href=\""+getOutputFileBase()+Doxygen::htmlFileExtension+"\">"+
+              ((const GroupDef*)this)->groupTitle()+"</a>";
     }
     else if (definitionType()==Definition::TypePage && !((const PageDef*)this)->title().isEmpty())
     {
-      ol.writeObjectLink(getReference(),getOutputFileBase(),0,((const PageDef*)this)->title());
+      result+="<a class=\"el\" href=\""+getOutputFileBase()+Doxygen::htmlFileExtension+"\">"+
+              ((const PageDef*)this)->title()+"</a>";
     }
     else if (definitionType()==Definition::TypeClass)
     {
@@ -1446,46 +1463,34 @@ void Definition::writePathFragment(OutputList &ol) const
       {
         name = name.left(name.length()-2);
       }
-      ol.writeObjectLink(getReference(),getOutputFileBase(),0,name);
+      result+="<a class=\"el\" href=\""+getOutputFileBase()+Doxygen::htmlFileExtension;
+      if (!anchor().isEmpty()) result+="#"+anchor();
+      result+="\">"+name+"</a>";
     }
     else
     {
-      ol.writeObjectLink(getReference(),getOutputFileBase(),0,m_impl->localName);
+      result+="<a class=\"el\" href=\""+getOutputFileBase()+Doxygen::htmlFileExtension+"\">"+
+              m_impl->localName+"</a>";
     }
   }
   else
   {
-    ol.startBold();
-    ol.docify(m_impl->localName);
-    ol.endBold();
+    result+="<b>"+m_impl->localName+"</b>";
   }
-  ol.writeString("      </li>\n");
+  result+="</li>";
+  return result;
 }
 
 void Definition::writeNavigationPath(OutputList &ol) const
 {
-  static bool generateTreeView = Config_getBool("GENERATE_TREEVIEW");
-
   ol.pushGeneratorState();
   ol.disableAllBut(OutputGenerator::Html);
 
-  if (generateTreeView)
-  {
-    ol.writeString("</div>\n");
-  }
-  //if (showSearchInfo)
-  //{
-  //  ol.writeSearchInfo();
-  //}
-
-  ol.writeString("  <div id=\"nav-path\" class=\"navpath\">\n");
-  ol.writeString("    <ul>\n");
-  writePathFragment(ol);
-  if (!generateTreeView)
-  {
-    ol.writeString("    </ul>\n");
-    ol.writeString("  </div>\n");
-  }
+  ol.writeString("<div id=\"nav-path\" class=\"navpath\">\n");
+  ol.writeString("  <ul>\n");
+  ol.writeString(navigationPathAsString());
+  ol.writeString("  </ul>\n");
+  ol.writeString("</div>\n");
 
   ol.popGeneratorState();
 }
@@ -1515,12 +1520,63 @@ QCString Definition::docFile() const
   return m_impl->details ? m_impl->details->file : QCString("<"+m_name+">"); 
 }
 
+//----------------------------------------------------------------------------
+// strips w from s iff s starts with w
+static bool stripWord(QCString &s,QCString w)
+{
+  bool success=FALSE;
+  if (s.left(w.length())==w) 
+  {
+    success=TRUE;
+    s=s.right(s.length()-w.length());
+  }
+  return success;
+}
+
+//----------------------------------------------------------------------------
+// some quasi intelligent brief description abbreviator :^)
+QCString abbreviate(const char *s,const char *name)
+{
+  QCString scopelessName=name;
+  int i=scopelessName.findRev("::");
+  if (i!=-1) scopelessName=scopelessName.mid(i+2);
+  QCString result=s;
+  result=result.stripWhiteSpace();
+  // strip trailing .
+  if (!result.isEmpty() && result.at(result.length()-1)=='.') 
+    result=result.left(result.length()-1);
+
+  // strip any predefined prefix
+  QStrList &briefDescAbbrev = Config_getList("ABBREVIATE_BRIEF");
+  const char *p = briefDescAbbrev.first();
+  while (p)
+  {
+    QCString s = p;
+    s.replace(QRegExp("\\$name"), scopelessName);  // replace $name with entity name
+    s += " ";
+    stripWord(result,s);
+    p = briefDescAbbrev.next();
+  }
+
+  // capitalize first word
+  if (!result.isEmpty())
+  {
+    int c=result[0];
+    if (c>='a' && c<='z') c+='A'-'a';
+    result[0]=c;
+  }
+  return result;
+}
+
+
 //----------------------
 
-QCString Definition::briefDescription() const 
+QCString Definition::briefDescription(bool abbr) const 
 { 
   makeResident();
-  return m_impl->brief ? m_impl->brief->doc : QCString(""); 
+  return m_impl->brief ? 
+         (abbr ? abbreviate(m_impl->brief->doc,displayName()) : m_impl->brief->doc) :
+         QCString(""); 
 }
 
 QCString Definition::briefDescriptionAsTooltip() const

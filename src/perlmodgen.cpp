@@ -640,6 +640,7 @@ void PerlModDocVisitor::visit(DocVerbatim *s)
     return;
   case DocVerbatim::Verbatim:	type = "preformatted"; break;
   case DocVerbatim::HtmlOnly:	type = "htmlonly"; break;
+  case DocVerbatim::RtfOnly:	type = "rtfonly"; break;
   case DocVerbatim::ManOnly:	type = "manonly"; break;
   case DocVerbatim::LatexOnly:	type = "latexonly"; break;
   case DocVerbatim::XmlOnly:	type = "xmlonly"; break;
@@ -1405,7 +1406,7 @@ static QCString pathDoxyExec;
 void setPerlModDoxyfile(const QCString &qs)
 {
   pathDoxyfile = qs;
-  pathDoxyExec = QDir::currentDirPath();
+  pathDoxyExec = QDir::currentDirPath().utf8();
 }
 
 class PerlModGenerator
@@ -1557,6 +1558,11 @@ void PerlModGenerator::generatePerlModForMember(MemberDef *md,Definition *)
     }
     m_output.closeList();
   }
+  else if (md->argsString()!=0) 
+  {
+    m_output.addFieldQuotedString("arguments", md->argsString());
+  }
+
   if (!md->initializer().isEmpty())
     m_output.addFieldQuotedString("initializer", md->initializer());
   
@@ -2151,7 +2157,7 @@ bool PerlModGenerator::createOutputDir(QDir &perlModDir)
   QCString outputDirectory = Config_getString("OUTPUT_DIRECTORY");
   if (outputDirectory.isEmpty())
   {
-    outputDirectory=QDir::currentDirPath();
+    outputDirectory=QDir::currentDirPath().utf8();
   }
   else
   {
@@ -2172,7 +2178,7 @@ bool PerlModGenerator::createOutputDir(QDir &perlModDir)
       }
       dir.cd(outputDirectory);
     }
-    outputDirectory=dir.absPath();
+    outputDirectory=dir.absPath().utf8();
   }
 
   QDir dir(outputDirectory);
@@ -2865,20 +2871,21 @@ void PerlModGenerator::generate()
 
   bool perlmodLatex = Config_getBool("PERLMOD_LATEX");
 
-  pathDoxyDocsPM = perlModDir.absPath() + "/DoxyDocs.pm";
-  pathDoxyStructurePM = perlModDir.absPath() + "/DoxyStructure.pm";
-  pathMakefile = perlModDir.absPath() + "/Makefile";
-  pathDoxyRules = perlModDir.absPath() + "/doxyrules.make";
+  QCString perlModAbsPath = perlModDir.absPath().utf8();
+  pathDoxyDocsPM = perlModAbsPath + "/DoxyDocs.pm";
+  pathDoxyStructurePM = perlModAbsPath + "/DoxyStructure.pm";
+  pathMakefile = perlModAbsPath + "/Makefile";
+  pathDoxyRules = perlModAbsPath + "/doxyrules.make";
 
   if (perlmodLatex) {
-    pathDoxyStructureTex = perlModDir.absPath() + "/doxystructure.tex";
-    pathDoxyFormatTex = perlModDir.absPath() + "/doxyformat.tex";
-    pathDoxyLatexTex = perlModDir.absPath() + "/doxylatex.tex";
-    pathDoxyLatexDVI = perlModDir.absPath() + "/doxylatex.dvi";
-    pathDoxyLatexPDF = perlModDir.absPath() + "/doxylatex.pdf";
-    pathDoxyDocsTex = perlModDir.absPath() + "/doxydocs.tex";
-    pathDoxyLatexPL = perlModDir.absPath() + "/doxylatex.pl";
-    pathDoxyLatexStructurePL = perlModDir.absPath() + "/doxylatex-structure.pl";
+    pathDoxyStructureTex = perlModAbsPath + "/doxystructure.tex";
+    pathDoxyFormatTex = perlModAbsPath + "/doxyformat.tex";
+    pathDoxyLatexTex = perlModAbsPath + "/doxylatex.tex";
+    pathDoxyLatexDVI = perlModAbsPath + "/doxylatex.dvi";
+    pathDoxyLatexPDF = perlModAbsPath + "/doxylatex.pdf";
+    pathDoxyDocsTex = perlModAbsPath + "/doxydocs.tex";
+    pathDoxyLatexPL = perlModAbsPath + "/doxylatex.pl";
+    pathDoxyLatexStructurePL = perlModAbsPath + "/doxylatex-structure.pl";
   }
 
   if (!(generatePerlModOutput()

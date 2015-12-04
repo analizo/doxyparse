@@ -210,24 +210,28 @@ void HtmlDocVisitor::visit(DocSymbol *s)
   }
 }
 
+void HtmlDocVisitor::writeObfuscatedMailAddress(const QCString &url)
+{
+  m_t << "<a href=\"#\" onclick=\"location.href='mai'+'lto:'";
+  uint i;
+  int size=3;
+  for (i=0;i<url.length();)
+  {
+    m_t << "+'" << url.mid(i,size) << "'";
+    i+=size;
+    if (size==3) size=2; else size=3;
+  }
+  m_t << "; return false;\">";
+}
+
 void HtmlDocVisitor::visit(DocURL *u)
 {
   if (m_hide) return;
   if (u->isEmail()) // mail address
   {
-    // do obfuscation via javascript
-    m_t << "<a href=\"#\" onclick=\"location.href='mai'+'lto:'";
-    QCString url = u->url();     
-    uint i;
-    int size=3;
-    for (i=0;i<url.length();)
-    {
-      m_t << "+'" << url.mid(i,size) << "'";
-      i+=size;
-      if (size==3) size=2; else size=3;
-    }
-    m_t << "; return false;\">";
-    size=5;
+    QCString url = u->url();
+    writeObfuscatedMailAddress(url);
+    uint size=5,i;
     for (i=0;i<url.length();)
     {
       filter(url.mid(i,size));
@@ -348,9 +352,9 @@ void HtmlDocVisitor::visit(DocVerbatim *s)
       break;
     case DocVerbatim::Verbatim: 
       forceEndParagraph(s);
-      m_t << PREFRAG_START;
+      m_t << /*PREFRAG_START <<*/ "<pre class=\"fragment\">";
       filter(s->text());
-      m_t << PREFRAG_END;
+      m_t << "</pre>" /*<< PREFRAG_END*/;
       forceStartParagraph(s);
       break;
     case DocVerbatim::HtmlOnly: 
@@ -359,6 +363,7 @@ void HtmlDocVisitor::visit(DocVerbatim *s)
     case DocVerbatim::ManOnly: 
     case DocVerbatim::LatexOnly: 
     case DocVerbatim::XmlOnly: 
+    case DocVerbatim::RtfOnly: 
       /* nothing */ 
       break;
 
@@ -454,7 +459,7 @@ void HtmlDocVisitor::visit(DocInclude *inc)
          forceEndParagraph(inc);
          m_t << PREFRAG_START;
          QFileInfo cfi( inc->file() );
-         FileDef fd( cfi.dirPath(), cfi.fileName() );
+         FileDef fd( cfi.dirPath().utf8(), cfi.fileName().utf8() );
          Doxygen::parserManager->getParser(inc->extension())
                                ->parseCode(m_ci,
                                            inc->context(),
@@ -472,9 +477,9 @@ void HtmlDocVisitor::visit(DocInclude *inc)
       break;
     case DocInclude::VerbInclude: 
       forceEndParagraph(inc);
-      m_t << PREFRAG_START;
+      m_t << /*PREFRAG_START <<*/ "<pre class=\"fragment\">";
       filter(inc->text());
-      m_t << PREFRAG_END;
+      m_t << "</pre>" /*<< PREFRAG_END*/;
       forceStartParagraph(inc);
       break;
     case DocInclude::Snippet:
@@ -1013,7 +1018,7 @@ void HtmlDocVisitor::visitPre(DocTitle *)
 void HtmlDocVisitor::visitPost(DocTitle *)
 {
   if (m_hide) return;
-  m_t << "</b></dt><dd>";
+  m_t << "</dt><dd>";
 }
 
 void HtmlDocVisitor::visitPre(DocSimpleList *sl)
@@ -1050,11 +1055,11 @@ void HtmlDocVisitor::visitPre(DocSection *s)
 {
   if (m_hide) return;
   forceEndParagraph(s);
-  m_t << "<h" << s->level()+1 << ">";
+  m_t << "<h" << s->level() << ">";
   m_t << "<a class=\"anchor\" id=\"" << s->anchor();
   m_t << "\"></a>" << endl;
   filter(convertCharEntitiesToUTF8(s->title().data()));
-  m_t << "</h" << s->level()+1 << ">\n";
+  m_t << "</h" << s->level() << ">\n";
 }
 
 void HtmlDocVisitor::visitPost(DocSection *s) 
@@ -1234,9 +1239,16 @@ void HtmlDocVisitor::visitPost(DocInternal *)
 void HtmlDocVisitor::visitPre(DocHRef *href)
 {
   if (m_hide) return;
-  QCString url = correctURL(href->url(),href->relPath());
-  m_t << "<a href=\"" << convertToXML(url)  << "\""
-      << htmlAttribsToString(href->attribs()) << ">";
+  if (href->url().left(7)=="mailto:")
+  {
+    writeObfuscatedMailAddress(href->url().mid(7));
+  }
+  else
+  {
+    QCString url = correctURL(href->url(),href->relPath());
+    m_t << "<a href=\"" << convertToXML(url)  << "\""
+        << htmlAttribsToString(href->attribs()) << ">";
+  }
 }
 
 void HtmlDocVisitor::visitPost(DocHRef *) 
@@ -1376,7 +1388,7 @@ void HtmlDocVisitor::visitPre(DocRef *ref)
   {
     // when ref->isSubPage()==TRUE we use ref->file() for HTML and
     // ref->anchor() for LaTeX/RTF
-    startLink(ref->ref(),ref->file(),ref->relPath(),ref->isSubPage() ? 0 : ref->anchor());
+    startLink(ref->ref(),ref->file(),ref->relPath(),ref->isSubPage() ? QCString() : ref->anchor());
   }
   if (!ref->hasLinkText()) filter(ref->targetTitle());
 }
@@ -1463,14 +1475,15 @@ void HtmlDocVisitor::visitPre(DocParamSect *s)
       className="exception";
       break;
     case DocParamSect::TemplateParam: 
-      heading="Template Parameters"; break; // TODO: TRANSLATE ME
+      heading=theTranslator->trTemplateParameters();
       className="tparams";
+      break;
     default:
       ASSERT(0);
   }
-  m_t << "<dl class=\"" << className << "\"><dt><b>";
+  m_t << "<dl class=\"" << className << "\"><dt>";
   m_t << heading << ":";
-  m_t << "</b></dt><dd>" << endl;
+  m_t << "</dt><dd>" << endl;
   m_t << "  <table class=\"" << className << "\">" << endl;
 }
 

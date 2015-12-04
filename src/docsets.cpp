@@ -13,12 +13,11 @@
  *
  */
 
+#include <qfile.h>
 #include "docsets.h"
 #include "config.h"
 #include "message.h"
 #include "doxygen.h"
-#include <qfile.h>
-
 
 DocSets::DocSets() : m_nodes(17), m_scopes(17)
 {
@@ -163,7 +162,10 @@ void DocSets::initialize()
 
 void DocSets::finalize()
 {
-  m_nts << indent() << " </Node>" << endl;
+  if (!m_firstNode.at(m_dc-1))
+  {
+    m_nts << indent() << " </Node>" << endl;
+  }
   m_dc--;
   m_nts << "      </Subnodes>" << endl;
   m_nts << "    </Node>" << endl;
@@ -213,7 +215,8 @@ void DocSets::addContentsItem(bool isDir,
                               const char *file,
                               const char *anchor,
                               bool /* separateIndex */,
-                              bool /* addToNavIndex */)
+                              bool /* addToNavIndex */,
+                              Definition * /*def*/)
 {
   (void)isDir;
   if (file && ref==0)
@@ -225,7 +228,9 @@ void DocSets::addContentsItem(bool isDir,
     m_firstNode.at(m_dc-1)=FALSE;
     m_nts << indent() << " <Node>" << endl;
     m_nts << indent() << "  <Name>" << convertToXML(name) << "</Name>" << endl;
-    m_nts << indent() << "  <Path>" << file << Doxygen::htmlFileExtension << "</Path>" << endl;
+    m_nts << indent() << "  <Path>";
+    m_nts << file << Doxygen::htmlFileExtension;
+    m_nts << "</Path>" << endl;
     if (anchor)
     {
       m_nts << indent() << "  <Anchor>" << anchor << "</Anchor>" << endl;
@@ -442,7 +447,7 @@ void DocSets::writeToken(FTextStream &t,
 {
   t << "  <Token>" << endl;
   t << "    <TokenIdentifier>" << endl;
-  QString name = d->name();
+  QCString name = d->name();
   if (name.right(2)=="-p")  name=name.left(name.length()-2);
   t << "      <Name>" << convertToXML(name) << "</Name>" << endl;
   if (!lang.isEmpty())

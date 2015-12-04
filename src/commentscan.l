@@ -1101,6 +1101,15 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
 					  }
   				          addOutput(yytext); 
   					}
+<Comment>^{B}*([\-:|]{B}*)*("--"|"---")({B}*[\-:|])*{B}*/\n { // horizontal line (dashed)
+  				          addOutput(yytext); 
+                                        }
+<Comment>"---"                          { // mdash
+                                          addOutput("&mdash;");
+                                        }
+<Comment>"--"                           { // ndash
+                                          addOutput("&ndash;");
+                                        }
 <Comment>("."+)[a-z_A-Z0-9\)]		{ // . at start or in the middle of a word, or ellipsis
   					  addOutput(yytext);
   					}
@@ -2671,7 +2680,7 @@ bool parseCommentBlock(/* in */     ParserInterface *parser,
     warn(yyFileName,yyLineNr,"Documentation block ended in the middle of a conditional section!");
   }
 
-  current->doc=stripLeadingAndTrailingEmptyLines(current->doc);
+  current->doc=stripLeadingAndTrailingEmptyLines(current->doc,current->docLine);
 
   if (current->section==Entry::FILEDOC_SEC && current->doc.isEmpty())
   {
@@ -2693,8 +2702,10 @@ bool parseCommentBlock(/* in */     ParserInterface *parser,
   }
 
   Debug::print(Debug::CommentScan,0,
-               "brief=[%s]\ndocs=[%s]\ninbody=[%s]\n===========\n",
-	       current->brief.data(),current->doc.data(),current->inbodyDocs.data()
+               "brief=[line=%d\n%s]\ndocs=[line=%d\n%s]\ninbody=[line=%d\n%s]\n===========\n",
+	       current->briefLine,current->brief.data(),
+               current->docLine,current->doc.data(),
+               current->inbodyLine,current->inbodyDocs.data()
               );
   
   checkFormula();
@@ -2876,7 +2887,7 @@ static void groupAddDocs(Entry *e,const char *fileName)
   if (e->section==Entry::MEMBERGRP_SEC)
   {
     g_memberGroupDocs=e->brief.stripWhiteSpace();
-    e->doc = stripLeadingAndTrailingEmptyLines(e->doc);
+    e->doc = stripLeadingAndTrailingEmptyLines(e->doc,e->docLine);
     if (!g_memberGroupDocs.isEmpty() && !e->doc.isEmpty())
     {
       g_memberGroupDocs+="\n\n";

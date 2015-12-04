@@ -436,7 +436,7 @@ QCString resolveTypeDef(Definition *context,const QCString &qualifiedName,
     //    qualifiedName.data(),context->name().data(),md->typeString(),md->argsString()
     //    );
     result=md->typeString();
-    QString args = md->argsString();
+    QCString args = md->argsString();
     if (args.find(")(")!=-1) // typedef of a function/member pointer
     {
       result+=args;
@@ -848,6 +848,75 @@ bool accessibleViaUsingNamespace(const NamespaceSDict *nl,
   return FALSE;
 }
 
+const int MAX_STACK_SIZE = 1000;
+
+class AccessStack
+{
+  public:
+    AccessStack() : m_index(0) {}
+    void push(Definition *scope,FileDef *fileScope,Definition *item)
+    {
+      if (m_index<MAX_STACK_SIZE)
+      {
+        m_elements[m_index].scope     = scope;
+        m_elements[m_index].fileScope = fileScope;
+        m_elements[m_index].item      = item;
+        m_index++;
+      }
+    }
+    void push(Definition *scope,FileDef *fileScope,Definition *item,const QCString &expScope)
+    {
+      if (m_index<MAX_STACK_SIZE)
+      {
+        m_elements[m_index].scope     = scope;
+        m_elements[m_index].fileScope = fileScope;
+        m_elements[m_index].item      = item;
+        m_elements[m_index].expScope  = expScope;
+        m_index++;
+      }
+    }
+    void pop()
+    {
+      if (m_index>0) m_index--;
+    }
+    bool find(Definition *scope,FileDef *fileScope, Definition *item)
+    {
+      int i=0;
+      for (i=0;i<m_index;i++)
+      {
+        AccessElem *e = &m_elements[i];
+        if (e->scope==scope && e->fileScope==fileScope && e->item==item) 
+        {
+          return TRUE;
+        }
+      }
+      return FALSE;
+    }
+    bool find(Definition *scope,FileDef *fileScope, Definition *item,const QCString &expScope)
+    {
+      int i=0;
+      for (i=0;i<m_index;i++)
+      {
+        AccessElem *e = &m_elements[i];
+        if (e->scope==scope && e->fileScope==fileScope && e->item==item && e->expScope==expScope) 
+        {
+          return TRUE;
+        }
+      }
+      return FALSE;
+    }
+
+  private:
+    struct AccessElem
+    {
+      Definition *scope;
+      FileDef *fileScope;
+      Definition *item;
+      QCString expScope;
+    };
+    int m_index;
+    AccessElem m_elements[MAX_STACK_SIZE];
+};
 
 /* Returns the "distance" (=number of levels up) from item to scope, or -1
  * if item in not inside scope. 
@@ -857,15 +926,12 @@ int isAccessibleFrom(Definition *scope,FileDef *fileScope,Definition *item)
   //printf("<isAccesibleFrom(scope=%s,item=%s itemScope=%s)\n",
   //    scope->name().data(),item->name().data(),item->getOuterScope()->name().data());
 
-  QCString key(40);
-  key.sprintf("%p:%p:%p",scope,fileScope,item);
-  static QDict<void> visitedDict;
-  if (visitedDict.find(key)) 
+  static AccessStack accessStack;
+  if (accessStack.find(scope,fileScope,item))
   {
-    //printf("> already found\n");
-    return -1; // already looked at this
+    return -1;
   }
-  visitedDict.insert(key,(void *)0x8);
+  accessStack.push(scope,fileScope,item);
 
   int result=0; // assume we found it
   int i;
@@ -934,7 +1000,7 @@ int isAccessibleFrom(Definition *scope,FileDef *fileScope,Definition *item)
     result= (i==-1) ? -1 : i+2;
   }
 done:
-  visitedDict.remove(key);
+  accessStack.pop();
   //Doxygen::lookupCache.insert(key,new int(result));
   return result;
 }
@@ -964,15 +1030,13 @@ int isAccessibleFromWithExpScope(Definition *scope,FileDef *fileScope,
     return isAccessibleFrom(scope,fileScope,item);
   }
 
-  QCString key(40+explicitScopePart.length());
-  key.sprintf("%p:%p:%p:%s",scope,fileScope,item,explicitScopePart.data());
-  static QDict<void> visitedDict;
-  if (visitedDict.find(key)) 
+  static AccessStack accessStack;
+  if (accessStack.find(scope,fileScope,item,explicitScopePart))
   {
-    //printf("Already visited!\n");
-    return -1; // already looked at this
+    return -1;
   }
-  visitedDict.insert(key,(void *)0x8);
+  accessStack.push(scope,fileScope,item,explicitScopePart);
+
 
   //printf("  <isAccessibleFromWithExpScope(%s,%s,%s)\n",scope?scope->name().data():"<global>",
   //                                      item?item->name().data():"<none>",
@@ -1101,9 +1165,10 @@ int isAccessibleFromWithExpScope(Definition *scope,FileDef *fileScope,
       result= (i==-1) ? -1 : i+2;
     }
   }
+
 done:
   //printf("  > result=%d\n",result);
-  visitedDict.remove(key);
+  accessStack.pop();
   //Doxygen::lookupCache.insert(key,new int(result));
   return result;
 }
@@ -1734,7 +1799,7 @@ bool leftScopeMatch(const QCString &scope, const QCString &name)
 
 
 void linkifyText(const TextGeneratorIntf &out,Definition *scope,
-    FileDef *fileScope,const char *,
+    FileDef *fileScope,Definition *self,
     const char *text, bool autoBreak,bool external,
     bool keepSpaces,int indentLevel)
 {
@@ -1817,11 +1882,14 @@ void linkifyText(const TextGeneratorIntf &out,Definition *scope,
         //printf("Found typedef %s\n",typeDef->name().data());
         if (external ? typeDef->isLinkable() : typeDef->isLinkableInProject())
         {
-          out.writeLink(typeDef->getReference(),
-              typeDef->getOutputFileBase(),
-              typeDef->anchor(),
-              word);
-          found=TRUE;
+          if (typeDef->getOuterScope()!=self)
+          {
+            out.writeLink(typeDef->getReference(),
+                typeDef->getOutputFileBase(),
+                typeDef->anchor(),
+                word);
+            found=TRUE;
+          }
         }
       }
       if (!found && cd) 
@@ -1830,8 +1898,11 @@ void linkifyText(const TextGeneratorIntf &out,Definition *scope,
         // add link to the result
         if (external ? cd->isLinkable() : cd->isLinkableInProject())
         {
-          out.writeLink(cd->getReference(),cd->getOutputFileBase(),cd->anchor(),word);
-          found=TRUE;
+          if (cd!=self)
+          {
+            out.writeLink(cd->getReference(),cd->getOutputFileBase(),cd->anchor(),word);
+            found=TRUE;
+          }
         }
       }
       else if ((cd=getClass(matchWord+"-p"))) // search for Obj-C protocols as well
@@ -1839,8 +1910,11 @@ void linkifyText(const TextGeneratorIntf &out,Definition *scope,
         // add link to the result
         if (external ? cd->isLinkable() : cd->isLinkableInProject())
         {
-          out.writeLink(cd->getReference(),cd->getOutputFileBase(),cd->anchor(),word);
-          found=TRUE;
+          if (cd!=self)
+          {
+            out.writeLink(cd->getReference(),cd->getOutputFileBase(),cd->anchor(),word);
+            found=TRUE;
+          }
         }
       }
       else if ((cd=getClass(matchWord+"-g"))) // C# generic as well
@@ -1848,8 +1922,11 @@ void linkifyText(const TextGeneratorIntf &out,Definition *scope,
         // add link to the result
         if (external ? cd->isLinkable() : cd->isLinkableInProject())
         {
-          out.writeLink(cd->getReference(),cd->getOutputFileBase(),cd->anchor(),word);
-          found=TRUE;
+          if (cd!=self)
+          {
+            out.writeLink(cd->getReference(),cd->getOutputFileBase(),cd->anchor(),word);
+            found=TRUE;
+          }
         }
       }
       else
@@ -1886,10 +1963,14 @@ void linkifyText(const TextGeneratorIntf &out,Definition *scope,
         //printf("Found ref scope=%s\n",d?d->name().data():"<global>");
         //ol.writeObjectLink(d->getReference(),d->getOutputFileBase(),
         //                       md->anchor(),word);
-        out.writeLink(md->getReference(),md->getOutputFileBase(),
-            md->anchor(),word);
-        //printf("found symbol %s\n",matchWord.data());
-        found=TRUE;
+        if (md!=self && (self==0 || md->name()!=self->name())) 
+          // name check is needed for overloaded members, where getDefs just returns one
+        {
+          out.writeLink(md->getReference(),md->getOutputFileBase(),
+              md->anchor(),word);
+          //printf("found symbol %s\n",matchWord.data());
+          found=TRUE;
+        }
       }
     }
 
@@ -2004,6 +2085,14 @@ QCString tempArgListToString(ArgumentList *al)
   {
     if (!a->name.isEmpty()) // add template argument name
     {
+      if (a->type.left(4)=="out") // C# covariance
+      {
+        result+="out ";
+      }
+      else if (a->type.left(3)=="in") // C# contravariance
+      {
+        result+="in ";
+      }
       result+=a->name;
     }
     else // extract name from type
@@ -4466,7 +4555,7 @@ bool resolveLink(/* in */ const char *scName,
     *resContext=nd;
     return TRUE;
   }
-  else if ((dir=Doxygen::directories->find(QFileInfo(linkRef).absFilePath()+"/"))
+  else if ((dir=Doxygen::directories->find(QFileInfo(linkRef).absFilePath().utf8()+"/"))
       && dir->isLinkable()) // TODO: make this location independent like filedefs
   {
     *resContext=dir;
@@ -4833,6 +4922,7 @@ QCString escapeCharsInString(const char *name,bool allowDots,bool allowUnderscor
       case '+': growBuf.addStr("_09"); break;
       case '=': growBuf.addStr("_0A"); break;
       case '$': growBuf.addStr("_0B"); break;
+      case '\\': growBuf.addStr("_0C"); break;
       default: 
                 if (c<0)
                 {
@@ -6049,7 +6139,7 @@ void filterLatexString(FTextStream &t,const char *str,
                    else if (*p=='>')
                    { t << "$>$"; p++; } 
                    else  
-                   { t << "$\\backslash$"; }
+                   { t << "\\textbackslash{}"; }
                    break;           
         case '"':  { t << "\\char`\\\"{}"; }
                    break;
@@ -6181,9 +6271,14 @@ bool findAndRemoveWord(QCString &s,const QCString &word)
 }
 
 /** Special version of QCString::stripWhiteSpace() that only strips
- *  empty lines.
+ *  completely blank lines.
+ *  @param s the string to be stripped
+ *  @param docLine the line number corresponding to the start of the
+ *         string. This will be adjusted based on the number of lines stripped
+ *         from the start.
+ *  @returns The stripped string.
  */
-QCString stripLeadingAndTrailingEmptyLines(const QCString &s)
+QCString stripLeadingAndTrailingEmptyLines(const QCString &s,int &docLine)
 {
   const char *p = s.data();
   if (p==0) return 0;
@@ -6194,7 +6289,7 @@ QCString stripLeadingAndTrailingEmptyLines(const QCString &s)
   while ((c=*p++))
   {
     if (c==' ' || c=='\t' || c=='\r') i++;
-    else if (c=='\n') i++,li=i;
+    else if (c=='\n') i++,li=i,docLine++;
     else break;
   }
 
@@ -6592,6 +6687,18 @@ static QCString replaceAliasArguments(const QCString &aliasValue,const QCString 
       markerEnd=0;
     }
   }
+  if (markerStart>0)
+  {
+    markerEnd=l;
+  }
+  if (markerStart>0 && markerEnd>markerStart)
+  {
+     int markerLen = markerEnd-markerStart;
+     markerList.append(new Marker(markerStart-1, // include backslash
+                 atoi(aliasValue.mid(markerStart,markerLen)),markerLen+1));
+     //printf("found marker at %d with len %d and number %d\n",
+     //    markerStart-1,markerLen+1,atoi(aliasValue.mid(markerStart,markerLen)));
+  }
 
   // then we replace the markers with the corresponding arguments in one pass
   QCString result;
@@ -6790,11 +6897,7 @@ void writeTypeConstraints(OutputList &ol,Definition *d,ArgumentList *al)
   ol.endConstraintList();
 }
 
-bool usingTreeIndex()
-{
-  static bool treeView = Config_getBool("USE_INLINE_TREES");
-  return treeView;
-}
+//----------------------------------------------------------------------------
 
 void stackTrace()
 {
@@ -7250,7 +7353,7 @@ QCString correctURL(const QCString &url,const QCString &relPath)
   QCString result = url;
   if (!relPath.isEmpty() && 
       url.left(5)!="http:" && url.left(6)!="https:" && 
-      url.left(4)!="ftp:" && url.left(5)!="file:")
+      url.left(4)!="ftp:"  && url.left(5)!="file:")
   {
     result.prepend(relPath);
   }

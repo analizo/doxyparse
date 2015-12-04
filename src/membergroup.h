@@ -22,6 +22,7 @@
 #include <qlist.h>
 #include <qfile.h>
 #include "sortdict.h"
+#include "memberlist.h"
 
 #define DOX_NOGROUP -1
 
@@ -29,7 +30,6 @@ class MemberDef;
 class ClassDef;
 class NamespaceDef;
 class FileDef;
-class MemberList;
 class GroupDef;
 class OutputList;
 class Definition;
@@ -48,20 +48,25 @@ class MemberGroup
     void insertMember(MemberDef *md);
     void setAnchors(ClassDef *);
     void writePlainDeclarations(OutputList &ol,
-               ClassDef *cd,NamespaceDef *nd,FileDef *fd,GroupDef *gd);
+               ClassDef *cd,NamespaceDef *nd,FileDef *fd,GroupDef *gd,
+               ClassDef *inheritedFrom,const char *inheritId);
     void writeDeclarations(OutputList &ol,
                ClassDef *cd,NamespaceDef *nd,FileDef *fd,GroupDef *gd,
                bool showInline=FALSE);
-
     void writeDocumentation(OutputList &ol,const char *scopeName,
                Definition *container,bool showEnumValues,bool showInline);
     void writeDocumentationPage(OutputList &ol,const char *scopeName,
                Definition *container);
+    void addGroupedInheritedMembers(OutputList &ol,ClassDef *cd,
+               MemberList::ListType lt,
+               ClassDef *inheritedFrom,const QCString &inheritId);
+
     QCString documentation() { return doc; }
     bool allMembersInSameSection() { return inSameSection; }
     void addToDeclarationSection();
     int countDecMembers(GroupDef *gd=0);
     int countDocMembers();
+    int countGroupedInheritedMembers(MemberList::ListType lt);
     void distributeMemberGroupDocumentation();
     void findSectionsInDocumentation();
     int varCount() const;
@@ -74,6 +79,7 @@ class MemberGroup
     int friendCount() const;
     int numDecMembers() const;
     int numDocMembers() const;
+    int countInheritableMembers(ClassDef *inheritedFrom) const;
     void setInGroup(bool b);
     void addListReferences(Definition *d);
     void setRefItems(const QList<ListItemInfo> *sli);

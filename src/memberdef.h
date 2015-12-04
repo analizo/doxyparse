@@ -186,7 +186,8 @@ class MemberDef : public Definition
     bool isDocumentedFriendClass() const;
 
     MemberDef *reimplements() const;
-    LockingPtr<MemberList> reimplementedBy() const;
+    LockingPtr< MemberList > reimplementedBy() const;
+    bool isReimplementedBy(ClassDef *cd) const;
 
     //int inbodyLine() const;
     //QCString inbodyFile() const;
@@ -198,7 +199,7 @@ class MemberDef : public Definition
     MemberDef *getAnonymousEnumType() const;
     bool isDocsForDefinition() const;
     MemberDef *getEnumScope() const;
-    LockingPtr<MemberList> enumFieldList() const;
+    LockingPtr< MemberList > enumFieldList() const;
 
     bool hasExamples();
     LockingPtr<ExampleSDict> getExamples() const;
@@ -352,7 +353,7 @@ class MemberDef : public Definition
     // output generation
     void writeDeclaration(OutputList &ol,
                    ClassDef *cd,NamespaceDef *nd,FileDef *fd,GroupDef *gd,
-                   bool inGroup); 
+                   bool inGroup,ClassDef *inheritFrom=0,const char *inheritId=0); 
     void writeDocumentation(MemberList *ml,OutputList &ol,
                             const char *scopeName,Definition *container,
                             bool inGroup,bool showEnumValues=FALSE,bool
@@ -381,6 +382,16 @@ class MemberDef : public Definition
     void _computeLinkableInProject();
     void _computeIsConstructor();
     void _computeIsDestructor();
+    void _getLabels(QStrList &sl,Definition *container) const;
+    void _writeCallGraph(OutputList &ol);
+    void _writeCallerGraph(OutputList &ol);
+    void _writeReimplements(OutputList &ol);
+    void _writeReimplementedBy(OutputList &ol);
+    void _writeExamples(OutputList &ol);
+    void _writeTypeConstraints(OutputList &ol);
+    void _writeEnumValues(OutputList &ol,Definition *container,
+                          const QCString &cfname,const QCString &ciname,
+                          const QCString &cname);
 
     static int s_indentLevel;
 

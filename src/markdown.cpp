@@ -44,6 +44,8 @@
 #include "doxygen.h"
 #include "commentscan.h"
 #include "entry.h"
+#include "bufstr.h"
+#include "commentcnv.h"
 
 //-----------
 
@@ -86,7 +88,13 @@ static QDict<LinkRef> g_linkRefs(257);
 static action_t       g_actions[256];
 static Entry         *g_current;
 static QCString       g_fileName;
-//static QDict<void>    g_htmlBlockTags(17);
+
+// In case a markdown page starts with a level1 header, that header is used
+// as a title of the page, in effect making it a level0 header, so the
+// level of all other sections needs to be corrected as well.
+// This flag is TRUE if corrections are needed.
+static bool           g_correctSectionLevel;
+
 
 //----------
 
@@ -750,11 +758,14 @@ static int processLink(GrowBuf &out,const char *data,int,int size)
   }
   else if (isImageLink) 
   {
-    if (link.find("@ref ")!=-1 || link.find("\\ref ")!=-1) 
-        // assume doxygen symbol link
+    bool ambig;
+    FileDef *fd=0;
+    if (link.find("@ref ")!=-1 || link.find("\\ref ")!=-1 ||
+        (fd=findFileDef(Doxygen::imageNameDict,link,ambig))) 
+        // assume doxygen symbol link or local image link
     {
       out.addStr("@image html ");
-      out.addStr(link.mid(5));
+      out.addStr(link.mid(fd ? 0 : 5));
       if (!explicitTitle && !content.isEmpty())
       { 
         out.addStr(" \"");
@@ -895,10 +906,10 @@ static int processCodeSpan(GrowBuf &out, const char *data, int /*offset*/, int s
   {
     QCString codeFragment;
     convertStringFragment(codeFragment,data+f_begin,f_end-f_begin);
-    out.addStr("<code>");
+    out.addStr("<tt>");
     //out.addStr(convertToHtml(codeFragment,TRUE));
     out.addStr(escapeSpecialChars(codeFragment));
-    out.addStr("</code>");
+    out.addStr("</tt>");
   }
   return end;
 }
@@ -965,22 +976,22 @@ static void processInline(GrowBuf &out,const char *data,int size)
 /** returns whether the line is a setext-style hdr underline */
 static int isHeaderline(const char *data, int size)
 {
-  int i = 0;
+  int i=0, c=0;
   while (i<size && data[i]==' ') i++;
 
   // test of level 1 header
   if (data[i]=='=')
   {
-    while (i<size && data[i]=='=') i++;
+    while (i<size && data[i]=='=') i++,c++;
     while (i<size && data[i]==' ') i++;
-    return (i>=size || data[i]=='\n') ? 1 : 0;
+    return (c>1 && (i>=size || data[i]=='\n')) ? 1 : 0;
   }
   // test of level 2 header
   if (data[i]=='-')
   {
-    while (i<size && data[i]=='-') i++;
+    while (i<size && data[i]=='-') i++,c++;
     while (i<size && data[i]==' ') i++;
-    return (i>=size || data[i]=='\n') ? 2 : 0;
+    return (c>1 && (i>=size || data[i]=='\n')) ? 2 : 0;
   }
   return 0;
 }
@@ -1158,13 +1169,20 @@ static int isAtxHeader(const char *data,int size,
                        QCString &header,QCString &id)
 {
   int i = 0, end;
-  int level = 0;
+  int level = 0, blanks=0;
 
   // find start of header text and determine heading level
   while (i<size && data[i]==' ') i++;
-  if (i>=size || data[i]!='#') return 0;
+  if (i>=size || data[i]!='#') 
+  {
+    return 0;
+  }
   while (i<size && level<6 && data[i]=='#') i++,level++;
-  while (i<size && data[i]==' ') i++;
+  while (i<size && data[i]==' ') i++,blanks++;
+  if (level==1 && blanks==0) 
+  {
+    return 0; // special case to prevent #someid seen as a header (see bug 671395)
+  }
 
   // find end of header text
   end=i;
@@ -1585,20 +1603,32 @@ void writeOneLineHeaderOrRuler(GrowBuf &out,const char *data,int size)
   }
   else if ((level=isAtxHeader(data,size,header,id)))
   {
+    if (level==1) g_correctSectionLevel=FALSE;
+    if (g_correctSectionLevel) level--;
     QCString hTag;
     if (level<5 && !id.isEmpty())
     {
+      SectionInfo::SectionType type = SectionInfo::Anchor;
       switch(level)
       {
-        case 1:  out.addStr("@section "); break;
-        case 2:  out.addStr("@subsection "); break;
-        case 3:  out.addStr("@subsubsection "); break;
-        default: out.addStr("@paragraph "); break;
+        case 1:  out.addStr("@section ");       
+                 type=SectionInfo::Section; 
+                 break;
+        case 2:  out.addStr("@subsection ");    
+                 type=SectionInfo::Subsection; 
+                 break;
+        case 3:  out.addStr("@subsubsection "); 
+                 type=SectionInfo::Subsubsection;
+                 break;
+        default: out.addStr("@paragraph "); 
+                 type=SectionInfo::Paragraph;
+                 break;
       }
       out.addStr(id);
       out.addStr(" ");
       out.addStr(header);
-      SectionInfo *si = new SectionInfo(g_fileName,id,header,SectionInfo::Anchor,level);
+      out.addStr("\n");
+      SectionInfo *si = new SectionInfo(g_fileName,id,header,type,level);
       if (g_current)
       {
         g_current->anchors->append(si);
@@ -1683,6 +1713,7 @@ static int writeCodeBlock(GrowBuf &out,const char *data,int size,int refIndent)
   int i=0,end;
   //printf("writeCodeBlock: data={%s}\n",QCString(data).left(size).data());
   out.addStr("@verbatim\n");
+  int emptyLines=0;
   while (i<size)
   {
     // find end of this line
@@ -1694,12 +1725,17 @@ static int writeCodeBlock(GrowBuf &out,const char *data,int size,int refIndent)
     //printf("j=%d end=%d indent=%d refIndent=%d data={%s}\n",j,end,indent,refIndent,QCString(data+i).left(end-i-1).data());
     if (j==end-1) // empty line 
     {
-      // add empty line
-      out.addStr("\n");
+      emptyLines++;
       i=end;
     }
     else if (indent>=refIndent+codeBlockIndent) // enough indent to contine the code block
     {
+      while (emptyLines>0) // write skipped empty lines
+      {
+        // add empty line
+        out.addStr("\n");
+        emptyLines--;
+      }
       // add code line minus the indent
       out.addStr(data+i+refIndent+codeBlockIndent,end-i-refIndent-codeBlockIndent);
       i=end;
@@ -1710,6 +1746,12 @@ static int writeCodeBlock(GrowBuf &out,const char *data,int size,int refIndent)
     }
   }
   out.addStr("@endverbatim\n"); 
+  while (emptyLines>0) // write skipped empty lines
+  {
+    // add empty line
+    out.addStr("\n");
+    emptyLines--;
+  }
   //printf("i=%d\n",i);
   return i;
 }
@@ -1896,6 +1938,8 @@ static QCString processBlocks(const QCString &s,int indent)
       //printf("isHeaderLine(%s)=%d\n",QCString(data+i).left(size-i).data(),level);
       if ((level=isHeaderline(data+i,size-i))>0)
       {
+        if (level==1) g_correctSectionLevel=FALSE;
+        if (g_correctSectionLevel) level--;
         //printf("Found header at %d-%d\n",i,end);
         while (pi<size && data[pi]==' ') pi++;
         QCString header,id;
@@ -1909,7 +1953,9 @@ static QCString processBlocks(const QCString &s,int indent)
             out.addStr(id);
             out.addStr(" ");
             out.addStr(header);
-            SectionInfo *si = new SectionInfo(g_fileName,id,header,SectionInfo::Anchor,level);
+            out.addStr("\n");
+            SectionInfo *si = new SectionInfo(g_fileName,id,header,
+                level==1 ? SectionInfo::Section : SectionInfo::Subsection,level);
             if (g_current)
             {
               g_current->anchors->append(si);
@@ -2122,9 +2168,19 @@ void MarkdownFileParser::parseInput(const char *fileName,
 {
   Entry *current = new Entry;
   current->lang = SrcLangExt_Markdown;
-  QCString docs = fileBuf;
+  current->fileName = fileName;
+  current->docFile  = fileName;
+  int len = strlen(fileBuf);
+  BufStr input(len);
+  BufStr output(len);
+  input.addArray(fileBuf,strlen(fileBuf));
+  input.addChar('\0');
+  convertCppComments(&input,&output,fileName);
+  output.addChar('\0');
+  QCString docs = output.data();
   QCString id;
   QCString title=extractPageTitle(docs,id).stripWhiteSpace();
+  g_correctSectionLevel = !title.isEmpty();
   QCString baseName = substitute(QFileInfo(fileName).baseName().utf8()," ","_");
   if (id.isEmpty()) id = "md_"+baseName;
   if (title.isEmpty()) title = baseName;
@@ -2176,6 +2232,7 @@ void MarkdownFileParser::parseInput(const char *fileName,
 
   // restore setting
   Doxygen::markdownSupport = markdownEnabled;
+  g_correctSectionLevel = FALSE;
 }
 
 void MarkdownFileParser::parseCode(CodeOutputInterface &codeOutIntf,

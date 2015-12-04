@@ -1,7 +1,5 @@
 /******************************************************************************
  *
- * 
- *
  * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
@@ -653,8 +651,8 @@ static void readIncludeFile(const char *incName)
 						 break;
 					       case ConfigOption::O_Obsolete:
 					         config_err("warning: Tag `%s' at line %d of file %s has become obsolete.\n"
-						            "To avoid this warning please update your configuration "
-							    "file using \"doxygen -u\"\n", cmd.data(),yyLineNr,yyFileName.data()); 
+						            "To avoid this warning please remove this line from your configuration "
+							    "file or upgrade it using \"doxygen -u\"\n", cmd.data(),yyLineNr,yyFileName.data()); 
 					         BEGIN(SkipInvalid);
 						 break;
 					     }
@@ -872,12 +870,13 @@ void Config::convertStrToVal()
 
 static void substEnvVarsInString(QCString &s)
 {
-  static QRegExp re("\\$\\([a-z_A-Z0-9]+\\)");
+  static QRegExp re("\\$\\([a-z_A-Z0-9.-]+\\)");
+  static QRegExp re2("\\$\\([a-z_A-Z0-9.-]+\\([a-z_A-Z0-9.-]+\\)\\)"); // For e.g. PROGRAMFILES(X86)
   if (s.isEmpty()) return;
   int p=0;
   int i,l;
   //printf("substEnvVarInString(%s) start\n",s.data());
-  while ((i=re.match(s,p,&l))!=-1)
+  while ((i=re.match(s,p,&l))!=-1 || (i=re2.match(s,p,&l))!=-1)
   {
     //printf("Found environment var s.mid(%d,%d)=`%s'\n",i+2,l-3,s.mid(i+2,l-3).data());
     QCString env=portable_getenv(s.mid(i+2,l-3));
@@ -1035,9 +1034,9 @@ static void cleanUpPaths(QStrList &str)
 	int i = str.at();
 	str.remove();
 	if (str.at()==i) // did not remove last item
-	  str.insert(i,fi.absFilePath()+"/");
+	  str.insert(i,fi.absFilePath().utf8()+"/");
 	else
-	  str.append(fi.absFilePath()+"/");
+	  str.append(fi.absFilePath().utf8()+"/");
       }
     }
     sfp = str.next();
@@ -1111,7 +1110,7 @@ void Config::check()
   char *sfp = stripFromPath.first();
   if (sfp==0) // by default use the current path
   {
-    stripFromPath.append(QDir::currentDirPath()+"/");
+    stripFromPath.append(QDir::currentDirPath().utf8()+"/");
   }
   else
   {
@@ -1226,7 +1225,7 @@ void Config::check()
     QFileInfo fi(dotPath);
     if (fi.exists() && fi.isFile()) // user specified path + exec
     {
-      dotPath=fi.dirPath(TRUE);
+      dotPath=fi.dirPath(TRUE).utf8();
     }
     else
     {
@@ -1238,7 +1237,7 @@ void Config::check()
       }
       else
       {
-	dotPath=dp.dirPath(TRUE)+"/";
+	dotPath=dp.dirPath(TRUE).utf8()+"/";
       }
     }
 #if defined(_WIN32) // convert slashes
@@ -1263,7 +1262,7 @@ void Config::check()
     }
     else
     {
-      mscgenPath=dp.dirPath(TRUE)+"/";
+      mscgenPath=dp.dirPath(TRUE).utf8()+"/";
 #if defined(_WIN32) // convert slashes
       uint i=0,l=mscgenPath.length();
       for (i=0;i<l;i++) if (mscgenPath.at(i)=='/') mscgenPath.at(i)='\\';
@@ -1281,7 +1280,7 @@ void Config::check()
   if (inputSources.count()==0)
   {
     // use current dir as the default
-    inputSources.append(QDir::currentDirPath());
+    inputSources.append(QDir::currentDirPath().utf8());
   }
   else
   {
@@ -1473,7 +1472,8 @@ void Config::check()
       (Config_getBool("INLINE_INHERITED_MEMB") || 
        Config_getBool("INHERIT_DOCS") || 
        !Config_getBool("HIDE_SCOPE_NAMES") ||
-       !Config_getBool("EXTRACT_PRIVATE")
+       !Config_getBool("EXTRACT_PRIVATE") ||
+       !Config_getBool("EXTRACT_PACKAGE")
       )
      )
   {
@@ -1482,15 +1482,18 @@ void Config::check()
     bool b3 = Config_getBool("HIDE_SCOPE_NAMES");
     bool b4 = Config_getBool("EXTRACT_PRIVATE");
     bool b5 = Config_getBool("SKIP_FUNCTION_MACROS");
-    const char *s1,*s2,*s3,*s4,*s5;
+    bool b6 = Config_getBool("EXTRACT_PACKAGE");
+    const char *s1,*s2,*s3,*s4,*s5,*s6;
     if (b1)  s1="  INLINDE_INHERITED_MEMB = NO (was YES)\n"; else s1="";
     if (b2)  s2="  INHERIT_DOCS           = NO (was YES)\n"; else s2="";
     if (!b3) s3="  HIDE_SCOPE_NAMES       = YES (was NO)\n"; else s3="";
     if (!b4) s4="  EXTRACT_PRIVATE        = YES (was NO)\n"; else s4="";
     if (b5)  s5="  ENABLE_PREPROCESSING   = NO (was YES)\n"; else s5="";
+    if (!b6) s6="  EXTRACT_PACKAGE        = YES (was NO)\n"; else s6="";
+
 
     config_err("warning: enabling OPTIMIZE_OUTPUT_VHDL assumes the following settings:\n"
-	       "%s%s%s%s%s",s1,s2,s3,s4,s5
+	       "%s%s%s%s%s%s",s1,s2,s3,s4,s5,s6
 	      );
 
     Config_getBool("INLINE_INHERITED_MEMB") = FALSE;
@@ -1498,6 +1501,7 @@ void Config::check()
     Config_getBool("HIDE_SCOPE_NAMES")      = TRUE;
     Config_getBool("EXTRACT_PRIVATE")       = TRUE;
     Config_getBool("ENABLE_PREPROCESSING")  = FALSE;
+    Config_getBool("EXTRACT_PACKAGE")       = TRUE;
   }                               
 
 }

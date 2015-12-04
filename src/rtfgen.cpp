@@ -1571,7 +1571,7 @@ void RTFGenerator::endDescItem()
   newParagraph();
 }
 
-void RTFGenerator::startMemberDescription(const char *)
+void RTFGenerator::startMemberDescription(const char *,const char *)
 {
   DBG_RTF(t << "{\\comment (startMemberDescription)}"    << endl)
   t << "{" << endl;
@@ -1837,7 +1837,7 @@ void RTFGenerator::endClassDiagram(const ClassDiagram &d,
 //  t << text;
 //}
 
-void RTFGenerator::startMemberItem(const char *,int)
+void RTFGenerator::startMemberItem(const char *,int,const char *)
 {
   DBG_RTF(t <<"{\\comment startMemberItem }" << endl)
   t << rtf_Style_Reset << rtf_BList_DepthStyle() << endl; // set style to apropriate depth
@@ -2927,5 +2927,20 @@ void RTFGenerator::endInlineMemberDoc()
   DBG_RTF(t << "{\\comment (endInlineMemberDoc)}" << endl)
   t << "\\cell }{\\row }" << endl;
 }
+
+void RTFGenerator::startLabels()
+{
+}
+
+void RTFGenerator::writeLabel(const char *l,bool isLast)
+{
+  t << "{\\f2 [" << l << "]}";
+  if (!isLast) t << ", ";
+}
+
+void RTFGenerator::endLabels()
+{
+}
+
 
 

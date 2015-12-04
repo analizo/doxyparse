@@ -21,8 +21,10 @@
 #include "qtbc.h"
 #include "outputgen.h"
 
-#define PREFRAG_START "<div class=\"fragment\"><pre class=\"fragment\">"
-#define PREFRAG_END   "</pre></div>"
+//#define PREFRAG_START "<div class=\"fragment\"><pre class=\"fragment\">"
+//#define PREFRAG_END   "</pre></div>"
+#define PREFRAG_START "<div class=\"fragment\">"
+#define PREFRAG_END   "</div><!-- fragment -->"
 
 class QFile;
 class FTextStream;
@@ -55,7 +57,7 @@ class HtmlGenerator : public OutputGenerator
     void printDoc(DocNode *,const char *);
 
     void startFile(const char *name,const char *manName,const char *title);
-    void writeFooter();
+    void writeFooter(const char *navPath);
     void endFile();
     void clearBuffer();
     void writeSearchInfo();
@@ -120,7 +122,7 @@ class HtmlGenerator : public OutputGenerator
     void endInlineHeader();
     void startAnonTypeScope(int) {}
     void endAnonTypeScope(int) {}
-    void startMemberItem(const char *anchor,int);
+    void startMemberItem(const char *anchor,int,const char *inheritId);
     void endMemberItem();
     void startMemberTemplateParams();
     void endMemberTemplateParams(const char *anchor);
@@ -133,8 +135,10 @@ class HtmlGenerator : public OutputGenerator
     void endMemberGroup(bool);
 
     void insertMemberAlign(bool);
-    void startMemberDescription(const char *anchor);
+    void startMemberDescription(const char *anchor,const char *inheritId);
     void endMemberDescription();
+    void writeInheritedSectionTitle(const char *id,const char *file,
+                      const char *anchor,const char *title,const char *name);
 
     void writeRuler()    { t << "<hr/>"; }
     void writeAnchor(const char *,const char *name) 
@@ -142,8 +146,8 @@ class HtmlGenerator : public OutputGenerator
     void startCodeFragment() { t << PREFRAG_START; }
     void endCodeFragment()   { t << PREFRAG_END; } 
     void writeLineNumber(const char *,const char *,const char *,int);
-    void startCodeLine() { col=0; }
-    void endCodeLine()   { codify("\n"); }
+    void startCodeLine(bool);
+    void endCodeLine();
     void startEmphasis() { t << "<em>";  }
     void endEmphasis()   { t << "</em>"; }
     void startBold()     { t << "<b>"; }
@@ -162,8 +166,8 @@ class HtmlGenerator : public OutputGenerator
                          const char *anchor,const char *name,
                          const char *args);
     void endDoxyAnchor(const char *fName,const char *anchor);
-    void startCodeAnchor(const char *label) { t << "<a name=\"" << label << "\"></a>"; }
-    void endCodeAnchor() { }
+    void startCodeAnchor(const char *label);
+    void endCodeAnchor();
     void writeLatexSpacing() {}
     void writeStartAnnoItem(const char *type,const char *file,
                             const char *path,const char *name);
@@ -265,6 +269,9 @@ class HtmlGenerator : public OutputGenerator
     void startFontClass(const char *s) { t << "<span class=\"" << s << "\">"; }
     void endFontClass() { t << "</span>"; }
 
+    void startLabels();
+    void writeLabel(const char *l,bool isLast);
+    void endLabels();
 
     void writeCodeAnchor(const char *anchor) 
     { t << "<a name=\"" << anchor << "\"></a>"; }
@@ -273,7 +280,7 @@ class HtmlGenerator : public OutputGenerator
     //static void generateSectionImages();
 
   private:
-    static void writePageFooter(FTextStream &t,const QCString &,const QCString &);
+    static void writePageFooter(FTextStream &t,const QCString &,const QCString &,const QCString &);
     QCString lastTitle;
     QCString lastFile;
     QCString relPath;
