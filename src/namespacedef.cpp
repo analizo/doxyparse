@@ -57,7 +57,6 @@ NamespaceDef::NamespaceDef(const char *df,int dl,
   memberGroupSDict->setAutoDelete(TRUE);
   visited=FALSE;
   m_subGrouping=Config_getBool("SUBGROUPING");
-  m_isCSharp = df && getLanguageFromFileName(df)==SrcLangExt_CSharp;
 }
 
 NamespaceDef::~NamespaceDef()
@@ -274,7 +273,7 @@ void NamespaceDef::writeDetailedDescription(OutputList &ol,const QCString &title
 
 void NamespaceDef::writeBriefDescription(OutputList &ol)
 {
-  if (!briefDescription().isEmpty()) 
+  if (!briefDescription().isEmpty() && Config_getBool("BRIEF_MEMBER_DESC"))
   {
     ol.startParagraph();
     ol.parseDoc(briefFile(),briefLine(),this,0,
@@ -336,6 +335,11 @@ void NamespaceDef::endMemberDocumentation(OutputList &ol)
 void NamespaceDef::writeClassDeclarations(OutputList &ol,const QCString &title)
 {
   if (classSDict) classSDict->writeDeclaration(ol,0,title,TRUE);
+}
+
+void NamespaceDef::writeInlineClasses(OutputList &ol)
+{
+  if (classSDict) classSDict->writeDocumentation(ol,this);
 }
 
 void NamespaceDef::writeNamespaceDeclarations(OutputList &ol,const QCString &title)
@@ -411,16 +415,17 @@ void NamespaceDef::writeSummaryLinks(OutputList &ol)
 
 void NamespaceDef::writeDocumentation(OutputList &ol)
 {
-  static bool fortranOpt = Config_getBool("OPTIMIZE_FOR_FORTRAN");
   static bool generateTreeView = Config_getBool("GENERATE_TREEVIEW");
-  static bool outputJava = Config_getBool("OPTIMIZE_OUTPUT_JAVA");
+  //static bool outputJava = Config_getBool("OPTIMIZE_OUTPUT_JAVA");
+  //static bool fortranOpt = Config_getBool("OPTIMIZE_FOR_FORTRAN");
+  SrcLangExt lang = getLanguage();
 
   QCString pageTitle;
-  if (outputJava)
+  if (lang==SrcLangExt_Java || lang==SrcLangExt_CSharp)
   {
     pageTitle = theTranslator->trPackage(displayName());
   }
-  else if (fortranOpt)
+  else if (lang==SrcLangExt_Fortran)
   {
     pageTitle = theTranslator->trModuleReference(displayName());
   }
@@ -509,6 +514,9 @@ void NamespaceDef::writeDocumentation(OutputList &ol)
       case LayoutDocEntry::MemberDefStart: 
         startMemberDocumentation(ol);
         break; 
+      case LayoutDocEntry::NamespaceInlineClasses:
+        writeInlineClasses(ol);
+        break;
       case LayoutDocEntry::MemberDef: 
         {
           LayoutDocEntryMemberDef *lmd = (LayoutDocEntryMemberDef*)lde;
@@ -527,12 +535,14 @@ void NamespaceDef::writeDocumentation(OutputList &ol)
       case LayoutDocEntry::ClassCollaborationGraph:
       case LayoutDocEntry::ClassAllMembersLink:
       case LayoutDocEntry::ClassUsedFiles:
+      case LayoutDocEntry::ClassInlineClasses:
       case LayoutDocEntry::FileClasses:
       case LayoutDocEntry::FileNamespaces:
       case LayoutDocEntry::FileIncludes:
       case LayoutDocEntry::FileIncludeGraph:
       case LayoutDocEntry::FileIncludedByGraph: 
       case LayoutDocEntry::FileSourceLink:
+      case LayoutDocEntry::FileInlineClasses:
       case LayoutDocEntry::GroupClasses: 
       case LayoutDocEntry::GroupInlineClasses: 
       case LayoutDocEntry::GroupNamespaces:
@@ -705,12 +715,14 @@ Definition *NamespaceDef::findInnerCompound(const char *n)
 
 void NamespaceDef::addListReferences()
 {
-  bool fortranOpt = Config_getBool("OPTIMIZE_FOR_FORTRAN");
+  //bool fortranOpt = Config_getBool("OPTIMIZE_FOR_FORTRAN");
   {
     LockingPtr< QList<ListItemInfo> > xrefItems = xrefListItems();
     addRefItem(xrefItems.pointer(),
         qualifiedName(),
-        fortranOpt?theTranslator->trModule(TRUE,TRUE):theTranslator->trNamespace(TRUE,TRUE),
+        getLanguage()==SrcLangExt_Fortran ? 
+          theTranslator->trModule(TRUE,TRUE) : 
+          theTranslator->trNamespace(TRUE,TRUE),
         getOutputFileBase(),displayName(),
         0
         );
@@ -735,10 +747,13 @@ void NamespaceDef::addListReferences()
 QCString NamespaceDef::displayName() const
 {
   QCString result=name();
-  if (Config_getBool("OPTIMIZE_OUTPUT_JAVA"))
+  SrcLangExt lang = getLanguage();
+  QCString sep = getLanguageSpecificSeparator(lang);
+  if (sep!="::")
   {
-    result = substitute(result,"::",".");
+    result = substitute(result,"::",sep);
   }
+  //printf("NamespaceDef::displayName() %s->%s lang=%d\n",name().data(),result.data(),lang);
   return result; 
 }
 
@@ -811,22 +826,8 @@ void NamespaceSDict::writeDeclaration(OutputList &ol,const char *title,bool loca
 
   // write list of namespaces
   ol.startMemberHeader("namespaces");
-  bool javaOpt    = Config_getBool("OPTIMIZE_OUTPUT_JAVA");
-  bool fortranOpt = Config_getBool("OPTIMIZE_FOR_FORTRAN");
-#if 0
-  if (javaOpt)
-  {
-    ol.parseText(theTranslator->trPackages());
-  }
-  else if (fortranOpt)
-  {
-    ol.parseText(theTranslator->trModules());
-  }
-  else
-  {
-    ol.parseText(theTranslator->trNamespaces());
-  }
-#endif
+  //bool javaOpt    = Config_getBool("OPTIMIZE_OUTPUT_JAVA");
+  //bool fortranOpt = Config_getBool("OPTIMIZE_FOR_FORTRAN");
   ol.parseText(title);
   ol.endMemberHeader();
   ol.startMemberList();
@@ -834,12 +835,13 @@ void NamespaceSDict::writeDeclaration(OutputList &ol,const char *title,bool loca
   {
     if (nd->isLinkable())
     {
+      SrcLangExt lang = nd->getLanguage();
       ol.startMemberItem(0);
-      if (javaOpt)
+      if (lang==SrcLangExt_Java || lang==SrcLangExt_CSharp)
       {
         ol.docify("package ");
       }
-      else if (fortranOpt)
+      else if (lang==SrcLangExt_Fortran)
       {
         ol.docify("module ");
       }
@@ -865,11 +867,9 @@ void NamespaceSDict::writeDeclaration(OutputList &ol,const char *title,bool loca
       ol.endMemberItem();
       if (!nd->briefDescription().isEmpty() && Config_getBool("BRIEF_MEMBER_DESC"))
       {
-        ol.startParagraph();
         ol.startMemberDescription();
         ol.parseDoc(nd->briefFile(),nd->briefLine(),nd,0,nd->briefDescription(),FALSE,FALSE);
         ol.endMemberDescription();
-        ol.endParagraph();
       }
     }
   }
@@ -967,7 +967,7 @@ bool NamespaceDef::isLinkableInProject() const
     return TRUE;
   }
   return !name().isEmpty() && name().at(i)!='@' && // not anonymous
-    (hasDocumentation() || m_isCSharp) &&  // documented
+    (hasDocumentation() || getLanguage()==SrcLangExt_CSharp) &&  // documented
     !isReference() &&      // not an external reference
     !isHidden() &&         // not hidden
     !isArtificial() &&     // or artificial

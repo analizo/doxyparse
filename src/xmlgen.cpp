@@ -1,8 +1,5 @@
 /******************************************************************************
  *
- * 
- *
- *
  * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
@@ -203,7 +200,7 @@ class TextGeneratorXMLImpl : public TextGeneratorIntf
     {
       writeXMLString(m_t,s); 
     }
-    void writeBreak() const {}
+    void writeBreak(int) const {}
     void writeLink(const char *extRef,const char *file,
                    const char *anchor,const char *text
                   ) const
@@ -514,7 +511,7 @@ static void writeMemberReference(FTextStream &t,Definition *def,MemberDef *rmd,c
   QCString name = rmd->name();
   if (!scope.isEmpty() && scope!=def->name())
   {
-    name.prepend(scope+"::");
+    name.prepend(scope+getLanguageSpecificSeparator(rmd->getLanguage()));
   }
   t << "        <" << tagName << " refid=\"";
   t << rmd->getOutputFileBase() << "_1" << rmd->anchor() << "\"";

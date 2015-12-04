@@ -27,6 +27,7 @@
 #include "parserintf.h"
 #include "msc.h"
 #include "htmlattrib.h"
+#include "cite.h"
 
 static QCString escapeLabelName(const char *s)
 {
@@ -100,7 +101,8 @@ LatexDocVisitor::LatexDocVisitor(FTextStream &t,CodeOutputInterface &ci,
                                  const char *langExt,bool insideTabbing) 
   : DocVisitor(DocVisitor_Latex), m_t(t), m_ci(ci), m_insidePre(FALSE), 
     m_insideItem(FALSE), m_hide(FALSE), m_insideTabbing(insideTabbing),
-    m_langExt(langExt), m_currentColumn(0), m_inRowspan(FALSE)
+    m_langExt(langExt), m_currentColumn(0), 
+    m_inRowspan(FALSE)
 {
 }
 
@@ -370,11 +372,11 @@ void LatexDocVisitor::visit(DocVerbatim *s)
 void LatexDocVisitor::visit(DocAnchor *anc)
 {
   if (m_hide) return;
-  m_t << "\\label{" << anc->file() << "_" << anc->anchor() << "}" << endl;
+  m_t << "\\label{" << anc->file() << "_" << anc->anchor() << "}%" << endl;
   if (!anc->file().isEmpty() && Config_getBool("PDF_HYPERLINKS")) 
   {
     m_t << "\\hypertarget{" << anc->file() << "_" << anc->anchor() 
-      << "}{}" << endl;
+      << "}{}%" << endl;
   }    
 }
 
@@ -412,6 +414,19 @@ void LatexDocVisitor::visit(DocInclude *inc)
       m_t << "\n\\begin{DoxyVerbInclude}\n";
       m_t << inc->text();
       m_t << "\\end{DoxyVerbInclude}\n";
+      break;
+    case DocInclude::Snippet:
+      {
+         m_t << "\n\\begin{DoxyCodeInclude}\n";
+         Doxygen::parserManager->getParser(inc->extension())
+                               ->parseCode(m_ci,
+                                           inc->context(),
+                                           extractBlock(inc->text(),inc->blockId()),
+                                           inc->isExample(),
+                                           inc->exampleFile()
+                                          );
+         m_t << "\\end{DoxyCodeInclude}" << endl;
+      }
       break;
   }
 }
@@ -465,6 +480,24 @@ void LatexDocVisitor::visit(DocIndexEntry *i)
 
 void LatexDocVisitor::visit(DocSimpleSectSep *)
 {
+}
+
+void LatexDocVisitor::visit(DocCite *cite)
+{
+  if (m_hide) return;
+  if (!cite->file().isEmpty()) 
+  {
+    //startLink(cite->ref(),cite->file(),cite->anchor());
+    QCString anchor = cite->anchor();
+    anchor = anchor.mid(CiteConsts::anchorPrefix.length()); // strip prefix
+    m_t << "\\cite{" << anchor << "}";
+  }
+  else
+  {
+    m_t << "{\\bfseries [";
+    filter(cite->text());
+    m_t << "]}";
+  }
 }
 
 //--------------------------------------
@@ -578,6 +611,10 @@ void LatexDocVisitor::visitPre(DocSimpleSect *s)
       m_t << "\\begin{DoxyPostcond}{";
       filter(theTranslator->trPostcondition());
       break;
+    case DocSimpleSect::Copyright:
+      m_t << "\\begin{DoxyCopyright}{";
+      filter(theTranslator->trCopyright());
+      break;
     case DocSimpleSect::Invar:
       m_t << "\\begin{DoxyInvariant}{";
       filter(theTranslator->trInvariant());
@@ -647,6 +684,9 @@ void LatexDocVisitor::visitPost(DocSimpleSect *s)
       break;
     case DocSimpleSect::Post:
       m_t << "\n\\end{DoxyPostcond}\n";
+      break;
+    case DocSimpleSect::Copyright:
+      m_t << "\n\\end{DoxyCopyright}\n";
       break;
     case DocSimpleSect::Invar:
       m_t << "\n\\end{DoxyInvariant}\n";
@@ -757,16 +797,32 @@ void LatexDocVisitor::visitPost(DocHtmlListItem *)
 //  m_t << "\\end{alltt}\\normalsize " << endl;
 //}
 
-void LatexDocVisitor::visitPre(DocHtmlDescList *)
+void LatexDocVisitor::visitPre(DocHtmlDescList *dl)
 {
   if (m_hide) return;
-  m_t << "\n\\begin{DoxyDescription}";
+  QCString val = dl->attribs().find("class");
+  if (val=="reflist")
+  {
+    m_t << "\n\\begin{DoxyRefList}";
+  }
+  else
+  {
+    m_t << "\n\\begin{DoxyDescription}";
+  }
 }
 
-void LatexDocVisitor::visitPost(DocHtmlDescList *) 
+void LatexDocVisitor::visitPost(DocHtmlDescList *dl) 
 {
   if (m_hide) return;
-  m_t << "\n\\end{DoxyDescription}";
+  QCString val = dl->attribs().find("class");
+  if (val=="reflist")
+  {
+    m_t << "\n\\end{DoxyRefList}";
+  }
+  else
+  {
+    m_t << "\n\\end{DoxyDescription}";
+  }
 }
 
 void LatexDocVisitor::visitPre(DocHtmlDescTitle *)
@@ -1258,7 +1314,9 @@ void LatexDocVisitor::visitPost(DocParamList *pl)
 void LatexDocVisitor::visitPre(DocXRefItem *x)
 {
   if (m_hide) return;
-  m_t << "\\begin{Desc}" << endl;
+  m_t << "\\begin{DoxyRefDesc}{";
+  filter(x->title());
+  m_t << "}" << endl;
   bool anonymousEnum = x->file()=="@";
   m_t << "\\item[";
   if (Config_getBool("PDF_HYPERLINKS") && !anonymousEnum)
@@ -1278,7 +1336,7 @@ void LatexDocVisitor::visitPre(DocXRefItem *x)
 void LatexDocVisitor::visitPost(DocXRefItem *)
 {
   if (m_hide) return;
-  m_t << "\\end{Desc}" << endl;
+  m_t << "\\end{DoxyRefDesc}" << endl;
 }
 
 void LatexDocVisitor::visitPre(DocInternalRef *ref)

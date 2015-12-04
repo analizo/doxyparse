@@ -272,14 +272,36 @@ class DocAnchor : public DocNode
   public:
     DocAnchor(DocNode *parent,const QCString &id,bool newAnchor);
     Kind kind() const          { return Kind_Anchor; }
-    QCString anchor() const     { return m_anchor; }
-    QCString file() const       { return m_file; }
+    QCString anchor() const    { return m_anchor; }
+    QCString file() const      { return m_file; }
     void accept(DocVisitor *v) { v->visit(this); }
 
   private:
     QCString  m_anchor;
     QCString  m_file;
 };
+
+/*! @brief Node representing a citation of some bibliographic reference */
+class DocCite : public DocNode
+{
+  public:
+    DocCite(DocNode *parent,const QCString &target,const QCString &context);
+    Kind kind() const            { return Kind_Ref; }
+    QCString file() const        { return m_file; }
+    QCString relPath() const     { return m_relPath; }
+    QCString ref() const         { return m_ref; }
+    QCString anchor() const      { return m_anchor; }
+    QCString text() const        { return m_text; }
+    void accept(DocVisitor *v) { v->visit(this); }
+
+  private:
+    QCString   m_file;
+    QCString   m_relPath;
+    QCString   m_ref;
+    QCString   m_anchor;
+    QCString   m_text;
+};
+
 
 /*! @brief Node representing a style change */
 class DocStyleChange : public DocNode
@@ -374,35 +396,39 @@ class DocVerbatim : public DocNode
 class DocInclude : public DocNode
 {
   public:
-    enum Type { Include, DontInclude, VerbInclude, HtmlInclude, IncWithLines };
+    enum Type { Include, DontInclude, VerbInclude, HtmlInclude, IncWithLines, Snippet };
     DocInclude(DocNode *parent,const QCString &file,
                const QCString context, Type t,
-               bool isExample,const QCString exampleFile) : 
+               bool isExample,const QCString exampleFile,
+               const QCString blockId) : 
       m_file(file), m_context(context), m_type(t),
-      m_isExample(isExample), m_exampleFile(exampleFile) { m_parent = parent; }
-    Kind kind() const           { return Kind_Include; }
+      m_isExample(isExample), m_exampleFile(exampleFile),
+      m_blockId(blockId) { m_parent = parent; }
+    Kind kind() const            { return Kind_Include; }
     QCString file() const        { return m_file; }
     QCString extension() const   { int i=m_file.findRev('.'); 
-                                  if (i!=-1) 
-                                    return m_file.right(m_file.length()-i); 
-                                  else 
-                                    return ""; 
-                                }
-    Type type() const           { return m_type; }
+                                   if (i!=-1) 
+                                     return m_file.right(m_file.length()-i); 
+                                   else 
+                                     return ""; 
+                                 }
+    Type type() const            { return m_type; }
     QCString text() const        { return m_text; }
     QCString context() const     { return m_context; }
-    bool isExample() const      { return m_isExample; }
+    QCString blockId() const     { return m_blockId; }
+    bool isExample() const       { return m_isExample; }
     QCString exampleFile() const { return m_exampleFile; }
-    void accept(DocVisitor *v)  { v->visit(this); }
+    void accept(DocVisitor *v)   { v->visit(this); }
     void parse();
 
   private:
     QCString  m_file;
     QCString  m_context;
     QCString  m_text;
-    Type     m_type;
-    bool     m_isExample;
+    Type      m_type;
+    bool      m_isExample;
     QCString  m_exampleFile;
+    QCString  m_blockId;
 };
 
 /*! @brief Node representing a include/dontinclude operator block */
@@ -886,7 +912,7 @@ class DocSimpleSect : public CompAccept<DocSimpleSect>, public DocNode
     enum Type 
     {  
        Unknown, See, Return, Author, Authors, Version, Since, Date,
-       Note, Warning, Pre, Post, Invar, Remark, Attention, User, Rcs
+       Note, Warning, Copyright, Pre, Post, Invar, Remark, Attention, User, Rcs
     };
     DocSimpleSect(DocNode *parent,Type t);
     virtual ~DocSimpleSect();
@@ -980,6 +1006,7 @@ class DocPara : public CompAccept<DocPara>, public DocNode
     void handleMscFile(const QCString &cmdName);
     void handleInclude(const QCString &cmdName,DocInclude::Type t);
     void handleLink(const QCString &cmdName,bool isJavaLink);
+    void handleCite();
     void handleRef(const QCString &cmdName);
     void handleSection(const QCString &cmdName);
     void handleInheritDoc();

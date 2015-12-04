@@ -434,7 +434,7 @@ void RTFDocVisitor::visit(DocInclude *inc)
   DBG_RTF("{\\comment RTFDocVisitor::visit(DocInclude)}\n");
   switch(inc->type())
   {
-   case DocInclude::IncWithLines:
+     case DocInclude::IncWithLines:
       { 
          m_t << "{" << endl;
          m_t << "\\par" << endl;
@@ -450,7 +450,7 @@ void RTFDocVisitor::visit(DocInclude *inc)
          m_t << "}" << endl;
       }
       break;
-   case DocInclude::Include: 
+    case DocInclude::Include: 
       m_t << "{" << endl;
       m_t << "\\par" << endl;
       m_t << rtf_Style_Reset << getStyle("CodeExample");
@@ -472,6 +472,19 @@ void RTFDocVisitor::visit(DocInclude *inc)
       filter(inc->text());
       m_t << "\\par";
       m_t << "}" << endl;
+      break;
+    case DocInclude::Snippet:
+      m_t << "{" << endl;
+      if (!m_lastIsPara) m_t << "\\par" << endl;
+      m_t << rtf_Style_Reset << getStyle("CodeExample");
+      Doxygen::parserManager->getParser(inc->extension())
+                            ->parseCode(m_ci,
+                                        inc->context(),
+                                        extractBlock(inc->text(),inc->blockId()),
+                                        inc->isExample(),
+                                        inc->exampleFile()
+                                       );
+      m_t << "}";
       break;
   }
   m_lastIsPara=TRUE;
@@ -542,6 +555,30 @@ void RTFDocVisitor::visit(DocIndexEntry *i)
 void RTFDocVisitor::visit(DocSimpleSectSep *)
 {
 }
+
+void RTFDocVisitor::visit(DocCite *cite)
+{
+  if (m_hide) return;
+  DBG_RTF("{\\comment RTFDocVisitor::visitPre(DocCite)}\n");
+  if (!cite->file().isEmpty()) 
+  {
+    startLink(cite->ref(),cite->file(),cite->anchor());
+  }
+  else
+  {
+    m_t << "{\\b ";
+  }
+  filter(cite->text());
+  if (!cite->file().isEmpty()) 
+  {
+    endLink(cite->ref());
+  }
+  else
+  {
+    m_t << "}";
+  }
+}
+
 
 //--------------------------------------
 // visitor functions for compound nodes
@@ -663,6 +700,8 @@ void RTFDocVisitor::visitPre(DocSimpleSect *s)
       m_t << theTranslator->trPrecondition(); break;
     case DocSimpleSect::Post:
       m_t << theTranslator->trPostcondition(); break;
+    case DocSimpleSect::Copyright:
+      m_t << theTranslator->trCopyright(); break;
     case DocSimpleSect::Invar:
       m_t << theTranslator->trInvariant(); break;
     case DocSimpleSect::Remark:
@@ -1244,7 +1283,7 @@ void RTFDocVisitor::visitPre(DocParamList *pl)
   { { 2, 25, 100, 100, 100 }, // no inout, no type
     { 3, 14,  35, 100, 100 }, // inout, no type
     { 3, 25,  50, 100, 100 }, // no inout, type
-    { 4, 14,  35, 55,  100 }, // no inout, type
+    { 4, 14,  35, 55,  100 }, // inout, type
   };
   int config=0;
   if (m_hide) return;

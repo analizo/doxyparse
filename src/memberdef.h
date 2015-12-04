@@ -128,6 +128,7 @@ class MemberDef : public Definition
     bool isEnumValue() const;
     bool isTypedef() const;
     bool isFunction() const;
+    bool isFunctionPtr() const;
     bool isDefine() const;
     bool isFriend() const;
     bool isDCOP() const;
@@ -300,6 +301,7 @@ class MemberDef : public Definition
     void setDeclArgumentList(ArgumentList *al);
     void setDefinitionTemplateParameterLists(QList<ArgumentList> *lists);
     void setTypeConstraints(ArgumentList *al);
+    void setType(const char *t);
 
     // namespace related members
     void setNamespace(NamespaceDef *nd);
@@ -338,7 +340,9 @@ class MemberDef : public Definition
     void setDocumentation(const char *d,const char *docFile,int docLine,bool stripWhiteSpace=TRUE);
     void setBriefDescription(const char *b,const char *briefFile,int briefLine);
     void setInbodyDocumentation(const char *d,const char *inbodyFile,int inbodyLine);
-    
+
+    void setHidden(bool b);
+
     //-----------------------------------------------------------------------------------
     // --- actions ----
     //-----------------------------------------------------------------------------------
@@ -351,6 +355,7 @@ class MemberDef : public Definition
                             const char *scopeName,Definition *container,
                             bool inGroup,bool showEnumValues=FALSE,bool
                             showInline=FALSE);
+    void writeMemberDocSimple(OutputList &ol,Definition *container);
     void warnIfUndocumented();
     
     MemberDef *createTemplateInstanceMember(ArgumentList *formalArgs,

@@ -265,6 +265,17 @@ void XmlDocVisitor::visit(DocInclude *inc)
       filter(inc->text());
       m_t << "</verbatim>"; 
       break;
+    case DocInclude::Snippet:
+      m_t << "<programlisting>";
+      Doxygen::parserManager->getParser(inc->extension())
+                            ->parseCode(m_ci,
+                                        inc->context(),
+                                        extractBlock(inc->text(),inc->blockId()),
+                                        inc->isExample(),
+                                        inc->exampleFile()
+                                       );
+      m_t << "</programlisting>"; 
+      break;
   }
 }
 
@@ -327,6 +338,14 @@ void XmlDocVisitor::visit(DocIndexEntry *ie)
 void XmlDocVisitor::visit(DocSimpleSectSep *)
 {
   m_t << "<simplesectsep/>";
+}
+
+void XmlDocVisitor::visit(DocCite *cite)
+{
+  if (m_hide) return;
+  if (!cite->file().isEmpty()) startLink(cite->ref(),cite->file(),cite->anchor());
+  filter(cite->text());
+  if (!cite->file().isEmpty()) endLink();
 }
 
 //--------------------------------------
@@ -421,6 +440,8 @@ void XmlDocVisitor::visitPre(DocSimpleSect *s)
       m_t << "pre"; break;
     case DocSimpleSect::Post:
       m_t << "post"; break;
+    case DocSimpleSect::Copyright:
+      m_t << "copyright"; break;
     case DocSimpleSect::Invar:
       m_t << "invariant"; break;
     case DocSimpleSect::Remark:

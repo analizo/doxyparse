@@ -22,6 +22,9 @@ TranslatorArabic
 Moaz Reyad: [resigned] moazreyad at yahoo dot com
 -- searching for the maintainer --: [Please, try to help to find someone.]
 
+TranslatorArmenian
+Armen Tangamyan: armen dot tangamyan at anu dot edu dot au
+
 TranslatorBrazilian
 Fabio "FJTC" Jun Takada Chino: jun-chino at uol dot com dot br
 
@@ -30,7 +33,7 @@ Maximiliano Pin: max dot pin at bitroit dot com
 Albert Mora: [unreachable] amora at iua dot upf dot es
 
 TranslatorChinese
-Lang Yang: lian dot yang dot cn at gmail dot com
+Lian Yang: lian dot yang dot cn at gmail dot com
 Li Daobing: lidaobing at gmail dot com
 Wei Liu: liuwei at asiainfo dot com
 
@@ -64,6 +67,7 @@ TranslatorFrench
 Xavier Outhier: xouthier at yahoo dot fr
 
 TranslatorGerman  
+Peter Grotrian: Peter dot Grotrian at pdv-FS dot de
 Jens Seidel: jensseidel at users dot sf dot net
 
 TranslatorGreek

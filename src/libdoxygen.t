@@ -69,6 +69,9 @@ sub GenerateDep {
 #$ GenerateDep("vhdlcode.cpp","vhdlcode.l");
 	$(LEX) -i -PvhdlcodeYY -t vhdlcode.l | $(INCBUFSIZE) >vhdlcode.cpp
 
+#$ GenerateDep("tclscanner.cpp","tclscanner.l");
+	$(LEX) -i -PtclscanYY -t tclscanner.l | $(INCBUFSIZE) >tclscanner.cpp
+
 #$ GenerateDep("pre.cpp","pre.l");
 	$(LEX) -PpreYY -t pre.l | $(INCBUFSIZE) >pre.cpp 
 
@@ -110,8 +113,17 @@ compound_xsd.h: compound.xsd
 layout_default.h: layout_default.xml
 	cat layout_default.xml | $(TO_C_CMD) >layout_default.h 
 
-search_php.h: search.php
-	cat search.php | $(TO_C_CMD) >search_php.h 
+header_html.h: header.html
+	cat header.html | $(TO_C_CMD) >header_html.h
+
+footer_html.h: footer.html
+	cat footer.html | $(TO_C_CMD) >footer_html.h
+
+search_functions_php.h: search_functions.php
+	cat search_functions.php | $(TO_C_CMD) >search_functions_php.h 
+
+search_opensearch_php.h: search_opensearch.php
+	cat search_opensearch.php | $(TO_C_CMD) >search_opensearch_php.h 
 
 search_js.h: search.js
 	cat search.js | $(TO_C_CMD) >search_js.h 
@@ -142,4 +154,10 @@ sizzle_js.h: sizzle.js
 
 navtree_css.h: navtree.css
 	cat navtree.css | $(TO_C_CMD) >navtree_css.h
+
+svgpan_js.h: svgpan.js
+	cat svgpan.js | $(TO_C_CMD) >svgpan_js.h
+
+doxygen_bst.h: doxygen.bst
+	cat doxygen.bst | $(TO_C_CMD) >doxygen_bst.h
 

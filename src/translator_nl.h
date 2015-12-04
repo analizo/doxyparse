@@ -1448,7 +1448,21 @@ class TranslatorDutch : public Translator
       return sdate;
     }
 
+//////////////////////////////////////////////////////////////////////////
+// new since 1.7.5
+//////////////////////////////////////////////////////////////////////////
 
+    /*! Header for the page with bibliographic citations */
+    virtual QCString trCiteReferences()
+    { return "Bibliografie"; }
+
+    /*! Text for copyright paragraph */
+    virtual QCString trCopyright()
+    { return "Copyright"; }
+
+    /*! Header for the graph showing the directory dependencies */
+    virtual QCString trDirDepGraph(const char *name)
+    { return QCString("Folder afhankelijkheidsgraaf voor ")+name+":"; }
 
 
 };

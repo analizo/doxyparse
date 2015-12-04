@@ -141,11 +141,14 @@ void doctokenizerYYsetStateXRefItem();
 void doctokenizerYYsetStateFile();
 void doctokenizerYYsetStatePattern();
 void doctokenizerYYsetStateLink();
+void doctokenizerYYsetStateCite();
 void doctokenizerYYsetStateRef();
 void doctokenizerYYsetStateInternalRef();
 void doctokenizerYYsetStateText();
 void doctokenizerYYsetStateSkipTitle();
+void doctokenizerYYsetStateAnchor();
 void doctokenizerYYsetInsidePre(bool b);
 void doctokenizerYYpushBackHtmlTag(const char *tag);
+void doctokenizerYYsetStateSnippet();
 
 #endif

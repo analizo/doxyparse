@@ -348,6 +348,11 @@ class LayoutParser : public QXmlDefaultHandler
           new EndElementHandler(this,&LayoutParser::endMemberDecl));
       m_sHandler.insert("class/memberdef", 
           new StartElementHandler(this,&LayoutParser::startMemberDef));
+      m_sHandler.insert("class/memberdef/inlineclasses", 
+          new StartElementHandlerSection(this,LayoutDocEntry::ClassInlineClasses,&LayoutParser::startSectionEntry,
+                                         fortranOpt ? theTranslator->trTypeDocumentation() :
+                                         theTranslator->trClassDocumentation() 
+                                         ));
       m_sHandler.insert("class/memberdef/typedefs", 
           new StartElementHandlerMember(this,&LayoutParser::startMemberDefEntry,
                                         MemberList::typedefMembers,theTranslator->trMemberTypedefDocumentation()));
@@ -426,6 +431,11 @@ class LayoutParser : public QXmlDefaultHandler
           new EndElementHandler(this,&LayoutParser::endMemberDecl));
       m_sHandler.insert("namespace/memberdef", 
           new StartElementHandler(this,&LayoutParser::startMemberDef));
+      m_sHandler.insert("namespace/memberdef/inlineclasses", 
+          new StartElementHandlerSection(this,LayoutDocEntry::NamespaceInlineClasses,&LayoutParser::startSectionEntry,
+                                         fortranOpt ? theTranslator->trTypeDocumentation() :
+                                         theTranslator->trClassDocumentation() 
+                                         ));
       m_sHandler.insert("namespace/memberdef/typedefs", 
           new StartElementHandlerMember(this,&LayoutParser::startMemberDefEntry,
                                         MemberList::docTypedefMembers,theTranslator->trTypedefDocumentation()));
@@ -503,6 +513,11 @@ class LayoutParser : public QXmlDefaultHandler
           new EndElementHandler(this,&LayoutParser::endMemberDecl));
       m_sHandler.insert("file/memberdef", 
           new StartElementHandler(this,&LayoutParser::startMemberDef));
+      m_sHandler.insert("file/memberdef/inlineclasses", 
+          new StartElementHandlerSection(this,LayoutDocEntry::FileInlineClasses,&LayoutParser::startSectionEntry,
+                                         fortranOpt ? theTranslator->trTypeDocumentation() :
+                                         theTranslator->trClassDocumentation() 
+                                         ));
       m_sHandler.insert("file/memberdef/defines", 
           new StartElementHandlerMember(this,&LayoutParser::startMemberDefEntry,
                                         MemberList::docDefineMembers,theTranslator->trDefineDocumentation()));
@@ -511,10 +526,12 @@ class LayoutParser : public QXmlDefaultHandler
                                         MemberList::docTypedefMembers,theTranslator->trTypedefDocumentation()));
       m_sHandler.insert("file/memberdef/enums", 
           new StartElementHandlerMember(this,&LayoutParser::startMemberDefEntry,
-                                        MemberList::docEnumMembers,theTranslator->trEnumerationTypeDocumentation()));
+                                        MemberList::docEnumMembers,
+                                        theTranslator->trEnumerationTypeDocumentation()));
       m_sHandler.insert("file/memberdef/functions", 
           new StartElementHandlerMember(this,&LayoutParser::startMemberDefEntry,
-                                        MemberList::docFuncMembers,theTranslator->trFunctionDocumentation()));
+                                        MemberList::docFuncMembers,
+                                        fortranOpt ? theTranslator->trSubprogramDocumentation() : theTranslator->trFunctionDocumentation()));
       m_sHandler.insert("file/memberdef/variables", 
           new StartElementHandlerMember(this,&LayoutParser::startMemberDefEntry,
                                         MemberList::docVarMembers,theTranslator->trVariableDocumentation()));
@@ -1106,24 +1123,25 @@ class LayoutParser : public QXmlDefaultHandler
 class LayoutErrorHandler : public QXmlErrorHandler
 {
   public:
+    LayoutErrorHandler(const char *fn) : fileName(fn) {}
     bool warning( const QXmlParseException &exception )
     {
-      err("error: at line %d column %d: %s\n",
-          exception.lineNumber(),exception.columnNumber(),
+      err("warning: at line %d column %d of %s: %s\n",
+          exception.lineNumber(),exception.columnNumber(),fileName.data(),
           exception.message().data());
       return FALSE;
     }
     bool error( const QXmlParseException &exception )
     {
-      err("error: at line %d column %d: %s\n",
-          exception.lineNumber(),exception.columnNumber(),
+      err("error: at line %d column %d of %s: %s\n",
+          exception.lineNumber(),exception.columnNumber(),fileName.data(),
           exception.message().data());
       return FALSE;
     }
     bool fatalError( const QXmlParseException &exception )
     {
-      err("error: at line %d column %d: %s\n",
-          exception.lineNumber(),exception.columnNumber(),
+      err("fatal error: at line %d column %d of %s: %s\n",
+          exception.lineNumber(),exception.columnNumber(),fileName.data(),
           exception.message().data());
       return FALSE;
     }
@@ -1131,6 +1149,7 @@ class LayoutErrorHandler : public QXmlErrorHandler
 
   private:
     QString errorMsg;
+    QString fileName;
 };
 
 //---------------------------------------------------------------------------------
@@ -1158,7 +1177,7 @@ LayoutDocManager::LayoutDocManager()
 void LayoutDocManager::init()
 {
   // parse the default layout
-  LayoutErrorHandler errorHandler;
+  LayoutErrorHandler errorHandler( "layout_default.xml" );
   QXmlInputSource source;
   source.setData( layout_default );
   QXmlSimpleReader reader;
@@ -1199,9 +1218,9 @@ void LayoutDocManager::clear(LayoutDocManager::LayoutPart p)
   d->docEntries[(int)p].clear();
 }
 
-void LayoutDocManager::parse(QTextStream &t)
+void LayoutDocManager::parse(QTextStream &t,const char *fileName)
 {
-  LayoutErrorHandler errorHandler;
+  LayoutErrorHandler errorHandler(fileName);
   QXmlInputSource source( t );
   QXmlSimpleReader reader;
   reader.setContentHandler( &LayoutParser::instance() );

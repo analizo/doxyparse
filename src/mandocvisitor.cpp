@@ -281,6 +281,22 @@ void ManDocVisitor::visit(DocInclude *inc)
       m_t << ".PP" << endl;
       m_firstCol=TRUE;
       break;
+    case DocInclude::Snippet:
+      if (!m_firstCol) m_t << endl;
+      m_t << ".PP" << endl;
+      m_t << ".nf" << endl;
+      Doxygen::parserManager->getParser(inc->extension())
+                            ->parseCode(m_ci,
+                                        inc->context(),
+                                        extractBlock(inc->text(),inc->blockId()),
+                                        inc->isExample(),
+                                        inc->exampleFile()
+                                       );
+      if (!m_firstCol) m_t << endl;
+      m_t << ".fi" << endl;
+      m_t << ".PP" << endl;
+      m_firstCol=TRUE;
+      break;
   }
 }
 
@@ -341,6 +357,17 @@ void ManDocVisitor::visit(DocIndexEntry *)
 void ManDocVisitor::visit(DocSimpleSectSep *)
 {
 }
+
+void ManDocVisitor::visit(DocCite *cite)
+{
+  if (m_hide) return;
+  m_t << "\\fB";
+  if (cite->file().isEmpty()) m_t << "[";
+  filter(cite->text());
+  if (cite->file().isEmpty()) m_t << "]";
+  m_t << "\\fP";
+}
+
 
 //--------------------------------------
 // visitor functions for compound nodes
@@ -445,6 +472,8 @@ void ManDocVisitor::visitPre(DocSimpleSect *s)
       m_t << theTranslator->trPrecondition(); break;
     case DocSimpleSect::Post:
       m_t << theTranslator->trPostcondition(); break;
+    case DocSimpleSect::Copyright:
+      m_t << theTranslator->trCopyright(); break;
     case DocSimpleSect::Invar:
       m_t << theTranslator->trInvariant(); break;
     case DocSimpleSect::Remark:
@@ -936,6 +965,7 @@ void ManDocVisitor::filter(const char *str)
     {
       switch(c)
       {
+        case '.':  m_t << "'\\&."; break; // see  bug652277
         case '\\': m_t << "\\\\"; break;
         case '"':  c = '\''; // fall through
         default: m_t << c; break;

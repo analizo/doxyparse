@@ -36,7 +36,7 @@ static int compItems(void *item1,void *item2)
   ClassDef *c1=(ClassDef *)item1;
   ClassDef *c2=(ClassDef *)item2;
   static bool b = Config_getBool("SORT_BY_SCOPE_NAME");
-  //printf("compItems: %d %s<->%s\n",b,c1->qualifiedName().data(),c2->qualifiedName().data());
+  //printf("compItems: %d %s<->%s\n",b,c1->name().data(),c2->name().data());
   if (b) 
   { 
      return stricmp(c1->name(),
@@ -96,8 +96,6 @@ bool ClassSDict::declVisible(const ClassDef::CompoundType *filter) const
 void ClassSDict::writeDeclaration(OutputList &ol,const ClassDef::CompoundType *filter,
                                   const char *header,bool localNames)
 {
-//  static bool inlineGroupedClasses = Config_getBool("INLINE_GROUPED_CLASSES");
-//  bool first=TRUE;
   if (count()>0)
   {
     ClassSDict::Iterator sdi(*this);
@@ -110,45 +108,53 @@ void ClassSDict::writeDeclaration(OutputList &ol,const ClassDef::CompoundType *f
           (filter==0 || *filter==cd->compoundType())
          )
       {
-//        //bool isLink = cd->isLinkable();
-//        if (inlineGroupedClasses && cd->partOfGroups()->count()>0)
-//        {
-//          cd->writeInlineDeclaration(ol,first);
-//          first=FALSE;
-//        }
-//        else // show link's only
-//        {
-          cd->writeDeclarationLink(ol,found,header,localNames);
-//        }
+        cd->writeDeclarationLink(ol,found,header,localNames);
       }
     }
     if (found) ol.endMemberList();
   }
 }
   
-void ClassSDict::writeDocumentation(OutputList &ol)
+void ClassSDict::writeDocumentation(OutputList &ol,Definition * container)
 {
   static bool fortranOpt = Config_getBool("OPTIMIZE_FOR_FORTRAN");
 
   static bool inlineGroupedClasses = Config_getBool("INLINE_GROUPED_CLASSES");
-  if (!inlineGroupedClasses) return;
+  static bool inlineSimpleClasses = Config_getBool("INLINE_SIMPLE_STRUCTS");
+  if (!inlineGroupedClasses && !inlineSimpleClasses) return;
 
   if (count()>0)
   {
-    ol.writeRuler();
-    ol.startGroupHeader();
-    ol.parseText(fortranOpt?theTranslator->trTypeDocumentation():
-        theTranslator->trClassDocumentation());
-    ol.endGroupHeader();
+    bool found=FALSE;
 
     ClassSDict::Iterator sdi(*this);
     ClassDef *cd=0;
     for (sdi.toFirst();(cd=sdi.current());++sdi)
     {
+      //printf("%s:writeDocumentation() %p embedded=%d container=%p\n",
+      //  cd->name().data(),cd->getOuterScope(),cd->isEmbeddedInOuterScope(),
+      //  container);
+
       if (cd->name().find('@')==-1 && 
-          cd->partOfGroups()->count()==1
+          cd->isLinkableInProject() &&
+          cd->isEmbeddedInOuterScope() &&
+          (container==0 || cd->partOfGroups()==0) // if container==0 -> show as part of the group docs, otherwise only show if not part of a group
+          //&&
+          //(container==0 || // no container -> used for groups
+          // cd->getOuterScope()==container || // correct container -> used for namespaces and classes
+          // (container->definitionType()==Definition::TypeFile && cd->getOuterScope()==Doxygen::globalScope && cd->partOfGroups()==0) // non grouped class with file scope -> used for files
+          //)
          )
       {
+        if (!found)
+        {
+          ol.writeRuler();
+          ol.startGroupHeader();
+          ol.parseText(fortranOpt?theTranslator->trTypeDocumentation():
+              theTranslator->trClassDocumentation());
+          ol.endGroupHeader();
+          found=TRUE;
+        }
         cd->writeInlineDocumentation(ol);
       }
     }

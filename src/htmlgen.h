@@ -46,9 +46,9 @@ class HtmlGenerator : public OutputGenerator
     void enable() 
     { if (genStack->top()) active=*genStack->top(); else active=TRUE; }
     void disable() { active=FALSE; }
-    void enableIf(OutputType o)  { if (o==Html) active=TRUE;  }
-    void disableIf(OutputType o) { if (o==Html) active=FALSE; }
-    void disableIfNot(OutputType o) { if (o!=Html) active=FALSE; }
+    void enableIf(OutputType o)  { if (o==Html) enable();  }
+    void disableIf(OutputType o) { if (o==Html) disable(); }
+    void disableIfNot(OutputType o) { if (o!=Html) disable(); }
     bool isEnabled(OutputType o) { return (o==Html && active); } 
     OutputGenerator *get(OutputType o) { return (o==Html) ? this : 0; }
 
@@ -115,8 +115,6 @@ class HtmlGenerator : public OutputGenerator
     void endMemberDocList();
     void startMemberList();
     void endMemberList();
-    void startInlineDescription();
-    void endInlineDescription();
     void startInlineHeader();
     void endInlineHeader();
     void startAnonTypeScope(int) {}
@@ -194,7 +192,7 @@ class HtmlGenerator : public OutputGenerator
     void endClassDiagram(const ClassDiagram &,const char *,const char *);
     void startPageRef() {}
     void endPageRef(const char *,const char *) {}
-    void startQuickIndices();
+    void startQuickIndices() {}
     void endQuickIndices();
     void writeSplitBar(const char *name);
     void writeLogo();
@@ -254,6 +252,15 @@ class HtmlGenerator : public OutputGenerator
     void endConstraintDocs();
     void endConstraintList();
 
+    void startMemberDocSimple();
+    void endMemberDocSimple();
+    void startInlineMemberType();
+    void endInlineMemberType();
+    void startInlineMemberName();
+    void endInlineMemberName();
+    void startInlineMemberDoc();
+    void endInlineMemberDoc();
+
     void startFontClass(const char *s) { t << "<span class=\"" << s << "\">"; }
     void endFontClass() { t << "</span>"; }
 
@@ -276,6 +283,7 @@ class HtmlGenerator : public OutputGenerator
 
     int col;
     int m_sectionCount;
+    bool m_emptySection;
 };
 
 #endif

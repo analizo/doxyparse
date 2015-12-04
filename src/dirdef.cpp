@@ -152,7 +152,7 @@ void DirDef::writeDetailedDescription(OutputList &ol,const QCString &title)
 
 void DirDef::writeBriefDescription(OutputList &ol)
 {
-  if (!briefDescription().isEmpty()) 
+  if (!briefDescription().isEmpty() && Config_getBool("BRIEF_MEMBER_DESC"))
   {
     ol.startParagraph();
     ol.parseDoc(briefFile(),briefLine(),this,0,briefDescription(),TRUE,FALSE);
@@ -193,8 +193,7 @@ void DirDef::writeDirectoryGraph(OutputList &ol)
       ol.disable(OutputGenerator::Man);
       //ol.startParagraph();
       ol.startDirDepGraph();
-      //TODO: ol.parseText(theTranslator->trDirDepGraph());
-      ol.parseText((QCString)"Directory dependency graph for "+displayName()+":");
+      ol.parseText(theTranslator->trDirDepGraph(displayName()));
       ol.endDirDepGraph(dirDep);
       //ol.endParagraph();
       ol.enableAll();
@@ -225,7 +224,6 @@ void DirDef::writeSubDirList(OutputList &ol)
       }
       if (!dd->briefDescription().isEmpty() && Config_getBool("BRIEF_MEMBER_DESC"))
       {
-        ol.startParagraph();
         ol.startMemberDescription();
         ol.parseDoc(briefFile(),briefLine(),dd,0,dd->briefDescription(),
             FALSE, // indexWords
@@ -235,7 +233,6 @@ void DirDef::writeSubDirList(OutputList &ol)
             TRUE   // link from index
            );
         ol.endMemberDescription();
-        ol.endParagraph();
       }
       dd=m_subdirs.next();
     }
@@ -288,7 +285,6 @@ void DirDef::writeFileList(OutputList &ol)
       ol.endMemberItem();
       if (!fd->briefDescription().isEmpty() && Config_getBool("BRIEF_MEMBER_DESC"))
       {
-        ol.startParagraph();
         ol.startMemberDescription();
         ol.parseDoc(briefFile(),briefLine(),fd,0,fd->briefDescription(),
             FALSE, // indexWords
@@ -298,7 +294,6 @@ void DirDef::writeFileList(OutputList &ol)
             TRUE   // link from index
            );
         ol.endMemberDescription();
-        ol.endParagraph();
       }
       fd=m_fileList->next();
     }
@@ -385,6 +380,7 @@ void DirDef::writeDocumentation(OutputList &ol)
         }
         break;
       case LayoutDocEntry::ClassIncludes:
+      case LayoutDocEntry::ClassInlineClasses:
       case LayoutDocEntry::ClassInheritanceGraph:
       case LayoutDocEntry::ClassNestedClasses:
       case LayoutDocEntry::ClassCollaborationGraph:
@@ -392,12 +388,14 @@ void DirDef::writeDocumentation(OutputList &ol)
       case LayoutDocEntry::ClassUsedFiles:
       case LayoutDocEntry::NamespaceNestedNamespaces:
       case LayoutDocEntry::NamespaceClasses:
+      case LayoutDocEntry::NamespaceInlineClasses:
       case LayoutDocEntry::FileClasses:
       case LayoutDocEntry::FileNamespaces:
       case LayoutDocEntry::FileIncludes:
       case LayoutDocEntry::FileIncludeGraph:
       case LayoutDocEntry::FileIncludedByGraph: 
       case LayoutDocEntry::FileSourceLink:
+      case LayoutDocEntry::FileInlineClasses:
       case LayoutDocEntry::GroupClasses: 
       case LayoutDocEntry::GroupInlineClasses: 
       case LayoutDocEntry::GroupNamespaces:

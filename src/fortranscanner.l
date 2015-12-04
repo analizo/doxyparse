@@ -111,6 +111,10 @@ static const char *directionStrs[] =
 {
    "", "intent(in)", "intent(out)", "intent(inout)"
 };
+static const char *directionParam[] = 
+{
+   "", "[in]", "[out]", "[in,out]"
+};
 
 // }}}
 
@@ -126,6 +130,8 @@ static QCString         inputStringPrepass; ///< Input string for prepass of lin
 static QCString         inputStringSemi; ///< Input string after command separetor ';'
 static unsigned int     inputPositionPrepass;
 static int              lineCountPrepass = 0;
+
+static QList<Entry>  subrCurrent;
 
 struct CommentInPrepass {
   int column;
@@ -169,6 +175,8 @@ static int               initializerArrayScope;  // number if nested array scope
 static int               initializerScope;  // number if nested function calls in initializer
 static QCString          useModuleName;  // name of module in the use statement
 static Protection        defaultProtection;
+static Protection        typeProtection;
+static int               typeMode = false;
 static InterfaceType     ifType = IF_NONE;
 
 static char              stringStartSymbol; // single or double quote
@@ -183,6 +191,7 @@ static QMap<Entry*,QMap<QCString,SymbolModifiers> > modifiers;
 static int yyread(char *buf,int max_size);
 static void startCommentBlock(bool);
 static void handleCommentBlock(const QCString &doc,bool brief);
+static void subrHandleCommentBlock(const QCString &doc,bool brief);
 static void addCurrentEntry();
 static void addModule(const char *name, bool isModule=FALSE);
 static void addSubprogram(const char *text);
@@ -403,7 +412,7 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
   					  current->section=Entry::USINGDIR_SEC;
 					  current_root->addSubEntry(current);
 					  current = new Entry;
-                                          current->lang    = SrcLangExt_F90; 
+                                          current->lang = SrcLangExt_Fortran; 
                                           yy_pop_state();
                                         }
 <Use>{ID}/,                             { 
@@ -418,7 +427,7 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
   					  current->section=Entry::USINGDECL_SEC;
 					  current_root->addSubEntry(current);
 					  current = new Entry ;
-                                          current->lang    = SrcLangExt_F90; 
+                                          current->lang = SrcLangExt_Fortran; 
   					}
 <Use,UseOnly>"\n"                       {
 					  yyColNr -= 1;
@@ -428,6 +437,7 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
 
  /* INTERFACE definitions */
 <Start,ModuleBody,SubprogBody>{
+^{BS}interface{IDSYM}+			{ /* variable with interface prefix */ }
 ^{BS}interface                          { ifType = IF_SPECIFIC;
                                           yy_push_state(InterfaceBody);
                                           // do not start a scope here, every
@@ -494,6 +504,7 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
 
  /*------ module handling ------------------------------------------------------------*/ 
 <Start>module|program{BS_}             {  //
+                                         v_type = V_IGNORE;
 					    if(yytext[0]=='m' || yytext[0]=='M')
 					      yy_push_state(Module);
 					    else
@@ -519,8 +530,12 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
 
   /*------- access specification --------------------------------------------------------------------------*/
 
-<ModuleBody>private/{BS}(\n|"!")         { defaultProtection = Private; }
-<ModuleBody>public/{BS}(\n|"!")          { defaultProtection = Public; }
+<ModuleBody>private/{BS}(\n|"!")         { defaultProtection = Private;
+                                           current->protection = defaultProtection ;
+                                         }
+<ModuleBody>public/{BS}(\n|"!")          { defaultProtection = Public;
+                                           current->protection = defaultProtection ;
+                                         }
 
  /*------- type definition  -------------------------------------------------------------------------------*/
 
@@ -533,6 +548,8 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
 
                                           yy_push_state(Typedef);
                                           current->protection = defaultProtection;
+                                          typeProtection = defaultProtection;
+                                          typeMode = true;
                                         }
 <Typedef>{
 {COMMA}                                 {}
@@ -548,9 +565,11 @@ extends{ARGS}                           {
                                         }
 public                                  {
                                           current->protection = Public;
+                                          typeProtection = Public;
                                         }
 private                                 {
                                           current->protection = Private;
+                                          typeProtection = Private;
                                         }
 {LANGUAGE_BIND_SPEC}                    {
                                           /* ignored for now */
@@ -618,6 +637,7 @@ private                                 {
 ^{BS}"end"{BS}"type"({BS_}{ID})?{BS}/(\n|!) { /* end type definition */
                                           if (!endScope(current_root))
                                             yyterminate();
+                                          typeMode = false;
                                           yy_pop_state();
                                         }
 }
@@ -635,6 +655,7 @@ private                                 {
 
 					   if (!endScope(current_root))
 					     yyterminate();
+                                           subrCurrent.remove(0u);
 					   yy_pop_state() ;
 				        }
 <Start,ModuleBody,TypedefBody,SubprogBody>{
@@ -683,6 +704,7 @@ private                                 {
   				       }
 {ID}	                               {
                                        }  
+^{BS}"type"{BS_}"is"                    { }
 }
 <AttributeList>{
 {COMMA}					{}
@@ -736,25 +758,71 @@ private                                 {
                                             addCurrentEntry();
                                           } 
 					  else if (!argType.isEmpty())
-					  { // deklaration of parameter list: add type for corr. parameter 
+					  { // declaration of parameter list: add type for corr. parameter 
 					    parameter = getParameter(argName);
-					    if (parameter) {
+					    if (parameter) 
+					    {
 					      v_type= V_PARAMETER;
-      					      if (!argType.isNull())
-        				        parameter->type=argType.stripWhiteSpace();
-					      if (!docBlock.isNull()) {
-					        parameter->docs += "\n";
-					        parameter->docs += docBlock;
-      					      }					    
+					      if (!argType.isNull()) parameter->type=argType.stripWhiteSpace();
+					      if (!docBlock.isNull()) 
+					      {
+  					        subrHandleCommentBlock(docBlock,TRUE);
+					      }					    
 					    }
 					    // save, it may be function return type
-					    modifiers[current_root][name.lower()].type = argType;
+					    if (parameter)
+					    {
+					      modifiers[current_root][name.lower()].type = argType;
+					    }
+					    else
+					    {
+					      if ((current_root->name.lower() == argName.lower()) ||
+						  (modifiers[current_root->parent()][current_root->name.lower()].returnName.lower() == argName.lower()))
+					      {
+						int strt = current_root->type.find("function");
+						QString lft;
+						QString rght;
+						if (strt != -1)
+						{
+						  lft = "";
+						  rght = "";
+						  if (strt != 0) lft = current_root->type.left(strt).stripWhiteSpace();
+						  if ((current_root->type.length() - strt - strlen("function"))!= 0)
+						  {
+						    rght = current_root->type.right(current_root->type.length() - strt - strlen("function")).stripWhiteSpace();
+						  }
+						  current_root->type = lft;
+						  if (rght.length() > 0)
+						  {
+						    if (current_root->type.length() > 0) current_root->type += " ";
+						    current_root->type += rght;
+						  }
+						  if (argType.stripWhiteSpace().length() > 0)
+						  {
+						    if (current_root->type.length() > 0) current_root->type += " ";
+						    current_root->type += argType.stripWhiteSpace();
+						  }
+						  if (current_root->type.length() > 0) current_root->type += " ";
+						  current_root->type += "function";
+						}
+						else
+						{
+						  current_root->type += " " + argType.stripWhiteSpace();
+						}
+						current_root->type = current_root->type.stripWhiteSpace();
+						modifiers[current_root][name.lower()].type = current_root->type;
+					      }
+					      else
+					      {
+						modifiers[current_root][name.lower()].type = argType;
+					      }
+					    }
 					    // any accumulated doc for argument should be emptied,
 					    // because it is handled other way and this doc can be
 					    // unexpectedly passed to the next member.
 					    current->doc.resize(0);
 					    current->brief.resize(0);
-                                          } 
+					  } 
   					}
 <Variable>{ARGS}			{ /* dimension of the previous entry. */
 					  QCString name(argName);
@@ -772,13 +840,20 @@ private                                 {
 					  BEGIN(Initialization);
                                         }
 <Variable>"\n"	                        { currentModifiers = SymbolModifiers();
-                                          yy_pop_state(); // end variable deklaration list
+                                          yy_pop_state(); // end variable declaration list
 					  newLine();
                                           docBlock.resize(0);
                                         }
 <Variable>";".*"\n"                     { currentModifiers = SymbolModifiers();
-                                          yy_pop_state(); // end variable deklaration list
+                                          yy_pop_state(); // end variable declaration list
                                           docBlock.resize(0);
+                                          inputStringSemi =(const char*)(yytext+1);
+                                          pushBuffer(inputStringSemi);
+                                        }
+<*>";".*"\n"                            {
+					  if (YY_START == Variable) REJECT; // Just be on the safe side
+                                          if (YY_START == String) REJECT; // ";" ignored in strings
+                                          if (YY_START == StrIgnore) REJECT; // ";" ignored in regular comments
                                           inputStringSemi =(const char*)(yytext+1);
                                           pushBuffer(inputStringSemi);
                                         }
@@ -837,12 +912,16 @@ private                                 {
 
 <SubprogPrefix>{BS}{SUBPROG}{BS_}     {
                                          // Fortran subroutine or function found
-                                         addSubprogram(yytext);
+                                         v_type = V_IGNORE;
+                                         result=yytext;
+                                         result=result.stripWhiteSpace();
+                                         addSubprogram(result);
                                          BEGIN(Subprog);
                                        }
 
 <Start,ModuleBody,SubprogBody,InterfaceBody,ModuleBodyContains,SubprogBodyContains>^{BS}({PREFIX}{BS_})?{SUBPROG}{BS_} {
                                          // Fortran subroutine or function found
+                                         v_type = V_IGNORE;
                                          if (ifType == IF_ABSTRACT || ifType == IF_SPECIFIC)
                                          {
                                            addInterface("$interface$", ifType);
@@ -910,7 +989,7 @@ private                                 {
 
  /*---- documentation comments --------------------------------------------------------------------*/
 
-<Variable,SubprogBody,ModuleBody,TypedefBody>"!<"  { /* backward docu comment (only one line) */
+<Variable,SubprogBody,ModuleBody,TypedefBody>"!<"  { /* backward docu comment */
                                           if (v_type != V_IGNORE) {
 					   current->docLine  = yyLineNr;
  					   docBlockJavaStyle = FALSE;
@@ -921,7 +1000,16 @@ private                                 {
                                           }
   					 }
 <DocBackLine>.*    			 { // contents of current comment line
-                                          docBlock=yytext;
+                                          docBlock+=yytext;
+  					}
+<DocBackLine>"\n"{BS}"!"("<"|"!"+)		{ // comment block (next line is also comment line)
+					  docBlock+="\n"; // \n is necessary for lists
+					  newLine();
+  					}
+<DocBackLine>"\n"        			{ // comment block ends at the end of this line
+                                          //cout <<"3=========> comment block : "<< docBlock << endl;
+					  yyColNr -= 1;
+					  unput(*yytext);                                        
 					  if (v_type == V_VARIABLE) 
 					  {
 					    Entry *tmp_entry = current; 
@@ -931,11 +1019,12 @@ private                                 {
                                           }
 					  else if (v_type == V_PARAMETER) 
 					  {
-					    parameter->docs+=docBlock;
+					    subrHandleCommentBlock(docBlock,TRUE);
                                           }
-                                          yy_pop_state();
- 					 }
-   
+					  yy_pop_state();
+					  docBlock.resize(0);
+                                        }
+
 <Start,SubprogBody,ModuleBody,TypedefBody,InterfaceBody,ModuleBodyContains,SubprogBodyContains,TypedefBodyContains>"!>"  {
                                           yy_push_state(YY_START);
 					  current->docLine  = yyLineNr;
@@ -1225,22 +1314,29 @@ static const char* prepassFixedForm(const char* contents)
       case 'C':
       case 'c':
       case '*':
-	emptyLabel=FALSE;
-        if(column==1)
-	  newContents[j]='!';
-        else
-          newContents[j]=c;
-        break;
+        if (column!=6)
+	{
+	  emptyLabel=FALSE;
+	  if(column==1)
+	    newContents[j]='!';
+	  else
+	    newContents[j]=c;
+	  break;
+	}
       default:
         if(column==6 && emptyLabel) { // continuation
-          newContents[j]=' ';
+          if (c != '0') { // 0 not allowed as continuatioin character, see f95 standard paragraph 3.3.2.3
+            newContents[j]=' ';
 
-          if(prevLineAmpOrExclIndex==-1) { // add & just before end of previous line
-            insertCharacter(newContents, j+1, (j+1)-6-1, '&');
-            j++;
-          } else { // add & just before end of previous line comment
-            insertCharacter(newContents, j+1, (j+1)-6-prevLineLength+prevLineAmpOrExclIndex, '&');
-            j++;
+            if(prevLineAmpOrExclIndex==-1) { // add & just before end of previous line
+              insertCharacter(newContents, j+1, (j+1)-6-1, '&');
+              j++;
+            } else { // add & just before end of previous line comment
+              insertCharacter(newContents, j+1, (j+1)-6-prevLineLength+prevLineAmpOrExclIndex, '&');
+              j++;
+            }
+	  } else {
+	    newContents[j]=c; // , just handle like space
           }
 	} else {
 	  newContents[j]=c;
@@ -1496,84 +1592,84 @@ static QCString applyModifiers(QCString typeName, SymbolModifiers& mdfs)
 {
   if (!mdfs.dimension.isNull()) 
   {
-    typeName += ",";
+    typeName += ", ";
     typeName += mdfs.dimension;
   }
   if (mdfs.direction!=SymbolModifiers::NONE_D) 
   {
-    typeName += ",";
+    typeName += ", ";
     typeName += directionStrs[mdfs.direction];
   }
   if (mdfs.optional) 
   {
-    typeName += ",";
+    typeName += ", ";
     typeName += "optional";
   }
   if (mdfs.allocatable) 
   {
-    typeName += ",";
+    typeName += ", ";
     typeName += "allocatable";
   }
   if (mdfs.external) 
   {
-    typeName += ",";
+    typeName += ", ";
     typeName += "external";
   }
   if (mdfs.intrinsic) 
   {
-    typeName += ",";
+    typeName += ", ";
     typeName += "intrinsic";
   }
   if (mdfs.parameter) 
   {
-    typeName += ",";
+    typeName += ", ";
     typeName += "parameter";
   }
   if (mdfs.pointer) 
   {
-    typeName += ",";
+    typeName += ", ";
     typeName += "pointer";
   }
   if (mdfs.target) 
   {
-    typeName += ",";
+    typeName += ", ";
     typeName += "target";
   }
   if (mdfs.save) 
   {
-    typeName += ",";
+    typeName += ", ";
     typeName += "save";
   }
   if (mdfs.deferred) 
   {
-    typeName += ",";
+    typeName += ", ";
     typeName += "deferred";
   }
   if (mdfs.nonoverridable) 
   {
-    typeName += ",";
+    typeName += ", ";
     typeName += "non_overridable";
   }
   if (mdfs.nopass) 
   {
-    typeName += ",";
+    typeName += ", ";
     typeName += "nopass";
   }
   if (mdfs.pass) 
   {
-    typeName += ",";
+    typeName += ", ";
     typeName += "pass";
     if (!mdfs.passVar.isEmpty())
       typeName += "(" + mdfs.passVar + ")";
   }
   if (mdfs.protection == SymbolModifiers::PUBLIC)
   {
-    typeName += ",";
+    typeName += ", ";
     typeName += "public";
   }
   else if (mdfs.protection == SymbolModifiers::PRIVATE)
   {
-    typeName += ",";
+    typeName += ", ";
     typeName += "private";
   }
 
@@ -1663,8 +1759,11 @@ static bool endScope(Entry *scope, bool isGlobalRoot)
       //cout<<"Search in "<<scope->name<<endl;
       EntryListIterator eli(*scope->children());
       Entry *ce;
+      int count = 0;
+      int found = FALSE;
       for (;(ce=eli.current());++eli) 
       {
+        count++;
         if (ce->section != Entry::FUNCTION_SEC)
           continue;
 
@@ -1675,6 +1774,15 @@ static bool endScope(Entry *scope, bool isGlobalRoot)
 	  arg->name = arg->type;
           arg->type = scope->name;
         }
+        if (ce->name.lower() == scope->name.lower()) found = TRUE;
+      }
+      if ((count == 1) && found)
+      {
+        // clear all modifiers of the scope
+        modifiers.remove(scope);
+        delete scope->parent()->removeSubEntry(scope);
+        scope = 0;
+        return TRUE;
       }
     }
   } 
@@ -1730,11 +1838,18 @@ static void initParser()
 
 static void initEntry()
 {
-  current->protection = defaultProtection ;
+  if (typeMode)
+  {
+    current->protection = typeProtection;
+  }
+  else
+  {
+    current->protection = defaultProtection;
+  }
   current->mtype      = mtype;
   current->virt       = virt;
   current->stat       = gstat;
-  current->lang       = SrcLangExt_F90; 
+  current->lang       = SrcLangExt_Fortran; 
   initGroupInfo(current);
 }
 
@@ -1757,7 +1872,7 @@ static void addModule(const char *name, bool isModule)
   //fprintf(stderr, "0=========> got module %s\n", name);
 
   if (isModule)
-    current->section = Entry::NAMESPACE_SEC;
+    current->section = Entry::CLASS_SEC;
   else
     current->section = Entry::FUNCTION_SEC;
 
@@ -1785,9 +1900,11 @@ static void addModule(const char *name, bool isModule)
 static void addSubprogram(const char *text)
 {
   //fprintf(stderr,"1=========> got subprog, type: %s\n",text); 
+  subrCurrent.prepend(current);
   current->section = Entry::FUNCTION_SEC ;
   QCString subtype = text; subtype=subtype.lower().stripWhiteSpace();
-  if (!current->type) current->type = subtype;
+  current->type += " " + subtype;
+  current->type = current->type.stripWhiteSpace();
   current->fileName  = yyFileName;
   current->bodyLine  = yyLineNr; // used for source reference
   current->startLine = -1; // ??? what is startLine for?
@@ -1880,7 +1997,8 @@ static void startCommentBlock(bool brief)
   }
 }
 
-  //----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
+
 static void handleCommentBlock(const QCString &doc,bool brief)
 {
   docBlockInBody = FALSE;
@@ -1910,6 +2028,29 @@ static void handleCommentBlock(const QCString &doc,bool brief)
   //fprintf(stderr,"parseCommentBlock position=%d [%s]  needsEntry=%d\n",position,doc.data()+position,needsEntry);
 
   if (needsEntry) addCurrentEntry();
+}
+
+//----------------------------------------------------------------------------
+
+static void subrHandleCommentBlock(const QCString &doc,bool brief)
+{
+  Entry *tmp_entry = current; 
+  current = subrCurrent.first(); // temporarily switch to the entry of the subroutine / function
+  if (docBlock.stripWhiteSpace().find("\\param") == 0)
+  {
+    handleCommentBlock(doc,brief);
+  }
+  else if (docBlock.stripWhiteSpace().find("@param") == 0)
+  {
+    handleCommentBlock(doc,brief);
+  }
+  else 
+  {
+    int dir1 = modifiers[current_root][argName.lower()].direction;
+    handleCommentBlock(QCString("@param ") + directionParam[dir1] + " " + 
+	               argName + " " + doc,brief);
+  }
+  current=tmp_entry;
 }
 
 //----------------------------------------------------------------------------
@@ -1969,13 +2110,13 @@ static void parseMain(const char *fileName,const char *fileBuf,Entry *rt)
     groupEnterFile(yyFileName,yyLineNr);
 
     current          = new Entry;
-    current->lang    = SrcLangExt_F90; 
+    current->lang    = SrcLangExt_Fortran; 
     current->name    = yyFileName;
     current->section = Entry::SOURCE_SEC;
     current_root->addSubEntry(current);
     file_root        = current;
     current          = new Entry;
-    current->lang    = SrcLangExt_F90; 
+    current->lang    = SrcLangExt_Fortran; 
 
     fscanYYrestart( fscanYYin );
     {
@@ -2029,8 +2170,7 @@ void FortranLanguageScanner::parseCode(CodeOutputInterface & codeOutIntf,
 
 bool FortranLanguageScanner::needsPreprocessing(const QCString &extension)
 {
-  return !(extension==".f"||extension==".f90"||
-           extension==".f95"||extension==".f03");
+  return extension!=extension.lower(); // use preprocessor only for upper case extensions
 }
 void FortranLanguageScanner::resetCodeParserState()
 {

@@ -475,7 +475,7 @@ void RTFGenerator::startIndexSection(IndexSections is)
         {
           if (cd->isLinkableInProject() && 
               cd->templateMaster()==0 &&
-             !cd->isEmbeddedInGroupDocs()
+             !cd->isEmbeddedInOuterScope()
              )
           {
             beginRTFChapter();
@@ -615,7 +615,8 @@ void RTFGenerator::endIndexSection(IndexSections is)
         t << "{\\tc \\v " << substitute(Doxygen::mainPage->title(),"%","") << "}"<< endl;
       }
       t << "{\\field\\fldedit{\\*\\fldinst INCLUDETEXT \"";
-      if (Config_getBool("GENERATE_TREEVIEW")) t << "main"; else t << "index";
+      //if (Config_getBool("GENERATE_TREEVIEW")) t << "main"; else t << "index";
+      t << "index";
       t << ".rtf\" \\\\*MERGEFORMAT}{\\fldrslt includedstuff}}\n";
       break;
     //case isPackageIndex:
@@ -758,7 +759,7 @@ void RTFGenerator::endIndexSection(IndexSections is)
         {
           if (cd->isLinkableInProject() && 
               cd->templateMaster()==0 &&
-             !cd->isEmbeddedInGroupDocs()
+             !cd->isEmbeddedInOuterScope()
              )
           {
             t << "\\par " << rtf_Style_Reset << endl;
@@ -772,7 +773,7 @@ void RTFGenerator::endIndexSection(IndexSections is)
         {
           if (cd->isLinkableInProject() && 
               cd->templateMaster()==0 &&
-             !cd->isEmbeddedInGroupDocs()
+             !cd->isEmbeddedInOuterScope()
              )
           {
             t << "\\par " << rtf_Style_Reset << endl;
@@ -2242,6 +2243,37 @@ void RTFGenerator::endMemberSubtitle()
 //}
 //
 
+bool isLeadBytes(int c)
+{
+  bool result;
+
+  QCString codePage = theTranslator->trRTFansicp();
+
+  if (codePage == "932")       // cp932 (Japanese Shift-JIS)
+  {
+    result = (0x81<=c && c<=0x9f) || (0xe0<=c && c<=0xfc);
+  }
+  else if (codePage == "936")  // cp936 (Simplified Chinese GBK)
+  {
+    result = 0x81<=c && c<=0xFE;
+  }
+  else if (codePage == "949")  // cp949 (Korean)
+  {
+    result = 0x81<=c && c<=0xFE;
+  }
+  else if (codePage == "950")  // cp950 (Traditional Chinese Big5)
+  {
+    result = 0x81<=c && c<=0xFE;
+  }
+  else                         // for SBCS Codepages (cp1252,1251 etc...)
+  {
+    result = false;
+  }
+
+  return result;
+}
+
+
 // note: function is not reentrant!
 static void encodeForOutput(FTextStream &t,const QCString &s)
 {
@@ -2275,14 +2307,26 @@ static void encodeForOutput(FTextStream &t,const QCString &s)
     enc.resize(l);
   }
   uint i;
+  bool multiByte = FALSE;
+
   for (i=0;i<enc.size();i++)
   {
     uchar c = (uchar)enc.at(i);
-    if (c>=0x80)
+
+    if (c>=0x80 || multiByte)
     {
       char esc[10];
-      sprintf(esc,"\\'%X",c);
+      sprintf(esc,"\\'%X",c);        // escape sequence for SBCS and DBCS(1st&2nd bytes).
       t << esc;
+
+      if (!multiByte)
+      {
+        multiByte = isLeadBytes(c);  // It may be DBCS Codepages.
+      }
+      else
+      {
+        multiByte = FALSE;           // end of Double Bytes Character.
+      }
     }
     else
     {
@@ -2651,11 +2695,17 @@ void RTFGenerator::endParamList()
 
 void RTFGenerator::startParameterType(bool first,const char *key)
 {
-  DBG_RTF(t << "{\\comment (startParameterList)}"    << endl)
+  DBG_RTF(t << "{\\comment (startParameterType)}"    << endl)
   if (!first && key)
   {
     t << " " << key << " ";
   }
+}
+
+void RTFGenerator::endParameterType()
+{
+  DBG_RTF(t << "{\\comment (endParameterType)}"    << endl)
+  t << " ";
 }
 
 void RTFGenerator::printDoc(DocNode *n,const char *langExt)
@@ -2793,16 +2843,6 @@ void RTFGenerator::endIndexListItem()
   t << "\\par" << endl;
 }
 
-void RTFGenerator::startInlineDescription() 
-{
-  DBG_RTF(t << "{\\comment (startInlineDescription)}" << endl)
-}
-
-void RTFGenerator::endInlineDescription() 
-{
-  DBG_RTF(t << "{\\comment (endInlineDescription)}" << endl)
-}
-
 void RTFGenerator::startInlineHeader() 
 {
   DBG_RTF(t << "{\\comment (startInlineHeader)}" << endl)
@@ -2817,6 +2857,75 @@ void RTFGenerator::endInlineHeader()
   endBold();
   t << "\\par";
   t << "}" << endl;
+}
+
+void RTFGenerator::startMemberDocSimple()
+{
+  DBG_RTF(t << "{\\comment (startMemberDocSimple)}" << endl)
+  t << "{\\par" << endl;
+  t << "{" << rtf_Style["Heading5"]->reference << endl;
+  t << theTranslator->trCompoundMembers() << ":\\par}" << endl;
+  t << rtf_Style_Reset << rtf_DList_DepthStyle();
+  t << "\\trowd \\trgaph108\\trleft426\\tblind426"
+       "\\trbrdrt\\brdrs\\brdrw10\\brdrcf15 "
+       "\\trbrdrl\\brdrs\\brdrw10\\brdrcf15 "
+       "\\trbrdrb\\brdrs\\brdrw10\\brdrcf15 "
+       "\\trbrdrr\\brdrs\\brdrw10\\brdrcf15 "
+       "\\trbrdrh\\brdrs\\brdrw10\\brdrcf15 "
+       "\\trbrdrv\\brdrs\\brdrw10\\brdrcf15 "<< endl;
+  int i,columnPos[3] = { 25, 50, 100 };
+  for (i=0;i<3;i++)
+  {
+    t << "\\clvertalt\\clbrdrt\\brdrs\\brdrw10\\brdrcf15 "
+         "\\clbrdrl\\brdrs\\brdrw10\\brdrcf15 "
+         "\\clbrdrb\\brdrs\\brdrw10\\brdrcf15 "
+         "\\clbrdrr \\brdrs\\brdrw10\\brdrcf15 "
+         "\\cltxlrtb "
+         "\\cellx" << (rtf_pageWidth*columnPos[i]/100) << endl;
+  }
+  t << "\\pard \\widctlpar\\intbl\\adjustright" << endl;
+}
+
+void RTFGenerator::endMemberDocSimple()
+{
+  DBG_RTF(t << "{\\comment (endMemberDocSimple)}" << endl)
+  t << "}" << endl;
+}
+
+void RTFGenerator::startInlineMemberType()
+{
+  DBG_RTF(t << "{\\comment (startInlineMemberType)}" << endl)
+  t << "{\\qr ";
+}
+
+void RTFGenerator::endInlineMemberType()
+{
+  DBG_RTF(t << "{\\comment (endInlineMemberType)}" << endl)
+  t << "\\cell }";
+}
+
+void RTFGenerator::startInlineMemberName()
+{
+  DBG_RTF(t << "{\\comment (startInlineMemberName)}" << endl)
+  t << "{";
+}
+
+void RTFGenerator::endInlineMemberName()
+{
+  DBG_RTF(t << "{\\comment (endInlineMemberName)}" << endl)
+  t << "\\cell }";
+}
+
+void RTFGenerator::startInlineMemberDoc()
+{
+  DBG_RTF(t << "{\\comment (startInlineMemberDoc)}" << endl)
+  t << "{";
+}
+
+void RTFGenerator::endInlineMemberDoc()
+{
+  DBG_RTF(t << "{\\comment (endInlineMemberDoc)}" << endl)
+  t << "\\cell }{\\row }" << endl;
 }
 
 

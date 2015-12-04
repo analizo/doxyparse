@@ -60,7 +60,8 @@ int MemberList::compareItems(GCI item1, GCI item2)
     else if (ord2 > ord1)
       return 1;
   }
-  return stricmp(c1->name(),c2->name());
+  int cmp = stricmp(c1->name(),c2->name());
+  return cmp!=0 ? cmp : c1->getDefLine()-c2->getDefLine();
 }
 
 /*! Count the number of members in this list that are visible in
@@ -541,6 +542,23 @@ void MemberList::writeDocumentation(OutputList &ol,
   ol.endMemberDocList();
 }
 
+void MemberList::writeSimpleDocumentation(OutputList &ol,
+                     Definition *container)
+{
+  countDocMembers(FALSE);
+  //printf("MemberList count=%d\n",numDocMembers());
+  if (numDocMembers()==0) return;
+
+  ol.startMemberDocSimple();
+  MemberListIterator mli(*this);
+  MemberDef *md;
+  for ( ; (md=mli.current()) ; ++mli)
+  {
+    md->writeMemberDocSimple(ol,container);
+  }
+  ol.endMemberDocSimple();
+}
+
 void MemberList::writeDocumentationPage(OutputList &ol,
                      const char *scopeName, Definition *container)
 {
@@ -792,7 +810,8 @@ int MemberSDict::compareItems(GCI item1, GCI item2)
 {
   MemberDef *c1=(MemberDef *)item1;
   MemberDef *c2=(MemberDef *)item2;
-  return stricmp(c1->name(),c2->name());
+  int cmp = stricmp(c1->name(),c2->name());
+  return cmp!=0 ? cmp : c1->getDefLine()-c2->getDefLine();
 }
 
 

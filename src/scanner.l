@@ -977,6 +977,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 <CliPropertyIndex>.			{
   					  current->name+=yytext;
   					}
+  /*
 <FindMembers>{B}*"property"{BN}+        { 
                                           if (!current->type.isEmpty())
 					  {
@@ -988,6 +989,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
                                             lineCount();
 					  }
                                         }
+  */
 <FindMembers>{B}*"@private"{BN}+	{
   					  current->protection = protection = Private ;
 					  current->mtype = mtype = Method;
@@ -1211,6 +1213,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
   					}
 <PackageName>{ID}(("."|"\\"){ID})*	{
   					  isTypedef=FALSE;
+					  //printf("Found namespace %s lang=%d\n",yytext,current->lang);
 					  current->name = yytext;
 					  current->name = substitute(current->name,".","::");
 					  current->name = substitute(current->name,"\\","::");
@@ -1220,15 +1223,17 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					  current->startLine = yyLineNr;
 					  current->bodyLine  = yyLineNr;
 					  lineCount();
-					  curlyCount=0;
-					  current_root->addSubEntry(current);
-                                          current_root = current ;
-					  current             = new Entry ;
-					  initEntry();
-					  BEGIN( FindMembers ) ;
   					}
 <PackageName>";"			{
+					  current_root->addSubEntry(current);
+                                          current_root = current ;
+					  current = new Entry ;
+					  initEntry();
   					  BEGIN(FindMembers);
+  					}
+<PackageName>"{"			{
+					  curlyCount=0;
+					  BEGIN( ReadNSBody );
   					}
 <FindMembers>{B}*"initonly"{BN}+	{
   					  current->type += " initonly ";
@@ -1661,40 +1666,56 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 <NSAliasArg>";"				{
   					  BEGIN( FindMembers );
   					}
-<PHPUse>({ID}{BN}*"\\"{BN}*)*{ID}	{
+<PHPUse>({ID}{BN}*"\\"{BN}*)*{ID}/{BN}+"as"  {
   					  lineCount();
 					  aliasName=yytext;
-                                          //current->fileName = yyFileName; 
-  					  //current->section=Entry::USINGDIR_SEC;
-					  //current_root->addSubEntry(current);
-					  //current = new Entry;
-					  //initEntry();
 					  BEGIN(PHPUseAs);
+					}
+<PHPUse>({ID}{BN}*"\\"{BN}*)*{ID}	{
+  					  lineCount();
+					  current->name=removeRedundantWhiteSpace(substitute(yytext,"\\","::"));
+  					  //printf("PHP: adding use relation: %s\n",current->name.data());
+                                          current->fileName = yyFileName; 
+  					  current->section=Entry::USINGDIR_SEC;
+					  current_root->addSubEntry(current);
+					  current = new Entry;
+					  initEntry();
+					  aliasName.resize(0);
 					}
 <PHPUseAs>{BN}+"as"{BN}+		{
   					  lineCount();
   					}
 <PHPUseAs>{ID}				{
+  					  //printf("PHP: adding use as relation: %s->%s\n",yytext,aliasName.data());
                                           Doxygen::namespaceAliasDict.insert(yytext,
 					       new QCString(removeRedundantWhiteSpace(
 						   substitute(aliasName,"\\","::"))));
 					  aliasName.resize(0);
   					}
-<PHPUseAs>[,;]				{
+<PHPUse,PHPUseAs>[,;]			{
+                                       /*
                                           if (!aliasName.isEmpty())
 					  {
 					    int i=aliasName.findRev('\\');
-					    QCString an = removeRedundantWhiteSpace(
+					    if (i!=-1)
+					    {
+					      QCString an = removeRedundantWhiteSpace(
 						    substitute(aliasName,"\\","::"));
-					    Doxygen::namespaceAliasDict.insert(aliasName.mid(i+1),
-						                        new QCString(an));
-					    current->name     = an;
-					    current->fileName = yyFileName; 
-					    current->section=Entry::USINGDECL_SEC;
-					    current_root->addSubEntry(current);
-					    current = new Entry ;
-					    initEntry();
+  					      printf("PHP: adding use relation: %s->%s\n",aliasName.mid(i+1).data(),an.data());
+					      Doxygen::namespaceAliasDict.insert(aliasName.mid(i+1),
+					  	                        new QCString(an));
+					      current->name     = an;
+					      current->fileName = yyFileName; 
+					      current->section=Entry::USINGDECL_SEC;
+					      current_root->addSubEntry(current);
+					      current = new Entry ;
+					      initEntry();
+					    }
+					    else if (i==0)
+					    {
+					    }
 					  }
+					  */
 					  if (*yytext==',')
 					  {
 					    BEGIN(PHPUse);
@@ -2245,10 +2266,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					  }
   					}
 <FindMembers>[*&]+			{ 
-  					  if (current->type.stripWhiteSpace().right(1)!=yytext)
-					  {
-                                            current->name += yytext ;  
-					  }
+                                          current->name += yytext ;  
   					  addType( current );
 					}
 <FindMembers,MemberSpec,Function,NextSemi,BitFields,ReadInitializer,OldStyleArgs>";"{BN}*("/**"|"//!"|"/*!"|"///")"<" {
@@ -3051,6 +3069,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					  else // probably a redundant , 
 					  {
 				     	    current->reset();
+					    initEntry();
 					  }
   					}
 <FindFields>"["				{ // attribute list in IDL
@@ -3129,7 +3148,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					    current->endBodyLine = yyLineNr;
 					    QCString &cn = current->name;
 					    QCString rn = current_root->name.copy();
-					    //printf("cn=`%s' rn=`%s'\n",cn.data(),rn.data());
+					    //printf("cn=`%s' rn=`%s' isTypedef=%d\n",cn.data(),rn.data(),isTypedef);
 					    if (!cn.isEmpty() && !rn.isEmpty())
 					    {
 					      prependScope();
@@ -3174,7 +3193,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 						}
 						else
 						{
-						  if (!isTypedef)
+						  if (!isTypedef && cn.find('@')==-1) // not typedef or unnamed struct
 						  {
 						    // enabled the next two lines for bug 623424
 						    current->doc.resize(0);
@@ -3288,7 +3307,6 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					  BEGIN(FindMembers);
   					}
 <MemberSpec>[,;]			{
-                                          //printf("current->name=`%s' msName=`%s'\n",current->name.data(),msName.data());
   					  if (msName.isEmpty() && !current->name.isEmpty())
 					  { 
 					    // see if the compound does not have a name or is inside another
@@ -3392,7 +3410,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					  }
 					  if (*yytext==';') // end of a struct/class ...
 					  {
-					    if (msName.isEmpty() && memspecEntry && (current->section&Entry::COMPOUND_MASK))
+					    if (!isTypedef && msName.isEmpty() && memspecEntry && (current->section&Entry::COMPOUND_MASK))
 					    { // case where a class/struct has a doc block after it
 					      if (!current->doc.isEmpty())
 					      {
@@ -3418,6 +3436,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					    current->doc.resize(0);
 					    current->brief.resize(0);
 					  }
+
   					}
 <MemberSpec>"="				{ 
   					  lastInitializerContext=YY_START;
@@ -4256,7 +4275,11 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					    lastCurlyContext = FindMembers;
 					    if ( *yytext == ',' )
 					    {
-					      current->type = previous->type.data();
+					      current->type = previous->type;
+					      // we need to strip any trailing * and & (see bugs 623023 and 649103 for test cases)
+					      int i=current->type.length(); 
+					      while (i>0 && (current->type[i-1]=='*' || current->type[i-1]=='&' || current->type[i-1]==' ')) i--;
+					      current->type = current->type.left(i);
 					    }
 					    if ( *yytext == '{' )
 					    {
@@ -4554,6 +4577,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 <CompoundName>{SCOPENAME}{BN}*";"	{ // forward declaration
     					  unput(';');
 					  current->reset();
+					  initEntry();
 					  if (isTypedef) // typedef of a class, put typedef keyword back
 					  {
 					    current->type.prepend("typedef");
@@ -4572,6 +4596,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 <CompoundName>{SCOPENAME}/{BN}*","	{  // multiple forward declarations on one line
                                            // e.g. @protocol A,B;
 					  current->reset();
+					  initEntry();
   					}
 <CompoundName>{SCOPENAME}		{ 
 					  current->name = yytext ;
@@ -5061,7 +5086,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					      new BaseInfo(baseName,baseProt,baseVirt)
 					    );
 					  }
-					  if ((current->spec & Entry::Interface) || 
+					  if ((current->spec & (Entry::Interface|Entry::Struct)) || 
 					      insideJava || insidePHP || insideCS || 
 					      insideD || insideObjC)
 					  {
@@ -5726,7 +5751,7 @@ static void parseCompounds(Entry *rt)
       //current->reset();
       if (current) delete current;
       current = new Entry;
-      current->lang = language;
+      initEntry();
       gstat = FALSE;
       int ni=ce->name.findRev("::"); if (ni==-1) ni=0; else ni+=2;
       // set default protection based on the compound type
@@ -5843,6 +5868,7 @@ static void parseMain(const char *fileName,const char *fileBuf,Entry *rt)
       current          = new Entry;
     }
     current->reset();
+    initEntry();
     scanYYrestart( scanYYin );
     if ( insidePHP )
     {

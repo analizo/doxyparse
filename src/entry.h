@@ -239,28 +239,31 @@ class Entry
     };
     enum MemberSpecifier
     {
-      Inline    = 0x000001,
-      Explicit  = 0x000002,
-      Mutable   = 0x000004,
-      Settable  = 0x000008,
-      Gettable  = 0x000010,
-      Readable  = 0x000020,
-      Writable  = 0x000040,
-      Final     = 0x000080,
-      Abstract  = 0x000100,
-      Addable   = 0x000200,
-      Removable = 0x000400,
-      Raisable  = 0x000800,
-      Override  = 0x001000,
-      New       = 0x002000,
-      Sealed    = 0x004000,
-      Initonly  = 0x008000,
-      Optional  = 0x010000,
-      Required  = 0x020000,
-      NonAtomic = 0x040000,
-      Copy      = 0x080000,
-      Retain    = 0x100000,
-      Assign    = 0x200000
+      Inline      = 0x00000001,
+      Explicit    = 0x00000002,
+      Mutable     = 0x00000004,
+      Settable    = 0x00000008,
+      Gettable    = 0x00000010,
+      Readable    = 0x00000020,
+      Writable    = 0x00000040,
+      Final       = 0x00000080,
+      Abstract    = 0x00000100,
+      Addable     = 0x00000200,
+      Removable   = 0x00000400,
+      Raisable    = 0x00000800,
+      Override    = 0x00001000,
+      New         = 0x00002000,
+      Sealed      = 0x00004000,
+      Initonly    = 0x00008000,
+      Optional    = 0x00010000,
+      Required    = 0x00020000,
+      NonAtomic   = 0x00040000,
+      Copy        = 0x00080000,
+      Retain      = 0x00100000,
+      Assign      = 0x00200000,
+      Composition = 0x00400000,
+      Aggregation = 0x00800000,
+      Association = 0x01000000
     };
     enum ClassSpecifier
     {
@@ -286,23 +289,43 @@ class Entry
 
     Entry();
     Entry(const Entry &);
-    ~Entry();
+   ~Entry();
+
+    /*! Returns the static size of the Entry (so excluding any dynamic memory) */
     int getSize();
+
     void addSpecialListItem(const char *listName,int index);
     void createNavigationIndex(EntryNav *rootNav,FileStorage *storage,FileDef *fd);
 
     // while parsing a file these function can be used to navigate/build the tree
     void setParent(Entry *parent) { m_parent = parent; }
+
+    /*! Returns the parent for this Entry or 0 if this entry has no parent. */
     Entry *parent() const { return m_parent; }
+
+    /*! Returns the list of children for this Entry 
+     *  @see addSubEntry() and removeSubEntry()
+     */
     const QList<Entry> *children() const { return m_sublist; }
 
-    /*! Adds entry \e as a child to this entry */
-    void	addSubEntry (Entry* e) ;
+    /*! Adds entry \a e as a child to this entry */
+    void addSubEntry (Entry* e) ;
+
+    /*! Removes entry \a e from the list of children. 
+     *  Returns a pointer to the entry or 0 if the entry was not a child. 
+     *  Note the entry will not be deleted.
+     */ 
+    Entry *removeSubEntry(Entry *e);
+
     /*! Restore the state of this Entry to the default value it has
      *  at construction time. 
      */
     void reset();
+
+    /*! Serialize this entry to a persistent storage stream. */
     void marshall(StorageIntf *);
+
+    /*! Reinitialize this entry from a persistent storage stream. */
     void unmarshall(StorageIntf *);
 
   public:
@@ -362,6 +385,7 @@ class Entry
     bool        hidden;       //!< does this represent an entity that is hidden from the output
     bool        artificial;   //!< Artificially introduced item
     GroupDocType groupDocType;
+
 
     static int  num;          //!< counts the total number of entries
 

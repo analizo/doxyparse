@@ -92,9 +92,10 @@ FileDef::FileDef(const char *p,const char *nm,
   {
     docname.prepend(stripFromPath(path.copy()));
   }
-  SrcLangExt lang   = getLanguageFromFileName(name());
-  m_isJava          = lang==SrcLangExt_Java;
-  m_isCSharp        = lang==SrcLangExt_CSharp;
+  SrcLangExt lang = getLanguageFromFileName(name());
+  setLanguage(lang);
+  //m_isJava          = lang==SrcLangExt_Java;
+  //m_isCSharp        = lang==SrcLangExt_CSharp;
   memberGroupSDict = 0;
   acquireFileVersion();
   m_subGrouping=Config_getBool("SUBGROUPING");
@@ -220,7 +221,7 @@ void FileDef::writeDetailedDescription(OutputList &ol,const QCString &title)
 
 void FileDef::writeBriefDescription(OutputList &ol)
 {
-  if (!briefDescription().isEmpty()) 
+  if (!briefDescription().isEmpty() && Config_getBool("BRIEF_MEMBER_DESC"))
   {
     ol.startParagraph();
     ol.parseDoc(briefFile(),briefLine(),this,0,
@@ -264,7 +265,7 @@ void FileDef::writeIncludeFiles(OutputList &ol)
       bool isIDLorJava = FALSE;
       if (fd)
       {
-        SrcLangExt lang   = getLanguageFromFileName(fd->name());
+        SrcLangExt lang   = fd->getLanguage();
         isIDLorJava = lang==SrcLangExt_IDL || lang==SrcLangExt_Java;
       }
       ol.startTypewriter();
@@ -396,6 +397,11 @@ void FileDef::writeClassDeclarations(OutputList &ol,const QCString &title)
 {
   // write list of classes
   if (classSDict) classSDict->writeDeclaration(ol,0,title,FALSE);
+}
+
+void FileDef::writeInlineClasses(OutputList &ol)
+{
+  if (classSDict) classSDict->writeDocumentation(ol,this);
 }
 
 void FileDef::startMemberDeclarations(OutputList &ol)
@@ -636,6 +642,9 @@ void FileDef::writeDocumentation(OutputList &ol)
       case LayoutDocEntry::MemberDefStart: 
         startMemberDocumentation(ol);
         break; 
+      case LayoutDocEntry::FileInlineClasses:
+        writeInlineClasses(ol);
+        break;
       case LayoutDocEntry::MemberDef: 
         {
           LayoutDocEntryMemberDef *lmd = (LayoutDocEntryMemberDef*)lde;
@@ -654,8 +663,10 @@ void FileDef::writeDocumentation(OutputList &ol)
       case LayoutDocEntry::ClassCollaborationGraph:
       case LayoutDocEntry::ClassAllMembersLink:
       case LayoutDocEntry::ClassUsedFiles:
+      case LayoutDocEntry::ClassInlineClasses:
       case LayoutDocEntry::NamespaceNestedNamespaces:
       case LayoutDocEntry::NamespaceClasses:
+      case LayoutDocEntry::NamespaceInlineClasses:
       case LayoutDocEntry::GroupClasses: 
       case LayoutDocEntry::GroupInlineClasses: 
       case LayoutDocEntry::GroupNamespaces:

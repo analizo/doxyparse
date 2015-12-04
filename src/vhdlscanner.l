@@ -207,7 +207,7 @@ static void deleteSpecChars(char* str,char *buf)
   {
     if ((*str == '\t') || (*str == '\n') || (*str == '\r') || (*str == ' ')) 
     {
-      *str++;
+      str++;
     }
     else
     {
@@ -1672,6 +1672,7 @@ ENDPROTECEDBODY         "end"{BR}+"protected"{BR}+"body"{BR}+{NAME}
 static void initEntry(Entry *e)
 {
   e->fileName = yyFileName;
+  e->lang     = SrcLangExt_VHDL;
   initGroupInfo(e);
 }
 

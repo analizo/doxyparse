@@ -124,8 +124,8 @@ class FileDef : public Definition
     }
     bool isIncluded(const QCString &name) const;
 
-    bool isJava() const { return m_isJava; }
-    bool isCSharp() const { return m_isCSharp; }
+    //bool isJava() const { return m_isJava; }
+    //bool isCSharp() const { return m_isCSharp; }
 
     void writeDocumentation(OutputList &ol);
     void writeMemberPages(OutputList &ol);
@@ -198,6 +198,7 @@ class FileDef : public Definition
     void writeSourceLink(OutputList &ol);
     void writeNamespaceDeclarations(OutputList &ol,const QCString &title);
     void writeClassDeclarations(OutputList &ol,const QCString &title);
+    void writeInlineClasses(OutputList &ol);
     void startMemberDeclarations(OutputList &ol);
     void endMemberDeclarations(OutputList &ol);
     void startMemberDocumentation(OutputList &ol);
@@ -219,8 +220,8 @@ class FileDef : public Definition
     QIntDict<Definition> *srcDefDict;
     QIntDict<MemberDef>  *srcMemberDict;
     bool                  isSource;
-    bool                  m_isJava;
-    bool                  m_isCSharp;
+    //bool                  m_isJava;
+    //bool                  m_isCSharp;
     QCString              fileVersion;
     PackageDef           *package;
     DirDef               *dir;
