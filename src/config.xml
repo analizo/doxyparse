@@ -10,7 +10,7 @@ http://www.gnu.org/software/libiconv for the list of possible encodings.
     <option type='string' id='PROJECT_NAME' format='string' docs='
 The PROJECT_NAME tag is a single word (or sequence of words) that should 
 identify the project. Note that if you do not use Doxywizard you need 
-to put quotes around the project name if it contains spaces.' defval=''/>
+to put quotes around the project name if it contains spaces.' defval='My Project'/>
     <option type='string' id='PROJECT_NUMBER' format='string' docs='
 The PROJECT_NUMBER tag can be used to enter a project or revision number. 
 This could be handy for archiving the generated documentation or 
@@ -209,8 +209,13 @@ For example adding &quot;sideeffect=\par Side Effects:\n&quot; will allow you to
 put the command \sideeffect (or @sideeffect) in the documentation, which 
 will result in a user-defined paragraph with heading &quot;Side Effects:&quot;. 
 You can put \n&apos;s in the value part of an alias to insert newlines. 
-'>
-    </option>
+'/>
+    <option type='list' id='TCL_SUBST' format='string' docs='
+This tag can be used to specify a number of word-keyword mappings (TCL only). 
+A mapping has the form &quot;name=value&quot;. For example adding 
+&quot;class=itcl::class&quot; will allow you to use the command class in the 
+itcl::class meaning.
+'/>
     <option type='bool' id='OPTIMIZE_OUTPUT_FOR_C' docs='
 Set the OPTIMIZE_OUTPUT_FOR_C tag to YES if your project consists of C 
 sources only. Doxygen will then generate output that is more tailored for C. 
@@ -530,7 +535,8 @@ containing the references data. This must be a list of .bib files. The
 .bib extension is automatically appended if omitted. Using this command 
 requires the bibtex tool to be installed. See also 
 http://en.wikipedia.org/wiki/BibTeX for more info. For LaTeX the style 
-of the bibliography can be controlled using LATEX_BIB_STYLE. 
+of the bibliography can be controlled using LATEX_BIB_STYLE. To use this
+feature you need bibtex and perl available in the search path. 
 ' defval=''/>
   </group>
   <group name='Messages' docs='configuration options related to warning and progress messages'>
@@ -639,14 +645,15 @@ should be searched for input files as well. Possible values are YES and NO.
 If left blank NO is used. 
 ' defval='0'/>
     <option type='list' id='EXCLUDE' format='filedir' docs='
-The EXCLUDE tag can be used to specify files and/or directories that should 
+The EXCLUDE tag can be used to specify files and/or directories that should be 
 excluded from the INPUT source files. This way you can easily exclude a 
 subdirectory from a directory tree whose root is specified with the INPUT tag. 
-Note that relative paths are relative to directory from which doxygen is run.
+Note that relative paths are relative to the directory from which doxygen is 
+run.
 '>
     </option>
     <option type='bool' id='EXCLUDE_SYMLINKS' docs='
-The EXCLUDE_SYMLINKS tag can be used select whether or not files or 
+The EXCLUDE_SYMLINKS tag can be used to select whether or not files or 
 directories that are symbolic links (a Unix file system feature) are excluded 
 from the input. 
 ' defval='0'/>
@@ -808,7 +815,7 @@ each generated HTML page. If it is left blank doxygen will generate a
 standard header. Note that when using a custom header you are responsible  
 for the proper inclusion of any scripts and style sheets that doxygen 
 needs, which is dependent on the configuration options used. 
-It is adviced to generate a default header using "doxygen -w html 
+It is advised to generate a default header using "doxygen -w html 
 header.html footer.html stylesheet.css YourConfigFile" and then modify 
 that header. Note that the header is subject to change so you typically 
 have to redo this when upgrading to a newer version of doxygen or when 
@@ -825,7 +832,7 @@ style sheet that is used by each HTML page. It can be used to
 fine-tune the look of the HTML output. If the tag is left blank doxygen 
 will generate a default style sheet. Note that doxygen will try to copy 
 the style sheet file to the HTML output directory, so don&apos;t put your own 
-stylesheet in the HTML output directory as well, or it will be erased! 
+style sheet in the HTML output directory as well, or it will be erased! 
 ' defval='' depends='GENERATE_HTML'/>
     <option type='list' id='HTML_EXTRA_FILES' format='file' docs='
 The HTML_EXTRA_FILES tag can be used to specify one or more extra images or 
@@ -837,7 +844,7 @@ the files will be copied as-is; there are no commands or markers available.
 ' depends='GENERATE_HTML'/>
     <option type='int' id='HTML_COLORSTYLE_HUE' docs='
 The HTML_COLORSTYLE_HUE tag controls the color of the HTML output. 
-Doxygen will adjust the colors in the stylesheet and background images 
+Doxygen will adjust the colors in the style sheet and background images 
 according to this color. Hue is specified as an angle on a colorwheel, 
 see http://en.wikipedia.org/wiki/Hue for more information. 
 For instance the value 0 represents red, 60 is yellow, 120 is green, 
@@ -1004,16 +1011,12 @@ the directory name containing the HTML and XML files should also have
 this name.
 ' defval='org.doxygen.Project' depends='GENERATE_ECLIPSEHELP'/>
     <option type='bool' id='DISABLE_INDEX' docs='
-The DISABLE_INDEX tag can be used to turn on/off the condensed index at 
-top of each HTML page. The value NO (the default) enables the index and 
-the value YES disables it. 
+The DISABLE_INDEX tag can be used to turn on/off the condensed index (tabs) 
+at top of each HTML page. The value NO (the default) enables the index and 
+the value YES disables it. Since the tabs have the same information as the 
+navigation tree you can set this option to NO if you already set 
+GENERATE_TREEVIEW to YES.
 ' defval='0' depends='GENERATE_HTML'/>
-    <option type='int' id='ENUM_VALUES_PER_LINE' docs='
-The ENUM_VALUES_PER_LINE tag can be used to set the number of enum values 
-(range [0,1..20]) that doxygen will group on one line in the generated HTML 
-documentation. Note that a value of 0 will completely suppress the enum 
-values from appearing in the overview section.
-' minval='0' maxval='20' defval='4' depends='GENERATE_HTML'/>
     <option type='bool' id='GENERATE_TREEVIEW' defval='0' docs='
 The GENERATE_TREEVIEW tag is used to specify whether a tree-like index 
 structure should be generated to display hierarchical information. 
@@ -1021,8 +1024,16 @@ If the tag value is set to YES, a side panel will be generated
 containing a tree-like index structure (just like the one that 
 is generated for HTML Help). For this to work a browser that supports 
 JavaScript, DHTML, CSS and frames is required (i.e. any modern browser). 
-Windows users are probably better off using the HTML help feature.
+Windows users are probably better off using the HTML help feature. 
+Since the tree basically has the same information as the tab index you 
+could consider to set DISABLE_INDEX to NO when enabling this option.
 ' depends='GENERATE_HTML'/>
+    <option type='int' id='ENUM_VALUES_PER_LINE' docs='
+The ENUM_VALUES_PER_LINE tag can be used to set the number of enum values 
+(range [0,1..20]) that doxygen will group on one line in the generated HTML 
+documentation. Note that a value of 0 will completely suppress the enum 
+values from appearing in the overview section.
+' minval='0' maxval='20' defval='4' depends='GENERATE_HTML'/>
     <option type='bool' id='USE_INLINE_TREES' defval='0' docs='
 By enabling USE_INLINE_TREES, doxygen will generate the Groups, Directories, 
 and Class Hierarchy pages using a tree view instead of an ordered list.
@@ -1206,7 +1217,7 @@ programs which support those fields.
 Note: wordpad (write) and others do not support links. 
 ' defval='0' depends='GENERATE_RTF'/>
     <option type='string' id='RTF_STYLESHEET_FILE' format='file' docs='
-Load stylesheet definitions from file. Syntax is similar to doxygen&apos;s 
+Load style sheet definitions from file. Syntax is similar to doxygen&apos;s 
 config file, i.e. a series of assignments. You only have to provide 
 replacements, missing definitions are set to their default value. 
 ' defval='' depends='GENERATE_RTF'/>
@@ -1451,7 +1462,7 @@ set the path where dot can find it.
 If the CLASS_GRAPH and HAVE_DOT tags are set to YES then doxygen 
 will generate a graph for each documented class showing the direct and 
 indirect inheritance relations. Setting this tag to YES will force the 
-the CLASS_DIAGRAMS tag to NO. 
+CLASS_DIAGRAMS tag to NO. 
 ' defval='1' depends='HAVE_DOT'/>
     <option type='bool' id='COLLABORATION_GRAPH' docs='
 If the COLLABORATION_GRAPH and HAVE_DOT tags are set to YES then doxygen 

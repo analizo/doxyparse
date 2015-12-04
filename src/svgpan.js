@@ -66,7 +66,7 @@ function show()
     windowWidth = 800;
     windowHeight = 600;
   }
-  minZoom = Math.min(windowHeight/viewHeight,windowWidth/viewWidth);
+  minZoom = Math.min(Math.min(viewHeight,windowHeight)/viewHeight,Math.min(viewWidth,windowWidth)/viewWidth);
   maxZoom = minZoom+1.5;
   zoomInFactor = Math.pow(maxZoom/minZoom,1.0/zoomSteps);
   zoomOutFactor = 1.0/zoomInFactor;
@@ -168,35 +168,21 @@ function doZoom(g,point,zoomFactor)
 function handleMouseWheel(evt) 
 {
   if (!evt) evt = window.evt;
+  if (!evt.shiftKey) return; // only zoom when shift is pressed
   if (evt.preventDefault) evt.preventDefault();
   evt.returnValue = false;
 
   if (state!='pan')
   {
-
     var delta;
-
-    if(evt.wheelDelta)
+    if (evt.wheelDelta)
     {
-      if (window.opera)
-      {
-        delta = evt.wheelDelta / 720; // Opera
-      }
-      else if (navigator.userAgent.toLowerCase().indexOf('chrome') > -1 ||
-               navigator.appVersion.indexOf("MSIE") != -1)
-      {
-        delta = evt.wheelDelta / 7200; // Chrome/IE9
-      }
-      else
-      {
-        delta = evt.wheelDelta / 72000; // Safari
-      }
+      delta = evt.wheelDelta / 7200; // Opera/Chrome/IE9/Safari
     }
     else
     {
       delta = evt.detail / -180; // Mozilla
     }
-
     var svgDoc = evt.target.ownerDocument;
     var g = svgDoc.getElementById("viewport");
     var p = getEventPoint(evt);

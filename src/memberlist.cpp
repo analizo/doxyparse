@@ -464,7 +464,7 @@ void MemberList::writeDeclarations(OutputList &ol,
   // 2. This might need to be repeated below for memberGroupLists
   if (optimizeVhdl) // use specific declarations function
   {
-    VhdlDocGen::writeVhdlDeclarations(this,ol,0,cd,0);
+    VhdlDocGen::writeVhdlDeclarations(this,ol,0,cd,0,0);
   }
   else
   {
@@ -542,6 +542,7 @@ void MemberList::writeDocumentation(OutputList &ol,
   ol.endMemberDocList();
 }
 
+// members in a table
 void MemberList::writeSimpleDocumentation(OutputList &ol,
                      Definition *container)
 {
@@ -559,6 +560,7 @@ void MemberList::writeSimpleDocumentation(OutputList &ol,
   ol.endMemberDocSimple();
 }
 
+// separate member pages
 void MemberList::writeDocumentationPage(OutputList &ol,
                      const char *scopeName, Definition *container)
 {
@@ -573,35 +575,35 @@ void MemberList::writeDocumentationPage(OutputList &ol,
               container->getOutputFileBase());
     if (!generateTreeView)
     {
-      container->writeNavigationPath(ol);
+      container->writeNavigationPath(ol,FALSE);
       ol.endQuickIndices();
     }
     ol.startContents();
 
-    ol.writeString("<table cellspacing=\"0\" cellpadding=\"0\" border=\"0\">\n"
-                   "  <tr>\n"
-                   "   <td valign=\"top\">\n");
-
-    container->writeQuickMemberLinks(ol,md);
-
-    ol.writeString("   </td>\n");
-    ol.writeString("   <td valign=\"top\" class=\"mempage\">\n");
-    
-    md->writeDocumentation(this,ol,scopeName,container,m_inGroup);
-
-    ol.writeString("    </td>\n");
-    ol.writeString("  </tr>\n");
-    ol.writeString("</table>\n");
-
 
     if (generateTreeView)
     {
+      md->writeDocumentation(this,ol,scopeName,container,m_inGroup);
       ol.endContents();
-      container->writeNavigationPath(ol);
-      endFile(ol,TRUE);
+      endFileWithNavPath(container,ol);
     }
     else
     {
+      ol.writeString("<table cellspacing=\"0\" cellpadding=\"0\" border=\"0\">\n"
+          "  <tr>\n"
+          "   <td valign=\"top\">\n");
+
+      container->writeQuickMemberLinks(ol,md);
+
+      ol.writeString("   </td>\n");
+      ol.writeString("   <td valign=\"top\" class=\"mempage\">\n");
+
+      md->writeDocumentation(this,ol,scopeName,container,m_inGroup);
+
+      ol.writeString("    </td>\n");
+      ol.writeString("  </tr>\n");
+      ol.writeString("</table>\n");
+
       endFile(ol);
     }
   }
@@ -808,10 +810,22 @@ void MemberList::setNeedsSorting(bool b)
 
 int MemberSDict::compareItems(GCI item1, GCI item2)
 {
+  // NOTE: this function can be triggered from unmarshalMemberSDict
+  // so it may not result in called to MemberDef::makeResident().
+  // As a result, the data returned by MemberDef::name() and 
+  // MemberDef::getDefLine() will always be kept in memory.
   MemberDef *c1=(MemberDef *)item1;
   MemberDef *c2=(MemberDef *)item2;
+  //printf("MemberSDict::compareItems(%s,%s)\n",c1->name().data(),c2->name().data());
   int cmp = stricmp(c1->name(),c2->name());
-  return cmp!=0 ? cmp : c1->getDefLine()-c2->getDefLine();
+  if (cmp)
+  {
+    return cmp;
+  }
+  else
+  {
+    return c1->getDefLine()-c2->getDefLine();
+  }
 }
 
 

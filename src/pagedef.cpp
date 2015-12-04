@@ -98,7 +98,7 @@ void PageDef::writeDocumentation(OutputList &ol)
   {
     if (getOuterScope()!=Doxygen::globalScope && !Config_getBool("DISABLE_INDEX"))
     {
-      getOuterScope()->writeNavigationPath(ol);
+      getOuterScope()->writeNavigationPath(ol,FALSE);
     }
     ol.endQuickIndices();
   }
@@ -147,8 +147,7 @@ void PageDef::writeDocumentation(OutputList &ol)
   if (generateTreeView && getOuterScope()!=Doxygen::globalScope && !Config_getBool("DISABLE_INDEX"))
   {
     ol.endContents();
-    getOuterScope()->writeNavigationPath(ol);
-    endFile(ol,TRUE);
+    endFileWithNavPath(getOuterScope(),ol);
   }
   else
   {

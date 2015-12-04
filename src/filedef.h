@@ -42,12 +42,13 @@ class DirDef;
 
 struct IncludeInfo
 {
-  IncludeInfo() { fileDef=0; local=FALSE; }
+  IncludeInfo() { fileDef=0; local=FALSE; indirect=FALSE; }
   ~IncludeInfo() {}
   FileDef *fileDef;
   QCString includeName;
   bool local;
   bool imported;
+  bool indirect;
 };
 
 /*! \class FileDef filedef.h
@@ -87,6 +88,8 @@ class FileDef : public Definition
     
     QCString getOutputFileBase() const 
     { return convertNameToFile(diskname); }
+    QCString anchor() const
+    { return QCString(); }
 
     QCString getFileBase() const
     { return diskname; }
@@ -155,7 +158,7 @@ class FileDef : public Definition
     bool generateSourceFile() const;
     void sortMemberLists();
 
-    void addIncludeDependency(FileDef *fd,const char *incName,bool local,bool imported);
+    void addIncludeDependency(FileDef *fd,const char *incName,bool local,bool imported,bool indirect);
     void addIncludedByDependency(FileDef *fd,const char *incName,bool local,bool imported);
     QList<IncludeInfo> *includeFileList() const { return includeList; }
     QList<IncludeInfo> *includedByFileList() const { return includedByList; }
@@ -167,7 +170,8 @@ class FileDef : public Definition
 
     void addListReferences();
     bool isDocumentationFile() const;
-    bool includes(FileDef *incFile,QDict<FileDef> *includedFiles) const;
+    //bool includes(FileDef *incFile,QDict<FileDef> *includedFiles) const;
+    //bool includesByName(const QCString &name) const;
 
     MemberList *getMemberList(MemberList::ListType lt) const;
     const QList<MemberList> &getMemberLists() const { return m_memberLists; }

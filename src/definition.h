@@ -132,6 +132,9 @@ class Definition : public DefinitionIntf, public LockableObj
      */
     virtual QCString getOutputFileBase() const = 0;
 
+    /*! Returns the anchor within a page where this item can be found */
+    virtual QCString anchor() const = 0;
+
     /*! Returns the name of the source listing of this file. */
     virtual QCString getSourceFileBase() const { ASSERT(0); return "NULL"; }
 
@@ -179,7 +182,7 @@ class Definition : public DefinitionIntf, public LockableObj
     QCString getDefFileExtension() const;
 
     /*! returns the line number at which the definition was found */
-    int getDefLine() const;
+    int getDefLine() const { return m_defLine; }
 
     /*! Returns TRUE iff the definition is documented 
      *  (which could be generated documentation) 
@@ -311,7 +314,7 @@ class Definition : public DefinitionIntf, public LockableObj
     void writeSourceReffedBy(OutputList &ol,const char *scopeName);
     void makePartOfGroup(GroupDef *gd);
     void writePathFragment(OutputList &ol) const;
-    void writeNavigationPath(OutputList &ol) const;
+    void writeNavigationPath(OutputList &ol,bool showSearchInfo=TRUE) const;
     virtual void writeQuickMemberLinks(OutputList &,MemberDef *) const {}
     virtual void writeSummaryLinks(OutputList &) {}
     QCString pathFragment() const;
@@ -348,7 +351,7 @@ class Definition : public DefinitionIntf, public LockableObj
     QCString m_name;
     bool m_isSymbol;
     QCString m_symbolName;
-
+    int m_defLine;
 };
 
 class DefinitionList : public QList<Definition>, public DefinitionIntf

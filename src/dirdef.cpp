@@ -184,7 +184,7 @@ void DirDef::writeBriefDescription(OutputList &ol)
 void DirDef::writeDirectoryGraph(OutputList &ol)
 {
   // write graph dependency graph
-  if (/*Config_getBool("DIRECTORY_GRAPH") &&*/ Config_getBool("HAVE_DOT"))
+  if (Config_getBool("DIRECTORY_GRAPH") && Config_getBool("HAVE_DOT"))
   {
     DotDirDeps dirDep(this);
     if (!dirDep.isTrivial())
@@ -426,15 +426,9 @@ void DirDef::writeDocumentation(OutputList &ol)
 
   ol.endContents();
 
-  if (generateTreeView)
-  {
-    writeNavigationPath(ol);
-  }
+  endFileWithNavPath(this,ol);
 
-  endFile(ol,TRUE); 
   ol.popGeneratorState();
-
-
 }
 
 void DirDef::setLevel()
@@ -735,12 +729,8 @@ void DirRelation::writeDocumentation(OutputList &ol)
 
   ol.endContents();
   
-  if (generateTreeView)
-  {
-    m_src->writeNavigationPath(ol);
-  }
+  endFileWithNavPath(m_src,ol);
 
-  endFile(ol,TRUE); 
   ol.popGeneratorState();
 }
 

@@ -36,6 +36,7 @@ void addConfigOptions(Config *cfg)
                  "identify the project. Note that if you do not use Doxywizard you need\n"
                  "to put quotes around the project name if it contains spaces."
                 );
+  cs->setDefaultValue("My Project");
   //----
   cs = cfg->addString(
                  "PROJECT_NUMBER",
@@ -291,6 +292,14 @@ void addConfigOptions(Config *cfg)
                  "put the command \\sideeffect (or @sideeffect) in the documentation, which\n"
                  "will result in a user-defined paragraph with heading \"Side Effects:\".\n"
                  "You can put \\n's in the value part of an alias to insert newlines."
+                );
+  //----
+  cl = cfg->addList(
+                 "TCL_SUBST",
+                 "This tag can be used to specify a number of word-keyword mappings (TCL only).\n"
+                 "A mapping has the form \"name=value\". For example adding\n"
+                 "\"class=itcl::class\" will allow you to use the command class in the\n"
+                 "itcl::class meaning."
                 );
   //----
   cb = cfg->addBool(
@@ -761,7 +770,7 @@ void addConfigOptions(Config *cfg)
                  ".bib extension is automatically appended if omitted. Using this command\n"
                  "requires the bibtex tool to be installed. See also\n"
                  "http://en.wikipedia.org/wiki/BibTeX for more info. For LaTeX the style\n"
-                 "of the bibliography can be controlled using LATEX_BIB_STYLE."
+                 "of the bibliography can be controlled using LATEX_BIB_STYLE. To use this feature you need bibtex and perl available in the search path."
                 );
   cl->setWidgetType(ConfigList::File);
   //---------------------------------------------------------------------------
@@ -907,16 +916,17 @@ void addConfigOptions(Config *cfg)
   //----
   cl = cfg->addList(
                  "EXCLUDE",
-                 "The EXCLUDE tag can be used to specify files and/or directories that should\n"
+                 "The EXCLUDE tag can be used to specify files and/or directories that should be\n"
                  "excluded from the INPUT source files. This way you can easily exclude a\n"
                  "subdirectory from a directory tree whose root is specified with the INPUT tag.\n"
-                 "Note that relative paths are relative to directory from which doxygen is run."
+                 "Note that relative paths are relative to the directory from which doxygen is\n"
+                 "run."
                 );
   cl->setWidgetType(ConfigList::FileAndDir);
   //----
   cb = cfg->addBool(
                  "EXCLUDE_SYMLINKS",
-                 "The EXCLUDE_SYMLINKS tag can be used select whether or not files or\n"
+                 "The EXCLUDE_SYMLINKS tag can be used to select whether or not files or\n"
                  "directories that are symbolic links (a Unix file system feature) are excluded\n"
                  "from the input.",
                  FALSE
@@ -1155,7 +1165,7 @@ void addConfigOptions(Config *cfg)
                  "standard header. Note that when using a custom header you are responsible\n"
                  " for the proper inclusion of any scripts and style sheets that doxygen\n"
                  "needs, which is dependent on the configuration options used.\n"
-                 "It is adviced to generate a default header using \"doxygen -w html\n"
+                 "It is advised to generate a default header using \"doxygen -w html\n"
                  "header.html footer.html stylesheet.css YourConfigFile\" and then modify\n"
                  "that header. Note that the header is subject to change so you typically\n"
                  "have to redo this when upgrading to a newer version of doxygen or when\n"
@@ -1180,7 +1190,7 @@ void addConfigOptions(Config *cfg)
                  "fine-tune the look of the HTML output. If the tag is left blank doxygen\n"
                  "will generate a default style sheet. Note that doxygen will try to copy\n"
                  "the style sheet file to the HTML output directory, so don't put your own\n"
-                 "stylesheet in the HTML output directory as well, or it will be erased!"
+                 "style sheet in the HTML output directory as well, or it will be erased!"
                 );
   cs->setWidgetType(ConfigString::File);
   cs->addDependency("GENERATE_HTML");
@@ -1200,7 +1210,7 @@ void addConfigOptions(Config *cfg)
   ci = cfg->addInt(
                  "HTML_COLORSTYLE_HUE",
                  "The HTML_COLORSTYLE_HUE tag controls the color of the HTML output.\n"
-                 "Doxygen will adjust the colors in the stylesheet and background images\n"
+                 "Doxygen will adjust the colors in the style sheet and background images\n"
                  "according to this color. Hue is specified as an angle on a colorwheel,\n"
                  "see http://en.wikipedia.org/wiki/Hue for more information.\n"
                  "For instance the value 0 represents red, 60 is yellow, 120 is green,\n"
@@ -1474,9 +1484,26 @@ void addConfigOptions(Config *cfg)
   //----
   cb = cfg->addBool(
                  "DISABLE_INDEX",
-                 "The DISABLE_INDEX tag can be used to turn on/off the condensed index at\n"
-                 "top of each HTML page. The value NO (the default) enables the index and\n"
-                 "the value YES disables it.",
+                 "The DISABLE_INDEX tag can be used to turn on/off the condensed index (tabs)\n"
+                 "at top of each HTML page. The value NO (the default) enables the index and\n"
+                 "the value YES disables it. Since the tabs have the same information as the\n"
+                 "navigation tree you can set this option to NO if you already set\n"
+                 "GENERATE_TREEVIEW to YES.",
+                 FALSE
+                );
+  cb->addDependency("GENERATE_HTML");
+  //----
+  cb = cfg->addBool(
+                 "GENERATE_TREEVIEW",
+                 "The GENERATE_TREEVIEW tag is used to specify whether a tree-like index\n"
+                 "structure should be generated to display hierarchical information.\n"
+                 "If the tag value is set to YES, a side panel will be generated\n"
+                 "containing a tree-like index structure (just like the one that\n"
+                 "is generated for HTML Help). For this to work a browser that supports\n"
+                 "JavaScript, DHTML, CSS and frames is required (i.e. any modern browser).\n"
+                 "Windows users are probably better off using the HTML help feature.\n"
+                 "Since the tree basically has the same information as the tab index you\n"
+                 "could consider to set DISABLE_INDEX to NO when enabling this option.",
                  FALSE
                 );
   cb->addDependency("GENERATE_HTML");
@@ -1490,19 +1517,6 @@ void addConfigOptions(Config *cfg)
                  0,20,4
                 );
   ci->addDependency("GENERATE_HTML");
-  //----
-  cb = cfg->addBool(
-                 "GENERATE_TREEVIEW",
-                 "The GENERATE_TREEVIEW tag is used to specify whether a tree-like index\n"
-                 "structure should be generated to display hierarchical information.\n"
-                 "If the tag value is set to YES, a side panel will be generated\n"
-                 "containing a tree-like index structure (just like the one that\n"
-                 "is generated for HTML Help). For this to work a browser that supports\n"
-                 "JavaScript, DHTML, CSS and frames is required (i.e. any modern browser).\n"
-                 "Windows users are probably better off using the HTML help feature.",
-                 FALSE
-                );
-  cb->addDependency("GENERATE_HTML");
   //----
   cb = cfg->addBool(
                  "USE_INLINE_TREES",
@@ -1802,7 +1816,7 @@ void addConfigOptions(Config *cfg)
   //----
   cs = cfg->addString(
                  "RTF_STYLESHEET_FILE",
-                 "Load stylesheet definitions from file. Syntax is similar to doxygen's\n"
+                 "Load style sheet definitions from file. Syntax is similar to doxygen's\n"
                  "config file, i.e. a series of assignments. You only have to provide\n"
                  "replacements, missing definitions are set to their default value."
                 );
@@ -2193,7 +2207,7 @@ void addConfigOptions(Config *cfg)
                  "If the CLASS_GRAPH and HAVE_DOT tags are set to YES then doxygen\n"
                  "will generate a graph for each documented class showing the direct and\n"
                  "indirect inheritance relations. Setting this tag to YES will force the\n"
-                 "the CLASS_DIAGRAMS tag to NO.",
+                 "CLASS_DIAGRAMS tag to NO.",
                  TRUE
                 );
   cb->addDependency("HAVE_DOT");

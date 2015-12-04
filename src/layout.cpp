@@ -255,7 +255,7 @@ class LayoutParser : public QXmlDefaultHandler
           new StartElementHandlerKind(this,LayoutDocEntry::MemberGroups,&LayoutParser::startSimpleEntry));
       m_sHandler.insert("class/memberdecl/nestedclasses", 
           new StartElementHandlerSection(this,LayoutDocEntry::ClassNestedClasses,&LayoutParser::startSectionEntry,
-                                         vhdlOpt ? VhdlDocGen::trVhdlType(VhdlDocGen::ARCHITECTURE,FALSE) :
+                                         vhdlOpt ? VhdlDocGen::trVhdlType(VhdlDocGen::ENTITY,FALSE) :
                                          fortranOpt ? theTranslator->trDataTypes() :
                                          theTranslator->trCompounds() 
                                          ));
@@ -400,13 +400,13 @@ class LayoutParser : public QXmlDefaultHandler
           new StartElementHandler(this,&LayoutParser::startMemberDecl));
       m_sHandler.insert("namespace/memberdecl/nestednamespaces", 
           new StartElementHandlerSection(this,LayoutDocEntry::NamespaceNestedNamespaces,&LayoutParser::startSectionEntry,
-                                         javaOpt ? theTranslator->trPackages() :
+                                         javaOpt || vhdlOpt ? theTranslator->trPackages() :
                                          fortranOpt ? theTranslator->trModules() :
                                          theTranslator->trNamespaces()
                                          ));
       m_sHandler.insert("namespace/memberdecl/classes", 
           new StartElementHandlerSection(this,LayoutDocEntry::NamespaceClasses,&LayoutParser::startSectionEntry,
-                                         vhdlOpt ? VhdlDocGen::trVhdlType(VhdlDocGen::ARCHITECTURE,FALSE) :
+                                         vhdlOpt ? VhdlDocGen::trVhdlType(VhdlDocGen::ENTITY,FALSE) :
                                          fortranOpt ? theTranslator->trDataTypes() :
                                          theTranslator->trCompounds() 
                                          ));
@@ -480,7 +480,7 @@ class LayoutParser : public QXmlDefaultHandler
           new StartElementHandler(this,&LayoutParser::startMemberDecl));
       m_sHandler.insert("file/memberdecl/classes", 
           new StartElementHandlerSection(this,LayoutDocEntry::FileClasses,&LayoutParser::startSectionEntry,
-                                         vhdlOpt ? VhdlDocGen::trVhdlType(VhdlDocGen::ARCHITECTURE,FALSE) :
+                                         vhdlOpt ? VhdlDocGen::trVhdlType(VhdlDocGen::ENTITY,FALSE) :
                                          fortranOpt ? theTranslator->trDataTypes() :
                                          theTranslator->trCompounds() 
                                          ));
@@ -558,7 +558,7 @@ class LayoutParser : public QXmlDefaultHandler
           new StartElementHandler(this,&LayoutParser::startMemberDecl));
       m_sHandler.insert("group/memberdecl/classes", 
           new StartElementHandlerSection(this,LayoutDocEntry::GroupClasses,&LayoutParser::startSectionEntry,
-                                         vhdlOpt ? VhdlDocGen::trVhdlType(VhdlDocGen::ARCHITECTURE,FALSE) :
+                                         vhdlOpt ? VhdlDocGen::trVhdlType(VhdlDocGen::ENTITY,FALSE) :
                                          fortranOpt ? theTranslator->trDataTypes() :
                                          theTranslator->trCompounds() 
                                          ));
@@ -827,29 +827,43 @@ class LayoutParser : public QXmlDefaultHandler
         },
         { "namespaces",
           LayoutNavEntry::Namespaces,
-          javaOpt    ? theTranslator->trPackages() : fortranOpt ? theTranslator->trModules() : theTranslator->trNamespaces(),
-          javaOpt    ? theTranslator->trPackages() : fortranOpt ? theTranslator->trModulesList() : theTranslator->trNamespaceList(),
-          javaOpt    ? theTranslator->trPackageListDescription() : fortranOpt ? theTranslator->trModulesListDescription(extractAll) : theTranslator->trNamespaceListDescription(extractAll),
+          javaOpt || vhdlOpt   ? theTranslator->trPackages() : fortranOpt ? theTranslator->trModules() : theTranslator->trNamespaces(),
+          javaOpt || vhdlOpt   ? theTranslator->trPackages() : fortranOpt ? theTranslator->trModulesList() : theTranslator->trNamespaceList(),
+          javaOpt || vhdlOpt   ? theTranslator->trPackageListDescription() : fortranOpt ? theTranslator->trModulesListDescription(extractAll) : theTranslator->trNamespaceListDescription(extractAll),
+          "namespaces"
+        },
+        { "namespacelist",
+          LayoutNavEntry::NamespaceList,
+          javaOpt || vhdlOpt   ? theTranslator->trPackages() : fortranOpt ? theTranslator->trModulesList() : theTranslator->trNamespaceList(),
+          QCString(),
+          javaOpt || vhdlOpt   ? theTranslator->trPackageListDescription() : fortranOpt ? theTranslator->trModulesListDescription(extractAll) : theTranslator->trNamespaceListDescription(extractAll),
           "namespaces"
         },
         { "namespacemembers",
           LayoutNavEntry::NamespaceMembers,
-          javaOpt    ? theTranslator->trPackageMembers() : fortranOpt ? theTranslator->trModulesMembers() : theTranslator->trNamespaceMembers(),
+          javaOpt || vhdlOpt   ? theTranslator->trPackageMembers() : fortranOpt ? theTranslator->trModulesMembers() : theTranslator->trNamespaceMembers(),
           QCString(),
           fortranOpt ? theTranslator->trModulesMemberDescription(extractAll) : theTranslator->trNamespaceMemberDescription(extractAll),
           "namespacemembers"
         },
         { "classindex",
-          LayoutNavEntry::Classes,
+          LayoutNavEntry::ClassIndex,
           fortranOpt ? theTranslator->trDataTypes() : vhdlOpt ? VhdlDocGen::trDesignUnits() : theTranslator->trCompoundIndex(),
           QCString(),
           QCString(),
           "classes"
         },
         { "classes",
-          LayoutNavEntry::ClassAnnotated,
+          LayoutNavEntry::Classes,
           fortranOpt ? theTranslator->trCompoundListFortran() : vhdlOpt ? VhdlDocGen::trDesignUnitList() : theTranslator->trClasses(),
           theTranslator->trCompoundList(),
+          fortranOpt ? theTranslator->trCompoundListDescriptionFortran() : vhdlOpt ? VhdlDocGen::trDesignUnitListDescription() : theTranslator->trCompoundListDescription(),
+          "annotated"
+        },
+        { "classlist",
+          LayoutNavEntry::ClassList,
+          fortranOpt ? theTranslator->trCompoundListFortran() : vhdlOpt ? VhdlDocGen::trDesignUnitList() : theTranslator->trCompoundList(),
+          QCString(),
           fortranOpt ? theTranslator->trCompoundListDescriptionFortran() : vhdlOpt ? VhdlDocGen::trDesignUnitListDescription() : theTranslator->trCompoundListDescription(),
           "annotated"
         },
@@ -874,6 +888,13 @@ class LayoutParser : public QXmlDefaultHandler
           theTranslator->trFileListDescription(extractAll),
           "files"
         },
+        { "filelist",
+          LayoutNavEntry::FileList,
+          theTranslator->trFileList(),
+          QCString(),
+          theTranslator->trFileListDescription(extractAll),
+          "files"
+        },
         { "globals",
           LayoutNavEntry::FileGlobals,
           theTranslator->trFileMembers(),
@@ -894,6 +915,13 @@ class LayoutParser : public QXmlDefaultHandler
           QCString(),
           theTranslator->trExamplesDescription(),
           "examples"
+        },
+        { "user",
+          LayoutNavEntry::User,
+          QCString(),
+          QCString(),
+          QCString(),
+          "user"
         },
         { 0, // end of list
           (LayoutNavEntry::Kind)0,
@@ -944,6 +972,11 @@ class LayoutParser : public QXmlDefaultHandler
       if (intro.isEmpty()) // use default intro text
       {
         intro = mapping[i].intro;
+      }
+      QCString url = convertToQCString(attrib.value("url"));
+      if (mapping[i].kind==LayoutNavEntry::User && !url.isEmpty())
+      {
+        baseFile=url;
       }
       // create new item and make it the new root
       m_rootNav = new LayoutNavEntry(m_rootNav,kind,kind==LayoutNavEntry::MainPage?TRUE:isVisible,baseFile,title,intro);

@@ -63,9 +63,6 @@ sub GenerateDep {
 #$ GenerateDep("fortrancode.cpp","fortrancode.l");
 	$(LEX) -i -PfcodeYY -t fortrancode.l | $(INCBUFSIZE) >fortrancode.cpp
 
-#$ GenerateDep("vhdlscanner.cpp","vhdlscanner.l");
-	$(LEX) -i -PvhdlscanYY -t vhdlscanner.l | $(INCBUFSIZE) >vhdlscanner.cpp
-
 #$ GenerateDep("vhdlcode.cpp","vhdlcode.l");
 	$(LEX) -i -PvhdlcodeYY -t vhdlcode.l | $(INCBUFSIZE) >vhdlcode.cpp
 
@@ -98,8 +95,18 @@ sub GenerateDep {
 
 #$ GenerateDep("ce_parse.h","constexp.y");
 	$(YACC) -l -d -p cppExpYY constexp.y -o ce_parse.c 
-	-rm ce_parse.c	
+	-rm ce_parse.c
 
+#$ GenerateDep("vhdlscanner.cpp","vhdlscanner.l","vhdlparser.h");
+	$(LEX) -i -PvhdlScanYY -t vhdlscanner.l | $(INCBUFSIZE) >vhdlscanner.cpp
+
+#$ GenerateDep("vhdlparser.cpp","vhdlparser.y");
+	$(YACC) -l -p vhdlScanYY vhdlparser.y -o vhdlparser.cpp 	
+
+#$ GenerateDep("vhdlparser.h","vhdlparser.y");
+	$(YACC) -l -d -p vhdlScanYY vhdlparser.y -o vhdlparser.c 
+	-rm vhdlparser.c	
+	
 #$ GenerateDep("layout.cpp","layout_default.h");
 
 TO_C_CMD=sed -e "s/\\\\/\\\\\\\\/g" -e "s/\"/\\\\\"/g" -e "s/^/\"/g" -e "s/$$/\\\\n\"/g"
@@ -149,6 +156,9 @@ jquery_js.h: jquery.js
 jquery_ui_js.h: jquery_ui.js
 	cat jquery_ui.js | $(TO_C_CMD) >jquery_ui_js.h
 
+jquery_fx_js.h: jquery_fx.js
+	cat jquery_fx.js | $(TO_C_CMD) >jquery_fx_js.h
+
 sizzle_js.h: sizzle.js
 	cat sizzle.js | $(TO_C_CMD) >sizzle_js.h
 
@@ -160,4 +170,8 @@ svgpan_js.h: svgpan.js
 
 doxygen_bst.h: doxygen.bst
 	cat doxygen.bst | $(TO_C_CMD) >doxygen_bst.h
+
+bib2xhtml.h: bib2xhtml.pl
+	cat bib2xhtml.pl | $(TO_C_CMD) >bib2xhtml.h
+
 

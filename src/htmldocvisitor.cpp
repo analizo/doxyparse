@@ -1209,7 +1209,12 @@ void HtmlDocVisitor::visitPost(DocInternal *)
 void HtmlDocVisitor::visitPre(DocHRef *href)
 {
   if (m_hide) return;
-  m_t << "<a href=\"" << convertToXML(href->url())  << "\""
+  QCString url = href->url();
+  if (url.left(5)!="http:" && url.left(6)!="https:" && url.left(4)!="ftp:")
+  {
+    url.prepend(href->relPath());
+  }
+  m_t << "<a href=\"" << convertToXML(url)  << "\""
       << htmlAttribsToString(href->attribs()) << ">";
 }
 
@@ -1247,9 +1252,23 @@ void HtmlDocVisitor::visitPre(DocImage *img)
       baseName=baseName.right(baseName.length()-i-1);
     }
     m_t << "<div class=\"image\">" << endl;
-    m_t << "<img src=\"" << img->relPath() << img->name() << "\" alt=\"" 
-        << baseName << "\"" << htmlAttribsToString(img->attribs()) 
-        << "/>" << endl;
+    QCString url = img->url();
+    if (url.isEmpty())
+    {
+      m_t << "<img src=\"" << img->relPath() << img->name() << "\" alt=\"" 
+          << baseName << "\"" << htmlAttribsToString(img->attribs()) 
+          << "/>" << endl;
+    }
+    else
+    {
+      if (url.left(5)!="http:" && url.left(6)!="https:" && url.left(4)!="ftp:")
+      {
+        url.prepend(img->relPath());
+      }
+      m_t << "<img src=\"" << url << "\" " 
+          << htmlAttribsToString(img->attribs())
+          << "/>" << endl;
+    }
     if (img->hasCaption())
     {
       m_t << "<div class=\"caption\">" << endl;
@@ -1408,32 +1427,30 @@ void HtmlDocVisitor::visitPre(DocParamSect *s)
 {
   if (m_hide) return;
   forceEndParagraph(s);
-  m_t << "<dl><dt><b>";
   QCString className;
+  QCString heading;
   switch(s->type())
   {
     case DocParamSect::Param: 
-      m_t << theTranslator->trParameters(); 
+      heading=theTranslator->trParameters(); 
       className="params";
       break;
     case DocParamSect::RetVal: 
-      m_t << theTranslator->trReturnValues(); 
+      heading=theTranslator->trReturnValues(); 
       className="retval";
       break;
     case DocParamSect::Exception: 
-      m_t << theTranslator->trExceptions(); 
+      heading=theTranslator->trExceptions(); 
       className="exception";
       break;
     case DocParamSect::TemplateParam: 
-      /* TODO: add this 
-      m_t << theTranslator->trTemplateParam(); break;
-      */
-      m_t << "Template Parameters"; break;
+      heading="Template Parameters"; break; // TODO: TRANSLATE ME
       className="tparams";
     default:
       ASSERT(0);
   }
-  m_t << ":";
+  m_t << "<dl class=\"" << className << "\"><dt><b>";
+  m_t << heading << ":";
   m_t << "</b></dt><dd>" << endl;
   m_t << "  <table class=\"" << className << "\">" << endl;
 }
@@ -1657,7 +1674,7 @@ void HtmlDocVisitor::startLink(const QCString &ref,const QCString &file,
   if (!file.isEmpty()) m_t << file << Doxygen::htmlFileExtension;
   if (!anchor.isEmpty()) m_t << "#" << anchor;
   m_t << "\"";
-  if (!tooltip.isEmpty()) m_t << " title=\"" << tooltip << "\"";
+  if (!tooltip.isEmpty()) m_t << " title=\"" << substitute(tooltip,"\"","&quot;") << "\"";
   m_t << ">";
 }
 
@@ -1698,7 +1715,8 @@ void HtmlDocVisitor::writeDotFile(const QCString &fn,const QCString &relPath,
   writeDotImageMapFromFile(m_t,fn,outDir,relPath,baseName,context);
 }
 
-void HtmlDocVisitor::writeMscFile(const QCString &fileName,const QCString &relPath,
+void HtmlDocVisitor::writeMscFile(const QCString &fileName,
+                                  const QCString &relPath,
                                   const QCString &context)
 {
   QCString baseName=fileName;

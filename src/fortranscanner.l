@@ -178,6 +178,7 @@ static Protection        defaultProtection;
 static Protection        typeProtection;
 static int               typeMode = false;
 static InterfaceType     ifType = IF_NONE;
+static bool              functionLine = FALSE;
 
 static char              stringStartSymbol; // single or double quote
 
@@ -202,7 +203,7 @@ static void scanner_abort();
 static void startScope(Entry *scope);
 static bool endScope(Entry *scope, bool isGlobalRoot=FALSE);
 static QCString getFullName(Entry *e);
-static bool isTypeName(QCString name);
+//static bool isTypeName(QCString name);
 static void resolveModuleProcedures(QList<Entry> &moduleProcedures, Entry *current_root);
 static int getAmpersandAtTheStart(const char *buf, int length);
 static int getAmpOrExclAtTheEnd(const char *buf, int length);
@@ -246,7 +247,7 @@ NOARGS    {BS}"\n"
 NUM_TYPE  (complex|integer|logical|real)
 KIND      {ARGS}
 CHAR      (CHARACTER{ARGS}?|CHARACTER{BS}"*"({BS}[0-9]+|{ARGS}))
-TYPE_SPEC (({NUM_TYPE}({BS}"*"{BS}[0-9]+)?)|({NUM_TYPE}{KIND})|DOUBLE{BS_}PRECISION|{CHAR}|TYPE{ARGS}|CLASS{ARGS}|PROCEDURE{ARGS}?)
+TYPE_SPEC (({NUM_TYPE}({BS}"*"{BS}[0-9]+)?)|({NUM_TYPE}{KIND})|DOUBLE{BS_}COMPLEX|DOUBLE{BS_}PRECISION|{CHAR}|TYPE{ARGS}|CLASS{ARGS}|PROCEDURE{ARGS}?)
 
 INTENT_SPEC intent{BS}"("{BS}(in|out|in{BS}out){BS}")"
 ATTR_SPEC (ALLOCATABLE|DIMENSION{ARGS}|EXTERNAL|{INTENT_SPEC}|INTRINSIC|OPTIONAL|PARAMETER|POINTER|PRIVATE|PUBLIC|SAVE|TARGET|NOPASS|PASS{ARGS}?|DEFERRED|NON_OVERRIDABLE)
@@ -303,6 +304,7 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
  /*-----------------------------------------------------------------------------------*/
 
 <*>^.*\n                                { // prepass: look for line continuations
+  					  functionLine = FALSE;
 
                                           //fprintf(stderr, "---%s", yytext);
 
@@ -669,10 +671,11 @@ private                                 {
 					  argType = QCString(yytext).simplifyWhiteSpace();
 					  yy_push_state(AttributeList);
                                         }
-^{BS}{PP_ID}{KIND}?			{ /* check for preprocessor symbol expand to type */
+  /*  Dimitri: macro expansion should already be done during preprocessing not here!
+^{BS}{PP_ID}{KIND}?			{ // check for preprocessor symbol expand to type
 					  QCString str = yytext;
 					  str = str.stripWhiteSpace();
-					  DefineDict* defines = getGlobalDefineDict();
+					  //DefineDict* defines = getGlobalDefineDict();
 					  QCString name;
 					  int index = str.find("(");
 					  if (index != -1)
@@ -680,7 +683,7 @@ private                                 {
 					  else
 					    name = str;
 
-					  Define *define = (*defines)[name];
+					  Define *define = 0; //(*defines)[name];
 					  if (define != 0 && isTypeName(define->definition)) 
 					  {
 					    argType = str;
@@ -692,6 +695,7 @@ private                                 {
 					    REJECT;
 					  }
 					}
+  */
 {ATTR_STMT}/{BS_}{ID}		       |
 {ATTR_STMT}/{BS}"::"                   { 
                                           /* attribute statement starts */
@@ -980,10 +984,13 @@ private                                 {
 					   BEGIN(SubprogBody);				           
 }
 <SubprogBody>result{BS}\({BS}{ID}      {  
-                                           result= yytext;
-                                           result= result.right(result.length()-result.find("(")-1);
-                                           result= result.stripWhiteSpace();
- 					   modifiers[current_root->parent()][current_root->name.lower()].returnName = result;
+  					   if (functionLine)
+					   {
+                                             result= yytext;
+                                             result= result.right(result.length()-result.find("(")-1);
+                                             result= result.stripWhiteSpace();
+ 					     modifiers[current_root->parent()][current_root->name.lower()].returnName = result;
+					   }
                                            //cout << "=====> got result " <<  result << endl;
  				       } 
 
@@ -1406,12 +1413,14 @@ void resolveModuleProcedures(QList<Entry> &moduleProcedures, Entry *current_root
   moduleProcedures.clear();
 }
 
+#if 0
 static bool isTypeName(QCString name)
 {
   name = name.lower();
   return name=="integer" || name == "real" || 
-    name=="complex" || name == "logical";
+         name=="complex" || name == "logical";
 }
+#endif
 
 /*! Extracts string which resides within parentheses of provided string. */
 static QCString extractFromParens(const QCString name)
@@ -1903,6 +1912,7 @@ static void addSubprogram(const char *text)
   subrCurrent.prepend(current);
   current->section = Entry::FUNCTION_SEC ;
   QCString subtype = text; subtype=subtype.lower().stripWhiteSpace();
+  functionLine = subtype=="function";
   current->type += " " + subtype;
   current->type = current->type.stripWhiteSpace();
   current->fileName  = yyFileName;

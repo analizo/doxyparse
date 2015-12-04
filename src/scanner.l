@@ -173,6 +173,7 @@ static QCString         idlProp;
 static bool             g_lexInit = FALSE;
 static bool             externC;
 
+static QCString         g_hereDocId;
 
 //-----------------------------------------------------------------------------
 
@@ -211,7 +212,7 @@ static void initEntry()
 {
   if (insideJava) 
   {
-    protection = (current_root->spec & Entry::Interface) ?  Public : Package;
+    protection = (current_root->spec & (Entry::Interface|Entry::Enum)) ?  Public : Package;
   }
   current->protection = protection ;
   current->mtype      = mtype;
@@ -695,6 +696,8 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 %x	CopyArgComment
 %x	CopyArgCommentLine
 %x	CopyArgVerbatim
+%x	HereDoc
+%x	HereDocEnd
 
 %x      IDLAttribute
 %x      IDLProp
@@ -1589,7 +1592,15 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 <FindMembers>{B}*{TYPEDEFPREFIX}{IDLATTR}?"enum"({BN}+("class"|"struct"))?"{" |
 <FindMembers>{B}*{TYPEDEFPREFIX}{IDLATTR}?"enum"({BN}+("class"|"struct"))?{BN}+ { // for IDL: typedef [something] enum
 					  isTypedef=((QCString)yytext).find("typedef")!=-1;
-  					  current->section = Entry::ENUM_SEC ;
+					  if (insideJava)
+					  {
+					    current->section = Entry::CLASS_SEC;
+					    current->spec    = Entry::Enum;
+					  }
+					  else
+					  {
+  					    current->section = Entry::ENUM_SEC ;
+					  }
 					  addType( current ) ;
 					  current->type += " enum" ;
 					  current->fileName  = yyFileName;
@@ -1822,6 +1833,16 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					  else
 					    BEGIN( EndTemplate );
   					}
+<EndTemplate>"<<<"			{
+  					  if (!insidePHP) 
+					  {
+					    REJECT;
+					  }
+					  else
+					  {
+					    BEGIN(HereDoc);
+					  }
+  					}
 <ClassTemplSpec,EndTemplate>"<<"	{
   					  current->name+=yytext;
   					  // *currentTemplateSpec+=yytext; 
@@ -1901,6 +1922,20 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					  else
 					    REJECT;
 					}
+<HereDoc>{ID}				{ // PHP heredoc
+  					  g_hereDocId = yytext;
+					  BEGIN(HereDocEnd);
+  					}
+<HereDoc>"'"{ID}/"'"			{ // PHP nowdoc
+  					  g_hereDocId = &yytext[1];
+  					}
+<HereDocEnd>^{ID}			{ // id at start of the line could mark the end of the block
+  					  if (g_hereDocId==yytext) // it is the end marker
+					  {
+  					    BEGIN(FindMembers);
+					  }
+  					}
+<HereDocEnd>.				{ }
 <FindMembers>"Q_OBJECT"			{ // Qt object macro
   					}
 <FindMembers>"Q_PROPERTY"		{ // Qt property declaration
@@ -2387,7 +2422,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					    }
 					  }
   					}
-<FindMembers,FindFields,ReadInitializer>"//"([!/]?){B}*{CMD}"}".*|"/*"([!*]?){B}*{CMD}"}".*"*/"	{
+<FindMembers,FindFields,ReadInitializer>"//"([!/]?){B}*{CMD}"}".*|"/*"([!*]?){B}*{CMD}"}"[^*]*"*/"	{
   					  closeGroup(current,yyFileName,yyLineNr);
   					}
 <FindMembers>"="			{ // in PHP code this could also be due to "<?="
@@ -2413,7 +2448,19 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
   					}
 <ReadInitializer>[;,]			{
   					  //printf(">> initializer `%s' <<\n",current->initializer.data());
-  					  if (*yytext==';' || lastInitializerContext==FindFields)
+                                          if (*yytext==';' && (current_root->spec&Entry::Enum))
+					  {
+					    current->fileName   = yyFileName;
+					    current->startLine  = yyLineNr;
+  					    current->args       = current->args.simplifyWhiteSpace();
+  					    current->name       = current->name.stripWhiteSpace();
+					    current->section    = Entry::VARIABLE_SEC;
+					    current_root->addSubEntry(current);
+					    current = new Entry;
+					    initEntry();
+					    BEGIN(FindMembers);
+					  }
+					  else if (*yytext==';' || lastInitializerContext==FindFields)
 					  {
   					    unput(*yytext);
   					    BEGIN(lastInitializerContext);
@@ -2824,11 +2871,13 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					  }
 					  if ( *yytext == ',')
 					  {
+					    bool stat = current->stat;
 					    if (needNewCurrent)
 					    {
 					      current = new Entry(*current);
 					      initEntry();
 					    }
+					    current->stat = stat; // the static attribute holds for all variables
 					    current->name.resize(0);
 					    current->args.resize(0);
 					    current->brief.resize(0);
@@ -2851,7 +2900,6 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					    }
 					    initEntry();
 					  }
-					  BEGIN( FindMembers ) ;
 					}
 
 <FindMembers>"["			{ 
@@ -3031,8 +3079,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					      initEntry();
 					    }
 
-					    // TODO: skip until the end of the scope
-					    BEGIN( SkipRemainder );
+					    BEGIN( FindMembers );
 					  }
 					  else
 					  {
@@ -3051,7 +3098,10 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					  {
 					    current->fileName   = yyFileName;
 					    current->startLine  = yyLineNr;
-					    current->type       = "@"; // enum marker
+					    if (!(current_root->spec&Entry::Enum))
+					    {
+					      current->type       = "@"; // enum marker
+					    }
   					    current->args       = current->args.simplifyWhiteSpace();
   					    current->name       = current->name.stripWhiteSpace();
 					    current->section    = Entry::VARIABLE_SEC;
@@ -5537,7 +5587,14 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 
 
 <SkipCxxComment>.*"\\\n"		{  // line continuation
-  					  yyLineNr++; 
+  					  if (insideCS) 
+					  {
+					    REJECT;
+					  }
+					  else 
+					  {
+					    yyLineNr++; 
+					  }
   					}
 <SkipCxxComment>.*/\n			{ 
 					  BEGIN( lastCContext ) ;
@@ -5738,7 +5795,7 @@ static void parseCompounds(Entry *rt)
       inputString = ce->program;
       inputPosition = 0;
       scanYYrestart( scanYYin ) ;
-      if (ce->section==Entry::ENUM_SEC)
+      if (ce->section==Entry::ENUM_SEC || (ce->spec&Entry::Enum))
 	BEGIN( FindFields ) ;
       else
 	BEGIN( FindMembers ) ;
@@ -5764,7 +5821,7 @@ static void parseCompounds(Entry *rt)
 	}
 	else if (insideJava)
 	{
-          current->protection = protection = Package ; 
+          current->protection = protection = (ce->spec & (Entry::Interface|Entry::Enum)) ?  Public : Package;
 	}
 	else if (ce->spec&(Entry::Interface | Entry::Ref | Entry::Value | Entry::Struct | Entry::Union))
 	{

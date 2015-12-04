@@ -1494,6 +1494,7 @@ ClassDef *getResolvedClass(Definition *scope,
   {
     if (!mayBeHidden || !result->isHidden())
     {
+      //printf("result was %s\n",result?result->name().data():"<none>");
       result=0; // don't link to artificial/hidden classes unless explicitly allowed
     }
   }
@@ -1878,6 +1879,7 @@ void linkifyText(const TextGeneratorIntf &out,Definition *scope,
         //printf("   -> nothing\n");
       }
 
+      int m = matchWord.findRev("::");
       QCString scopeName;
       if (scope && 
           (scope->definitionType()==Definition::TypeClass || 
@@ -1887,13 +1889,19 @@ void linkifyText(const TextGeneratorIntf &out,Definition *scope,
       {
         scopeName=scope->name();
       }
+      else if (m!=-1)
+      {
+        scopeName = matchWord.left(m);
+        matchWord = matchWord.mid(m+2);
+      }
+
       //printf("ScopeName=%s\n",scopeName.data());
       //if (!found) printf("Trying to link %s in %s\n",word.data(),scopeName.data()); 
       if (!found && 
           getDefs(scopeName,matchWord,0,md,cd,fd,nd,gd) && 
-          (md->isTypedef() || md->isEnumerate() || 
-           md->isReference() || md->isVariable()
-          ) && 
+          //(md->isTypedef() || md->isEnumerate() || 
+          // md->isReference() || md->isVariable()
+          //) && 
           (external ? md->isLinkable() : md->isLinkableInProject()) 
          )
       {
@@ -1902,6 +1910,7 @@ void linkifyText(const TextGeneratorIntf &out,Definition *scope,
         //                       md->anchor(),word);
         out.writeLink(md->getReference(),md->getOutputFileBase(),
             md->anchor(),word);
+        //printf("found symbol %s\n",matchWord.data());
         found=TRUE;
       }
     }
@@ -4711,7 +4720,8 @@ QCString showFileDefMatches(const FileNameDict *fnDict,const char *n)
 
 //----------------------------------------------------------------------
 
-QCString substituteKeywords(const QCString &s,const char *title)
+QCString substituteKeywords(const QCString &s,const char *title,
+         const char *projName,const char *projNum,const char *projBrief)
 {
   QCString result = s;
   if (title) result = substitute(result,"$title",title);
@@ -4719,9 +4729,9 @@ QCString substituteKeywords(const QCString &s,const char *title)
   result = substitute(result,"$date",dateToString(FALSE));
   result = substitute(result,"$year",yearToString());
   result = substitute(result,"$doxygenversion",versionString);
-  result = substitute(result,"$projectname",Config_getString("PROJECT_NAME"));
-  result = substitute(result,"$projectnumber",Config_getString("PROJECT_NUMBER"));
-  result = substitute(result,"$projectbrief",Config_getString("PROJECT_BRIEF"));
+  result = substitute(result,"$projectname",projName);
+  result = substitute(result,"$projectnumber",projNum);
+  result = substitute(result,"$projectbrief",projBrief);
   result = substitute(result,"$projectlogo",stripPath(Config_getString("PROJECT_LOGO")));
   return result;
 }
@@ -6264,6 +6274,10 @@ g_lang2extMap[] =
   { "python",      "python",  SrcLangExt_Python  },
   { "fortran",     "fortran", SrcLangExt_Fortran },
   { "vhdl",        "vhdl",    SrcLangExt_VHDL    },
+  { "vhd",         "vhd",     SrcLangExt_VHDL    },
+  { "ucf",         "vhd",     SrcLangExt_VHDL    },
+  { "qsf",         "vhd",     SrcLangExt_VHDL    },
+  
   { "dbusxml",     "dbusxml", SrcLangExt_XML     },
   { "tcl",         "tcl",     SrcLangExt_Tcl     },
   { 0,             0,        (SrcLangExt)0       }
@@ -6330,6 +6344,9 @@ void initDefaultExtensionMapping()
   updateLanguageMapping(".vhd",   "vhdl");
   updateLanguageMapping(".vhdl",  "vhdl");
   updateLanguageMapping(".tcl",   "tcl");
+  updateLanguageMapping(".ucf",   "vhdl");
+  updateLanguageMapping(".qsf",   "vhdl");
+
   //updateLanguageMapping(".xml",   "dbusxml");
 }
 
@@ -6355,8 +6372,8 @@ SrcLangExt getLanguageFromFileName(const QCString fileName)
 
 //--------------------------------------------------------------------------
 
-/*! Returns true iff the given name string appears to be a typedef in scope. */
-bool checkIfTypedef(Definition *scope,FileDef *fileScope,const char *n)
+MemberDef *getMemberFromSymbol(Definition *scope,FileDef *fileScope, 
+                                const char *n)
 {
   if (scope==0 ||
       (scope->definitionType()!=Definition::TypeClass &&
@@ -6369,11 +6386,11 @@ bool checkIfTypedef(Definition *scope,FileDef *fileScope,const char *n)
 
   QCString name = n;
   if (name.isEmpty())
-    return FALSE; // no name was given
+    return 0; // no name was given
 
   DefinitionIntf *di = Doxygen::symbolMap->find(name);
   if (di==0)
-    return FALSE; // could not find any matching symbols
+    return 0; // could not find any matching symbols
 
   // mostly copied from getResolvedClassRec()
   QCString explicitScopePart;
@@ -6384,12 +6401,14 @@ bool checkIfTypedef(Definition *scope,FileDef *fileScope,const char *n)
     replaceNamespaceAliases(explicitScopePart,explicitScopePart.length());
     name = name.mid(qualifierIndex+2);
   }
+  //printf("explicitScopePart=%s\n",explicitScopePart.data());
 
   int minDistance = 10000;
   MemberDef *bestMatch = 0;
 
   if (di->definitionType()==DefinitionIntf::TypeSymbolList)
   {
+    //printf("multiple matches!\n");
     // find the closest closest matching definition
     DefinitionListIterator dli(*(DefinitionList*)di);
     Definition *d;
@@ -6403,12 +6422,14 @@ bool checkIfTypedef(Definition *scope,FileDef *fileScope,const char *n)
         {
           minDistance = distance;
           bestMatch = (MemberDef *)d;
+          //printf("new best match %s distance=%d\n",bestMatch->qualifiedName().data(),distance);
         }
       }
     }
   }
   else if (di->definitionType()==Definition::TypeMember)
   {
+    //printf("unique match!\n");
     Definition *d = (Definition *)di;
     g_visitedNamespaces.clear();
     int distance = isAccessibleFromWithExpScope(scope,fileScope,d,explicitScopePart);
@@ -6416,14 +6437,23 @@ bool checkIfTypedef(Definition *scope,FileDef *fileScope,const char *n)
     {
       minDistance = distance;
       bestMatch = (MemberDef *)d;
+      //printf("new best match %s distance=%d\n",bestMatch->qualifiedName().data(),distance);
     }
   }
+  return bestMatch;
+}
+
+/*! Returns true iff the given name string appears to be a typedef in scope. */
+bool checkIfTypedef(Definition *scope,FileDef *fileScope,const char *n)
+{
+  MemberDef *bestMatch = getMemberFromSymbol(scope,fileScope,n);
 
   if (bestMatch && bestMatch->isTypedef())
     return TRUE; // closest matching symbol is a typedef
   else
     return FALSE;
 }
+
 
 int nextUtf8CharPosition(const QCString &utf8Str,int len,int startPos)
 {
@@ -6508,42 +6538,100 @@ QCString parseCommentAsText(const Definition *scope,const MemberDef *md,
 
 static QDict<void> aliasesProcessed;
 
-static QCString replaceAliasArgument(const QCString &aliasValue,int paramNum,
-                                     const QCString &paramValue);
+static QCString expandAliasRec(const QCString s);
 
+struct Marker
+{
+  Marker(int p, int n,int s) : pos(p),number(n),size(s) {}
+  int pos; // position in the string
+  int number; // argument number
+  int size; // size of the marker
+};
+
+/** Replaces the markers in an alias definition \a aliasValue 
+ *  with the corresponding values found in the comma separated argument 
+ *  list \a argList and the returns the result after recursive alias expansion.
+ */
 static QCString replaceAliasArguments(const QCString &aliasValue,const QCString &argList)
 {
-  QCString result = aliasValue;
+  //printf("----- replaceAliasArguments(val=[%s],args=[%s])\n",aliasValue.data(),argList.data());
+
+  // first make a list of arguments from the comma separated argument list
   QList<QCString> args;
-  int p=0,i,c=1,l=(int)argList.length();
-  // first count the number of arguments the command has
-  // (= number of unescaped commas plus 1)
+  args.setAutoDelete(TRUE);
+  int i,l=(int)argList.length();
+  int s=0;
   for (i=0;i<l;i++)
   {
-    if (argList.at(i)==',' && (i==0 || argList.at(i-1)!='\\')) c++;
-  }
-  // next we substitute the \<number> by the argument values, starting
-  // with the last one. This is needed to avoid that \10 is treated as 
-  // a \1 followed by a 0 and already expanded as the first parameter.
-  p = l;
-  for (i=l-1;i>=0;i--)
-  {
-    if (argList.at(i)==',' && (i==0 || argList.at(i-1)!='\\'))
+    if (argList.at(i)==',' && (i==0 || argList.at(i-1)!='\\')) 
     {
-      result = replaceAliasArgument(result,c,argList.mid(i+1,p-i-1));
-      p=i;
-      c--;
+      args.append(new QCString(argList.mid(s,i-s)));
+      s=i+1; // start of next argument
     }
   }
-  // special case for the first argument, whose value is not preceded by a ,
-  if (p>0)
+  if (l>s) args.append(new QCString(argList.right(l-s)));
+  //printf("found %d arguments\n",args.count());
+
+  // next we look for the positions of the markers and add them to a list
+  QList<Marker> markerList;
+  markerList.setAutoDelete(TRUE);
+  l = aliasValue.length();
+  int markerStart=0;
+  int markerEnd=0;
+  for (i=0;i<l;i++)
   {
-    result = replaceAliasArgument(result,c,argList.left(p));
+    if (markerStart==0 && aliasValue.at(i)=='\\') // start of a \xx marker
+    {
+      markerStart=i+1;
+    }
+    else if (markerStart>0 && aliasValue.at(i)>='0' && aliasValue.at(i)<='9')
+    {
+      // read digit that make up the marker number
+      markerEnd=i+1;
+    }
+    else
+    {
+      if (markerStart>0 && markerEnd>markerStart) // end of marker
+      {
+        int markerLen = markerEnd-markerStart;
+        markerList.append(new Marker(markerStart-1, // include backslash
+                    atoi(aliasValue.mid(markerStart,markerLen)),markerLen+1));
+        //printf("found marker at %d with len %d and number %d\n",
+        //    markerStart-1,markerLen+1,atoi(aliasValue.mid(markerStart,markerLen)));
+      }
+      markerStart=0; // outside marker
+      markerEnd=0;
+    }
   }
+
+  // then we replace the markers with the corresponding arguments in one pass
+  QCString result;
+  int p=0;
+  for (i=0;i<(int)markerList.count();i++)
+  {
+    Marker *m = markerList.at(i);
+    result+=aliasValue.mid(p,m->pos-p);
+    //printf("part before marker %d: '%s'\n",i,aliasValue.mid(p,m->pos-p).data());
+    if (m->number>0 && m->number<=(int)args.count()) // valid number
+    {
+      result+=*args.at(m->number-1);
+      //printf("marker index=%d pos=%d number=%d size=%d replacement %s\n",i,m->pos,m->number,m->size,
+      //    args.at(m->number-1)->data());
+    }
+    p=m->pos+m->size; // continue after the marker
+  }
+  result+=aliasValue.right(l-p); // append remainder
+  //printf("string after replacement of markers: '%s'\n",result.data());
+  
+  // expand the result again
+  result = substitute(result,"\\{","{");
+  result = substitute(result,"\\}","}");
+  result = expandAliasRec(substitute(result,"\\,",","));
+
   return result;
 }
 
-QCString expandAliasRec(const QCString s)
+static QCString expandAliasRec(const QCString s)
 {
   QCString result;
   static QRegExp cmdPat("[\\\\@][a-z_A-Z][a-z_A-Z0-9]*");
@@ -6592,39 +6680,6 @@ QCString expandAliasRec(const QCString s)
   result+=value.right(value.length()-p);
 
   //printf("expandAliases '%s'->'%s'\n",s.data(),result.data());
-  return result;
-}
-
-static QCString replaceAliasArgument(const QCString &aliasValue,int paramNum,
-                                     const QCString &paramValue)
-{
-  QCString result;
-  QCString paramMarker;
-  paramMarker.sprintf("\\%d",paramNum);
-  int markerLen = paramMarker.length();
-  int p=0,i;
-  while ((i=aliasValue.find(paramMarker,p))!=-1) // search for marker
-  {
-    result+=aliasValue.mid(p,i-p);
-    //printf("Found marker '%s' at %d len=%d for param '%s' in '%s'\n",
-    //                 paramMarker.data(),i,markerLen,paramValue.data(),aliasValue.data());
-    if (i==0 || aliasValue.at(i-1)!='\\') // found unescaped marker
-    {
-      result += paramValue;
-      p=i+markerLen;
-    }
-    else // ignore escaped markers
-    {
-      result += aliasValue.mid(i,markerLen);
-      p=i+1;
-    }
-  }
-  result+=aliasValue.right(aliasValue.length()-p);
-  result = substitute(result,"\\{","{");
-  result = substitute(result,"\\}","}");
-  result = expandAliasRec(substitute(result,"\\,",","));
-  //printf("replaceAliasArgument('%s',%d,'%s')->%s\n",
-  //    aliasValue.data(),paramNum,paramValue.data(),result.data());
   return result;
 }
 

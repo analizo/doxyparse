@@ -81,6 +81,7 @@
 #include "vhdldocgen.h"
 #include "eclipsehelp.h"
 #include "cite.h"
+#include "filestorage.h"
 
 #include "layout.h"
 
@@ -148,6 +149,7 @@ IndexList        Doxygen::indexList;
 int              Doxygen::subpageNestingLevel = 0;
 bool             Doxygen::userComments = FALSE;
 QCString         Doxygen::spaces;
+bool             Doxygen::generatingXmlOutput = FALSE;
 
 // locally accessible globals
 static QDict<EntryNav>  g_classEntries(1009);
@@ -251,8 +253,11 @@ static STLInfo g_stlinfo[] =
 {
   // className              baseClass1                      baseClass2             templType1     templName1     templType2    templName2     virtInheritance  // iterators
   { "allocator",            0,                              0,                     "T",           "elements",    0,            0,             FALSE,              FALSE },
-  { "auto_ptr",             0,                              0,                     "T",           "ptr",         0,            0,             FALSE,              FALSE },
-  { "ios_base",             0,                              0,                     0,             0,             0,            0,             FALSE,              FALSE },
+  { "auto_ptr",             0,                              0,                     "T",           "ptr",         0,            0,             FALSE,              FALSE }, // deprecated
+  { "smart_ptr",            0,                              0,                     "T",           "ptr",         0,            0,             FALSE,              FALSE }, // C++11
+  { "unique_ptr",           0,                              0,                     "T",           "ptr",         0,            0,             FALSE,              FALSE }, // C++11
+  { "weak_ptr",             0,                              0,                     "T",           "ptr",         0,            0,             FALSE,              FALSE }, // C++11
+  { "ios_base",             0,                              0,                     0,             0,             0,            0,             FALSE,              FALSE }, // C++11
   { "basic_ios",            "ios_base",                     0,                     "Char",        0,             0,            0,             FALSE,              FALSE },
   { "basic_istream",        "basic_ios<Char>",              0,                     "Char",        0,             0,            0,             TRUE,               FALSE },
   { "basic_ostream",        "basic_ios<Char>",              0,                     "Char",        0,             0,            0,             TRUE,               FALSE },
@@ -320,7 +325,7 @@ static void addSTLMember(EntryNav *rootNav,const char *type,const char *name)
   Entry *memEntry = new Entry;
   memEntry->name       = name;
   memEntry->type       = type;
-  memEntry->protection = Private;
+  memEntry->protection = Public;
   memEntry->section    = Entry::VARIABLE_SEC;
   memEntry->brief      = "STL member";
   memEntry->hidden     = FALSE; 
@@ -413,6 +418,22 @@ static void addSTLClasses(EntryNav *rootNav)
     if (info->templName2)
     {
       addSTLMember(classEntryNav,info->templType2,info->templName2);
+    }
+    if (fullName=="std::auto_ptr" || fullName=="std::smart_ptr" ||
+        fullName=="std::unique_ptr" || fullName=="std::weak_ptr")
+    {
+      Entry *memEntry = new Entry;
+      memEntry->name       = "operator->";
+      memEntry->args       = "()";
+      memEntry->type       = "T*";
+      memEntry->protection = Public;
+      memEntry->section    = Entry::FUNCTION_SEC;
+      memEntry->brief      = "STL member";
+      memEntry->hidden     = FALSE; 
+      memEntry->artificial = FALSE;
+      EntryNav *memEntryNav = new EntryNav(classEntryNav,memEntry);
+      memEntryNav->setEntry(memEntry);
+      classEntryNav->addChild(memEntryNav);
     }
     if (info->baseClass1)
     {
@@ -1170,11 +1191,34 @@ static void addClassToContext(EntryNav *rootNav)
       refFileName = rootNav->tagInfo()->fileName;
     }
     cd=new ClassDef(root->fileName,root->startLine,fullName,sec,
-        tagName,refFileName);
+        tagName,refFileName,TRUE,root->spec&Entry::Enum);
     Debug::print(Debug::Classes,0,"  New class `%s' (sec=0x%08x)! #tArgLists=%d\n",
         fullName.data(),root->section,root->tArgLists ? (int)root->tArgLists->count() : -1);
     cd->setDocumentation(root->doc,root->docFile,root->docLine); // copy docs to definition
     cd->setBriefDescription(root->brief,root->briefFile,root->briefLine);
+    cd->setLanguage(root->lang);    
+    cd->setHidden(root->hidden);        
+    cd->setArtificial(root->artificial);        
+    cd->setTypeConstraints(root->typeConstr);   
+    //printf("new ClassDef %s tempArgList=%p specScope=%s\n",fullName.data(),root->tArgList,root->scopeSpec.data());    
+
+    ArgumentList *tArgList =    
+      getTemplateArgumentsFromName(fullName,root->tArgLists);   
+    //printf("class %s template args=%s\n",fullName.data(),     
+    //    tArgList ? tempArgListToString(tArgList).data() : "<none>");          
+    cd->setTemplateArguments(tArgList);         
+    cd->setProtection(root->protection);        
+    cd->setIsStatic(root->stat);        
+
+    // file definition containing the class cd          
+    cd->setBodySegment(root->bodyLine,root->endBodyLine);       
+    cd->setBodyDef(fd);         
+
+    // see if the class is found inside a namespace     
+    //bool found=addNamespace(root,cd);         
+
+    // the empty string test is needed for extract all case     
+    cd->setBriefDescription(root->brief,root->briefFile,root->briefLine);    
     cd->insertUsedFile(root->fileName);
 
     // add class to the list
@@ -1309,10 +1353,10 @@ void distributeClassGroupRelations()
   {
     //printf("Checking %s\n",cd->name().data());
     // distribute the group to nested classes as well
-    if (!cd->visited && cd->partOfGroups()!=0 && cd->getInnerClasses())
+    if (!cd->visited && cd->partOfGroups()!=0 && cd->getClassSDict())
     {
       //printf("  Candidate for merging\n");
-      ClassSDict::Iterator ncli(*cd->getInnerClasses());
+      ClassSDict::Iterator ncli(*cd->getClassSDict());
       ClassDef *ncd;
       GroupDef *gd = cd->partOfGroups()->at(0);
       for (ncli.toFirst();(ncd=ncli.current());++ncli)
@@ -1415,9 +1459,9 @@ static void processTagLessClasses(ClassDef *rootCd,
                                   ClassDef *tagParentCd,
                                   const QCString &prefix,int count)
 {
-  printf("%d: processTagLessClasses %s\n",count,cd->name().data());
+  //printf("%d: processTagLessClasses %s\n",count,cd->name().data());
   //printf("checking members for %s\n",cd->name().data());
-  if (cd->getInnerClasses())
+  if (cd->getClassSDict())
   {
     MemberList *ml = cd->getMemberList(MemberList::pubAttribs);
     if (ml)
@@ -1429,11 +1473,11 @@ static void processTagLessClasses(ClassDef *rootCd,
         QCString type = md->typeString();
         if (type.find("::@")!=-1) // member of tag less struct/union
         {
-          ClassSDict::Iterator it(*cd->getInnerClasses());
+          ClassSDict::Iterator it(*cd->getClassSDict());
           ClassDef *icd;
           for (it.toFirst();(icd=it.current());++it)
           {
-            printf("  member %s: type='%s'\n",md->name().data(),type.data());
+            //printf("  member %s: type='%s'\n",md->name().data(),type.data());
             //printf("  comparing '%s'<->'%s'\n",type.data(),icd->name().data());
             if (type.find(icd->name())!=-1) // matching tag less struct/union
             {
@@ -1477,9 +1521,9 @@ static void processTagLessClasses(ClassDef *rootCd,
 
 static void findTagLessClasses(ClassDef *cd)
 {
-  if (cd->getInnerClasses())
+  if (cd->getClassSDict())
   {
-    ClassSDict::Iterator it(*cd->getInnerClasses());
+    ClassSDict::Iterator it(*cd->getClassSDict());
     ClassDef *icd;
     for (it.toFirst();(icd=it.current());++it)
     {
@@ -5846,15 +5890,15 @@ static void findMember(EntryNav *rootNav,
           if (count==0 && !(isFriend && funcType=="class"))
           {
             int candidates=0;
-            ClassDef *ccd = 0, *ecd = 0;
-            MemberDef *cmd = 0, *emd = 0;
+            ClassDef *ecd = 0, *ucd = 0;
+            MemberDef *emd = 0, *umd = 0;
             if (mn->count()>0)
             {
               //printf("Assume template class\n");
               for (mni.toFirst();(md=mni.current());++mni)
               {
-                ccd=md->getClassDef();
-                cmd=md;
+                ClassDef *ccd=md->getClassDef();
+                MemberDef *cmd=md;
                 //printf("ccd->name()==%s className=%s\n",ccd->name().data(),className.data());
                 if (ccd!=0 && rightScopeMatch(ccd->name(),className)) 
                 {
@@ -5867,8 +5911,19 @@ static void findMember(EntryNav *rootNav,
                   }
                   if (md->argsString()==argListToString(root->argList,TRUE,FALSE))
                   { // exact argument list match -> remember
-                    ecd = ccd;
-                    emd = cmd;
+                    ucd = ecd = ccd;
+                    umd = emd = cmd;
+                    Debug::print(Debug::FindMembers,0,
+                     "7. new candidate className=%s scope=%s args=%s exact match\n",
+                         className.data(),ccd->name().data(),md->argsString());
+                  }
+                  else // arguments do not match, but member name and scope do -> remember
+                  {
+                    ucd = ccd;
+                    umd = cmd;
+                    Debug::print(Debug::FindMembers,0,
+                     "7. new candidate className=%s scope=%s args=%s no match\n",
+                         className.data(),ccd->name().data(),md->argsString());
                   }
                   candidates++;
                 }
@@ -5877,11 +5932,11 @@ static void findMember(EntryNav *rootNav,
             static bool strictProtoMatching = Config_getBool("STRICT_PROTO_MATCHING");
             if (!strictProtoMatching)
             {
-              if (candidates==1 && ccd && cmd)
+              if (candidates==1 && ucd && umd)
               {
                 // we didn't find an actual match on argument lists, but there is only 1 member with this
                 // name in the same scope, so that has to be the one. 
-                addMemberDocs(rootNav,cmd,funcDecl,0,overloaded,0);
+                addMemberDocs(rootNav,umd,funcDecl,0,overloaded,0);
                 return;
               }
               else if (candidates>1 && ecd && emd)
@@ -7602,25 +7657,17 @@ static void generateClassDocs()
     writeInstallScript();
   }
   
-  msg("Generating annotated compound index...\n");
-  writeAnnotatedIndex(*g_outputList);
+  //msg("Generating annotated compound index...\n");
+  //writeAnnotatedIndex(*g_outputList);
 
-  //if (Config_getBool("ALPHABETICAL_INDEX"))
-  //{
-    msg("Generating alphabetical compound index...\n");
-    writeAlphabeticalIndex(*g_outputList);
-  //}
+  //msg("Generating alphabetical compound index...\n");
+  //writeAlphabeticalIndex(*g_outputList);
 
-  msg("Generating hierarchical class index...\n");
-  writeHierarchicalIndex(*g_outputList);
+  //msg("Generating hierarchical class index...\n");
+  //writeHierarchicalIndex(*g_outputList);
 
-  msg("Generating member index...\n");
-  writeClassMemberIndex(*g_outputList);
-
-  if (Doxygen::exampleSDict->count()>0)
-  {
-    msg("Generating example index...\n");
-  }
+  //msg("Generating member index...\n");
+  //writeClassMemberIndex(*g_outputList);
 
   generateClassList(*Doxygen::classSDict);
   generateClassList(*Doxygen::hiddenClasses);
@@ -8492,7 +8539,7 @@ static void generateGroupDocs()
 
 static void generateNamespaceDocs()
 {
-  writeNamespaceIndex(*g_outputList);
+  //writeNamespaceIndex(*g_outputList);
   
   NamespaceSDict::Iterator nli(*Doxygen::namespaceSDict);
   NamespaceDef *nd;
@@ -8549,120 +8596,6 @@ static QCString fixSlashes(QCString &s)
 }
 #endif
 
-
-//----------------------------------------------------------------------------
-// generate files for the search engine
-
-//static void generateSearchIndex()
-//{
-//  if (Config_getBool("SEARCHENGINE") && Config_getBool("GENERATE_HTML"))
-//  {
-//    // create search index
-//    QCString fileName;
-//    writeSearchButton(Config_getString("HTML_OUTPUT"));
-//
-//#if !defined(_WIN32)
-//    // create cgi script
-//    fileName = Config_getString("HTML_OUTPUT")+"/"+Config_getString("CGI_NAME");
-//    QFile f(fileName);
-//    if (f.open(IO_WriteOnly))
-//    {
-//      QTextStream t(&f);
-//      t << "#!/bin/sh"   << endl
-//        << "DOXYSEARCH=" << Config_getString("BIN_ABSPATH") << "/doxysearch" << endl
-//        << "DOXYPATH=\"" << Config_getString("DOC_ABSPATH") << " ";
-//
-//      QStrList &extDocPaths=Config_getList("EXT_DOC_PATHS");
-//      char *s= extDocPaths.first();
-//      while (s)
-//      {
-//        t << s << " ";
-//        s=extDocPaths.next();
-//      }
-//
-//      t << "\"" << endl 
-//        << "if [ -f $DOXYSEARCH ]" << endl
-//        << "then" << endl
-//        << "  $DOXYSEARCH $DOXYPATH" << endl 
-//        << "else" << endl
-//        << "  echo \"Content-Type: text/html\"" << endl
-//        << "  echo \"\"" << endl
-//        << "  echo \"<h2>error: $DOXYSEARCH not found. Check cgi script!</h2>\"" << endl
-//        << "fi" << endl;
-//
-//      f.close();
-//      struct stat stat_struct;
-//      stat(fileName,&stat_struct);
-//      chmod(fileName,stat_struct.st_mode|S_IXUSR|S_IXGRP|S_IXOTH);
-//    }
-//    else
-//    {
-//      err("error: Cannot open file %s for writing\n",fileName.data());
-//    }
-//#else /* Windows platform */
-//    // create cgi program
-//    fileName = Config_getString("CGI_NAME").copy();
-//    if (fileName.right(4)==".cgi") 
-//      fileName=fileName.left(fileName.length()-4);
-//    fileName+=".c";
-//    fileName.prepend(Config_getString("HTML_OUTPUT")+"/");
-//    QFile f(fileName);
-//    if (f.open(IO_WriteOnly))
-//    {
-//      QTextStream t(&f);
-//      t << "#include <stdio.h>" << endl;
-//      t << "#include <stdlib.h>" << endl;
-//      t << "#include <process.h>" << endl;
-//      t << endl;
-//      t << "const char *DOXYSEARCH = \"" << 
-//           fixSlashes(Config_getString("BIN_ABSPATH")) << "\\\\doxysearch.exe\";" << endl;
-//      t << "const char *DOXYPATH = \"" << 
-//           fixSlashes(Config_getString("DOC_ABSPATH")) << "\";" << endl;
-//      t << endl;
-//      t << "int main(void)" << endl;
-//      t << "{" << endl;
-//      t << "  char buf[1024];" << endl;
-//      t << "  sprintf(buf,\"%s %s\",DOXYSEARCH,DOXYPATH);" << endl; 
-//      t << "  if (system(buf))" << endl;
-//      t << "  {" << endl;
-//      t << "    printf(\"Content-Type: text/html\\n\\n\");" << endl;
-//      t << "    printf(\"<h2>error: failed to execute %s</h2>\\n\",DOXYSEARCH);" << endl;
-//      t << "    exit(1);" << endl;
-//      t << "  }" << endl;
-//      t << "  return 0;" << endl;
-//      t << "}" << endl;
-//      f.close();
-//    }
-//    else
-//    {
-//      err("error: Cannot open file %s for writing\n",fileName.data());
-//    }
-//#endif /* !defined(_WIN32) */
-//    
-//    // create config file
-//    fileName = Config_getString("HTML_OUTPUT")+"/search.cfg";
-//    f.setName(fileName);
-//    if (f.open(IO_WriteOnly))
-//    {
-//      QTextStream t(&f);
-//      t << Config_getString("DOC_URL") << "/" << endl 
-//        << Config_getString("CGI_URL") << "/" << Config_getString("CGI_NAME") << endl;
-//      f.close();
-//    }
-//    else
-//    {
-//      err("error: Cannot open file %s for writing\n",fileName.data());
-//    }
-//    //g_outputList->generateExternalIndex();
-//    g_outputList->pushGeneratorState();
-//    g_outputList->disableAllBut(OutputGenerator::Html);
-//    startFile(*g_outputList,"header"+Doxygen::htmlFileExtension,0,"Search Engine",TRUE);
-//    g_outputList->endPlainFile();
-//    g_outputList->startPlainFile("footer"+Doxygen::htmlFileExtension);
-//    endFile(*g_outputList,TRUE);
-//    g_outputList->popGeneratorState();
-//  }
-//}
 
 //----------------------------------------------------------------------------
 
@@ -8900,6 +8833,7 @@ static void parseFiles(Entry *root,EntryNav *rootNav)
     bool ambig;
     FileDef *fd=findFileDef(Doxygen::inputNameDict,fileName,ambig);
     ASSERT(fd!=0);
+    //printf("root->createNavigationIndex for %s\n",fd->name().data());
     root->createNavigationIndex(rootNav,g_storage,fd);
 
     s=g_inputFiles.next();
@@ -10168,7 +10102,8 @@ void parseInput()
   if (cacheSize<0) cacheSize=0;
   if (cacheSize>9) cacheSize=9;
   Doxygen::symbolCache   = new ObjCache(16+cacheSize); // 16 -> room for 65536 elements, 
-                                                //       ~2.0 MByte "overhead"
+                                                       //       ~2.0 MByte "overhead"
+  //Doxygen::symbolCache   = new ObjCache(1);  // only to stress test cache behaviour
   Doxygen::symbolStorage = new Store;
 
 #ifdef HAS_SIGNALS
@@ -10331,15 +10266,6 @@ void parseInput()
    *             Parse source files                                         * 
    **************************************************************************/
 
-  parseFiles(root,rootNav);
-  g_storage->close();
-  if (!g_storage->open(IO_ReadOnly))
-  {
-    err("Failed to open temporary storage file %s for reading",
-        Doxygen::entryDBFileName.data());
-    exit(1);
-  }
-
   //printNavTree(rootNav,0);
 
   // we are done with input scanning now, so free up the buffers used by flex
@@ -10352,6 +10278,20 @@ void parseInput()
   //g_storage.close();
   //exit(1);
 
+  if (Config_getBool("BUILTIN_STL_SUPPORT"))
+  {
+    addSTLClasses(rootNav);
+  }
+
+  parseFiles(root,rootNav);
+  g_storage->close();
+  if (!g_storage->open(IO_ReadOnly))
+  {
+    err("Failed to open temporary storage file %s for reading",
+        Doxygen::entryDBFileName.data());
+    exit(1);
+  }
+
   /**************************************************************************
    *             Gather information                                         * 
    **************************************************************************/
@@ -10363,11 +10303,6 @@ void parseInput()
   msg("Building directory list...\n");
   buildDirectories();
   findDirDocumentation(rootNav);
-
-  if (Config_getBool("BUILTIN_STL_SUPPORT"))
-  {
-    addSTLClasses(rootNav);
-  }
 
   msg("Building namespace list...\n");
   buildNamespaceList(rootNav);
@@ -10452,7 +10387,7 @@ void parseInput()
   computeTemplateClassRelations(); 
   flushUnresolvedRelations();
   computeClassRelations();        
-  VhdlDocGen::computeVhdlComponentRelations();
+  //VhdlDocGen::computeVhdlComponentRelations(); // @MARTIN: removed because it breaks non-vhdl code
   g_classEntries.clear();          
 
   msg("Add enum values to enums...\n");
@@ -10543,8 +10478,8 @@ void parseInput()
     computeDirDependencies();
   }
 
-  msg("Resolving citations...\n");
-  Doxygen::citeDict->resolve();
+  //msg("Resolving citations...\n");
+  //Doxygen::citeDict->resolve();
 
   msg("Generating citations page...\n");
   Doxygen::citeDict->generatePage();
@@ -10723,11 +10658,11 @@ void generateOutput()
   // count the number of documented elements in the lists we have built. 
   // If the result is 0 we do not generate the lists and omit the 
   // corresponding links in the index.
-  msg("Generating index page...\n"); 
-  writeIndex(*g_outputList);
+  //msg("Generating index page...\n"); 
+  //writeIndex(*g_outputList);
 
-  msg("Generating page index...\n");
-  writePageIndex(*g_outputList);
+  //msg("Generating page index...\n");
+  //writePageIndex(*g_outputList);
   
   msg("Generating example documentation...\n");
   generateExampleDocs();
@@ -10747,23 +10682,23 @@ void generateOutput()
   msg("Generating group documentation...\n");
   generateGroupDocs();
 
-  msg("Generating group index...\n");
-  writeGroupIndex(*g_outputList);
+  //msg("Generating group index...\n");
+  //writeGroupIndex(*g_outputList);
  
   msg("Generating class documentation...\n");
   generateClassDocs();
   
-  if (Config_getBool("HAVE_DOT") && Config_getBool("GRAPHICAL_HIERARCHY"))
-  {
-    msg("Generating graphical class hierarchy...\n");
-    writeGraphicalClassHierarchy(*g_outputList);
-  }
+  //if (Config_getBool("HAVE_DOT") && Config_getBool("GRAPHICAL_HIERARCHY"))
+  //{
+  //  msg("Generating graphical class hierarchy...\n");
+  //  writeGraphicalClassHierarchy(*g_outputList);
+  //}
 
   msg("Generating namespace index...\n");
   generateNamespaceDocs();
   
-  msg("Generating namespace member index...\n");
-  writeNamespaceMemberIndex(*g_outputList);
+  //msg("Generating namespace member index...\n");
+  //writeNamespaceMemberIndex(*g_outputList);
 
   if (Config_getBool("GENERATE_LEGEND"))
   {
@@ -10777,20 +10712,20 @@ void generateOutput()
     generateDirDocs(*g_outputList);
   }
 
-  msg("Generating file index...\n");
-  writeFileIndex(*g_outputList);
+  //msg("Generating file index...\n");
+  //writeFileIndex(*g_outputList);
  
-  if (Config_getBool("SHOW_DIRECTORIES"))
-  {
-    msg("Generating directory index...\n");
-    writeDirIndex(*g_outputList);
-  }
+  //if (Config_getBool("SHOW_DIRECTORIES"))
+  //{
+  //  msg("Generating directory index...\n");
+  //  writeDirIndex(*g_outputList);
+  //}
 
-  msg("Generating example index...\n");
-  writeExampleIndex(*g_outputList);
+  //msg("Generating example index...\n");
+  //writeExampleIndex(*g_outputList);
   
-  msg("Generating file member index...\n");
-  writeFileMemberIndex(*g_outputList);
+  //msg("Generating file member index...\n");
+  //writeFileMemberIndex(*g_outputList);
 
   
   //writeDirDependencyGraph(Config_getString("HTML_OUTPUT"));
@@ -10810,6 +10745,8 @@ void generateOutput()
   //{
   //  FTVHelp::getInstance()->finalize();
   //}
+
+  writeIndexHierarchy(*g_outputList);
 
   msg("finalizing index lists...\n");
   Doxygen::indexList.finalize();
@@ -10833,7 +10770,9 @@ void generateOutput()
   if (Config_getBool("GENERATE_XML"))
   {
     msg("Generating XML output...\n");
+    Doxygen::generatingXmlOutput=TRUE;
     generateXML();
+    Doxygen::generatingXmlOutput=FALSE;
   }
   if (Config_getBool("GENERATE_AUTOGEN_DEF"))
   {

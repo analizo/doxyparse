@@ -175,8 +175,14 @@ class ClassDefImpl
     /** Is this a simple (non-nested) C structure? */
     bool isSimple;
 
+    /** Does this class overloaded the -> operator? */
+    MemberDef *arrowOperator;
+
     ClassList *taggedInnerClasses;
     ClassDef *tagLessRef;
+
+    /** Does this class represent a Java style enum? */
+    bool isJavaEnum;
 };
 
 void ClassDefImpl::init(const char *defFileName, const char *name,
@@ -217,6 +223,7 @@ void ClassDefImpl::init(const char *defFileName, const char *name,
   categoryOf = 0;
   usedOnly = FALSE;
   isSimple = Config_getBool("INLINE_SIMPLE_STRUCTS");
+  arrowOperator = 0;
   taggedInnerClasses = 0;
   tagLessRef = 0;
   //QCString ns;
@@ -266,13 +273,14 @@ ClassDef::ClassDef(
     const char *defFileName,int defLine,
     const char *nm,CompoundType ct,
     const char *lref,const char *fName,
-    bool isSymbol) 
+    bool isSymbol,bool isJavaEnum) 
  : Definition(defFileName,defLine,removeRedundantWhiteSpace(nm),0,0,isSymbol) 
 {
   visited=FALSE;
   setReference(lref);
   m_impl = new ClassDefImpl;
   m_impl->compType = ct;
+  m_impl->isJavaEnum = isJavaEnum;
   m_impl->init(defFileName,name(),compoundTypeString(),fName);
 }
 
@@ -634,6 +642,11 @@ void ClassDef::internalInsertMember(MemberDef *md,
   if (md->virtualness()==Pure)
   {
     m_impl->isAbstract=TRUE;
+  }
+
+  if (md->name()=="operator->")
+  {
+    m_impl->arrowOperator=md;
   }
 
   //::addClassMemberNameToIndex(md);
@@ -1005,6 +1018,13 @@ void ClassDef::showUsedFiles(OutputList &ol)
     ol.parseText(theTranslator->trGeneratedFromFilesFortran(
           getLanguage()==SrcLangExt_ObjC && m_impl->compType==Interface ? Class : m_impl->compType,
           m_impl->files.count()==1));
+  }
+  else if (isJavaEnum())
+  {
+    // TODO: TRANSLATE ME
+    QCString s;
+    if (m_impl->files.count()!=1) s="s";
+    ol.parseText("The documentation for this enum was generated from the following file"+s+":");
   }
   else
   {
@@ -1765,7 +1785,7 @@ void ClassDef::writeDeclarationLink(OutputList &ol,bool &found,const char *heade
     {
       ol.writeString(" ");
       ol.insertMemberAlign();
-      VhdlDocGen::writeClassType(this,ol,cname);
+      ol.writeString(VhdlDocGen::getProtectionName((VhdlDocGen::VhdlClasses)protection()));
     }
     ol.endMemberItem();
 
@@ -1930,6 +1950,11 @@ void ClassDef::writeDocumentation(OutputList &ol)
     // TODO: TRANSLATE ME
     pageTitle = VhdlDocGen::getClassTitle(this)+" Reference";
   }
+  else if (isJavaEnum())
+  {
+    // TODO: TRANSLATE ME
+    pageTitle = displayName()+" Enum Reference";
+  }
   else
   {
     pageTitle = theTranslator->trCompoundReference(displayName(),
@@ -1953,12 +1978,7 @@ void ClassDef::writeDocumentation(OutputList &ol)
   endTitle(ol,getOutputFileBase(),displayName());
   writeDocumentationContents(ol,pageTitle);
     
-  if (generateTreeView)
-  {
-    writeNavigationPath(ol);
-  }
- 
-  endFile(ol,TRUE);
+  endFileWithNavPath(this,ol);
 
   if (Config_getBool("SEPARATE_MEMBER_PAGES"))
   {
@@ -2023,7 +2043,7 @@ void ClassDef::writeQuickMemberLinks(OutputList &ol,MemberDef *currentMd) const
             if (createSubDirs) ol.writeString("../../");
             ol.writeString(md->getOutputFileBase()+Doxygen::htmlFileExtension+"#"+md->anchor());
             ol.writeString("\">");
-            ol.writeString(md->name());
+            ol.writeString(convertToHtml(md->name()));
             ol.writeString("</a>");
           }
           ol.writeString("</td></tr>\n");
@@ -2080,7 +2100,7 @@ void ClassDef::writeMemberList(OutputList &ol)
   {
     if (getOuterScope()!=Doxygen::globalScope)
     {
-      writeNavigationPath(ol);
+      writeNavigationPath(ol,FALSE);
     }
     ol.endQuickIndices();
   }
@@ -3144,7 +3164,6 @@ void ClassDef::determineIntfUsageRelation()
 
 QCString ClassDef::compoundTypeString() const
 {
-  if (m_impl->compType==Interface && getLanguage()==SrcLangExt_ObjC) return "class";
   if (getLanguage()==SrcLangExt_Fortran)
   {
     switch (m_impl->compType)
@@ -3163,10 +3182,10 @@ QCString ClassDef::compoundTypeString() const
   {
     switch (m_impl->compType)
     {
-      case Class:     return "class";
+      case Class:     return isJavaEnum() ? "enum" : "class";
       case Struct:    return "struct";
       case Union:     return "union";
-      case Interface: return "interface";
+      case Interface: return getLanguage()==SrcLangExt_ObjC ? "class" : "interface";
       case Protocol:  return "protocol";
       case Category:  return "category";
       case Exception: return "exception";
@@ -3175,8 +3194,35 @@ QCString ClassDef::compoundTypeString() const
   }
 }
 
-QCString ClassDef::getXmlOutputFileBase() const
-{
+QCString ClassDef::getOutputFileBase() const 
+{ 
+  if (!Doxygen::generatingXmlOutput)
+  {
+    static bool inlineGroupedClasses = Config_getBool("INLINE_GROUPED_CLASSES");
+    static bool inlineSimpleClasses = Config_getBool("INLINE_SIMPLE_STRUCTS");
+    Definition *scope=0;
+    if (inlineGroupedClasses && partOfGroups()!=0)
+    {
+      // point to the group that embeds this class
+      return partOfGroups()->at(0)->getOutputFileBase();
+    }
+    else if (inlineSimpleClasses && m_impl->isSimple && partOfGroups()!=0)
+    {
+      // point to simple struct inside a group
+      return partOfGroups()->at(0)->getOutputFileBase();
+    }
+    else if (inlineSimpleClasses && m_impl->isSimple && (scope=getOuterScope()))
+    {
+      if (scope==Doxygen::globalScope && getFileDef() && getFileDef()->isLinkableInProject()) // simple struct embedded in file
+      {
+        return getFileDef()->getOutputFileBase();
+      }
+      else if (scope->isLinkableInProject()) // simple struct embedded in other container (namespace/group/class)
+      {
+        return getOuterScope()->getOutputFileBase();
+      }
+    }
+  }
   if (m_impl->templateMaster)
   {
     // point to the template of which this class is an instance
@@ -3191,43 +3237,6 @@ QCString ClassDef::getXmlOutputFileBase() const
   {
     // normal locally defined class
     return convertNameToFile(m_impl->fileName); 
-  }
-}
-
-QCString ClassDef::getOutputFileBase() const 
-{ 
-  static bool inlineGroupedClasses = Config_getBool("INLINE_GROUPED_CLASSES");
-  static bool inlineSimpleClasses = Config_getBool("INLINE_SIMPLE_STRUCTS");
-  Definition *scope=0;
-  if (inlineGroupedClasses && partOfGroups()!=0)
-  {
-    // point to the group that embeds this class
-    return partOfGroups()->at(0)->getOutputFileBase();
-  }
-  else if (inlineSimpleClasses && m_impl->isSimple && partOfGroups()!=0)
-  {
-    // point to simple struct inside a group
-    return partOfGroups()->at(0)->getOutputFileBase();
-  }
-  else if (inlineSimpleClasses && m_impl->isSimple && (scope=getOuterScope()) && 
-            (
-              (scope==Doxygen::globalScope && getFileDef() && getFileDef()->isLinkableInProject()) || 
-              scope->isLinkableInProject()
-            )
-          )
-  {
-    if (scope==Doxygen::globalScope) // simple struct embedded in file
-    {
-      return getFileDef()->getOutputFileBase();
-    }
-    else // simple struct embedded in other container (namespace/group/class)
-    {
-      return getOuterScope()->getOutputFileBase();
-    }
-  }
-  else
-  {
-    return getXmlOutputFileBase();
   }
 }
 
@@ -3715,7 +3724,7 @@ void ClassDef::writeMemberDeclarations(OutputList &ol,MemberList::ListType lt,co
   {
     if (getLanguage()==SrcLangExt_VHDL) // use specific declarations function
     {
-      VhdlDocGen::writeVhdlDeclarations(ml,ol,0,this,0);
+      VhdlDocGen::writeVhdlDeclarations(ml,ol,0,this,0,0);
     }
     else // use generic declaration function
     {
@@ -3754,7 +3763,7 @@ bool ClassDef::isLocal() const
   return m_impl->isLocal; 
 }
 
-ClassSDict *ClassDef::getInnerClasses() 
+ClassSDict *ClassDef::getClassSDict() 
 { 
   return m_impl->innerClasses; 
 }
@@ -3929,6 +3938,11 @@ bool ClassDef::isSimple() const
   return m_impl->isSimple;
 }
 
+MemberDef *ClassDef::isSmartPointer() const
+{
+  return m_impl->arrowOperator;
+}
+
 void ClassDef::reclassifyMember(MemberDef *md,MemberDef::MemberType t)
 {
   md->setMemberType(t);
@@ -3944,7 +3958,7 @@ void ClassDef::reclassifyMember(MemberDef *md,MemberDef::MemberType t)
 QCString ClassDef::anchor() const
 {
   QCString anc;
-  if (isEmbeddedInOuterScope())
+  if (isEmbeddedInOuterScope() && !Doxygen::generatingXmlOutput)
   {
     if (m_impl->templateMaster)
     {
@@ -4029,3 +4043,7 @@ void ClassDef::removeMemberFromLists(MemberDef *md)
   }
 }
 
+bool ClassDef::isJavaEnum() const
+{
+  return m_impl->isJavaEnum;
+}
