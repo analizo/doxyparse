@@ -23,6 +23,7 @@
 #include "doxygen.h"
 #include "outputgen.h"
 #include "parserintf.h"
+#include "filedef.h"
 #include <string>
 #include <cstdlib>
 #include <sstream>
