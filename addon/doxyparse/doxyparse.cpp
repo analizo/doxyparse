@@ -23,7 +23,14 @@
 #include "doxygen.h"
 #include "outputgen.h"
 #include "parserintf.h"
+#include "classlist.h"
+#include "config.h"
 #include "filedef.h"
+#include "util.h"
+#include "filename.h"
+#include "arguments.h"
+#include "memberlist.h"
+#include "types.h"
 #include <string>
 #include <cstdlib>
 #include <sstream>
@@ -46,6 +53,12 @@ class Doxyparse : public CodeOutputInterface
     void endFontClass() {}
     void writeCodeAnchor(const char *) {}
     void writeLineNumber(const char *,const char *,const char *,int) {}
+    virtual void writeTooltip(const char *,const DocLinkInfo &,
+                              const char *,const char *,const SourceLinkInfo &,
+                              const SourceLinkInfo &) {}
+    void startCodeLine(bool) {}
+    void setCurrentDoc(Definition *,const char *,bool) {}
+    void addWord(const char *,bool) {}
 
     void linkableSymbol(int l, const char *sym, Definition *symDef, Definition *context)
     {
@@ -68,6 +81,9 @@ static void findXRefSymbols(FileDef *fd)
   // get the interface to a parser that matches the file extension
   ParserInterface *pIntf=Doxygen::parserManager->getParser(fd->getDefFileExtension());
 
+  // get the programming language from the file name
+  SrcLangExt lang = getLanguageFromFileName(fd->name());
+
   // reset the parsers state
   pIntf->resetCodeParserState();
 
@@ -75,7 +91,7 @@ static void findXRefSymbols(FileDef *fd)
   Doxyparse *parse = new Doxyparse(fd);
 
   // parse the source code
-  pIntf->parseCode(*parse, 0, fileToString(fd->absFilePath()), FALSE, 0, fd);
+  pIntf->parseCode(*parse, 0, fileToString(fd->absFilePath()), lang, FALSE, 0, fd);
 
   // dismiss the object.
   delete parse;
@@ -100,7 +116,7 @@ static bool ignoreStaticExternalCall(MemberDef *context, MemberDef *md) {
 }
 
 void printArgumentList(MemberDef* md) {
-  ArgumentList * argList = md->argumentList().pointer();
+  ArgumentList *argList = md->argumentList();
   ArgumentListIterator iterator(*argList);
 
   printf("(");
@@ -197,7 +213,7 @@ void printNumberOfLines(MemberDef* md) {
 }
 
 void printNumberOfArguments(MemberDef* md) {
-  ArgumentList* argList = md->argumentList().pointer();
+  ArgumentList *argList = md->argumentList();
   printf("      %d parameters\n", argList->count());
 }
 
@@ -245,7 +261,7 @@ static void printInheritance(ClassDef* cd) {
 }
 
 void printCModule(ClassDef* cd) {
-  MemberList* ml = cd->getMemberList(MemberList::variableMembers);
+  MemberList* ml = cd->getMemberList(MemberListType_variableMembers);
   if (ml) {
     MemberListIterator mli(*ml);
     MemberDef* md;
@@ -258,11 +274,11 @@ void printCModule(ClassDef* cd) {
 
 void listAllMembers(ClassDef* cd) {
   // methods
-  listMembers(cd->getMemberList(MemberList::functionMembers));
+  listMembers(cd->getMemberList(MemberListType_functionMembers));
   // constructors
-  listMembers(cd->getMemberList(MemberList::constructors));
+  listMembers(cd->getMemberList(MemberListType_constructors));
   // attributes
-  listMembers(cd->getMemberList(MemberList::variableMembers));
+  listMembers(cd->getMemberList(MemberListType_variableMembers));
 }
 
 void printClassInformation(ClassDef* cd) {
@@ -284,7 +300,7 @@ static void printClass(ClassDef* cd) {
 
 static void printFile(FileDef* fd) {
   printf("file %s\n", fd->absFilePath().data());
-  MemberList *ml = fd->getMemberList(MemberList::allMembersList);
+  MemberList *ml = fd->getMemberList(MemberListType_allMembersList);
   if (ml && ml->count() > 0) {
     printf("module %s\n", fd->getFileBase().data());
     listMembers(ml);
