@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -42,6 +42,7 @@
 #include "language.h"
 #include "commentscan.h"
 #include "code.h"
+#include "arguments.h"
 
 #define YY_NEVER_INTERACTIVE 1
 
@@ -69,6 +70,8 @@ static int              lastPreLineCtrlContext;
 static int              lastSkipVerbStringContext;
 static int              lastCommentInArgContext;
 static int              lastCSConstraint;
+static int              lastHereDocContext;
+static int              lastDefineContext;
 static Protection	protection;
 static Protection	baseProt;
 static int		sharpCount   = 0 ;
@@ -138,6 +141,7 @@ static QCString         *pCopyCurlyString;
 static QGString         *pCopyCurlyGString;
 static QGString         *pCopyRoundGString;
 static QGString         *pCopyQuotedGString;
+static QGString         *pCopyHereDocGString;
 static QGString         *pSkipVerbString;
 static QStack<Grouping> autoGroupStack;
 
@@ -569,7 +573,7 @@ ID        "$"?[a-z_A-Z\x80-\xFF][a-z_A-Z0-9\x80-\xFF]*
 SCOPEID   {ID}({ID}*{BN}*"::"{BN}*)*({ID}?)
 SCOPENAME "$"?(({ID}?{BN}*"::"{BN}*)*)(((~|!){BN}*)?{ID})
 PHPSCOPENAME ({ID}"\\")+{ID}
-TSCOPE    {ID}("<"[a-z_A-Z0-9 \t\*\&,]*">")?
+TSCOPE    {ID}("<"[a-z_A-Z0-9 \t\*\&,:]*">")?
 CSSCOPENAME (({ID}?{BN}*"."{BN}*)*)((~{BN}*)?{ID})
 PRE       [pP][rR][eE]
 CODE      [cC][oO][dD][eE]
@@ -698,6 +702,8 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 %x	CopyArgVerbatim
 %x	HereDoc
 %x	HereDocEnd
+%x	CopyHereDoc
+%x	CopyHereDocEnd
 
 %x      IDLAttribute
 %x      IDLProp
@@ -1136,7 +1142,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
                                           unput('{');
   					  BEGIN( Function );
   					}
-<FindMembers>{BN}{1,80}			{
+<FindMembers>{BN}{1,80}		        {
   					  lineCount();
   					}
 <FindMembers>"@"({ID}".")*{ID}{BN}*"("	{
@@ -1809,6 +1815,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					  current->name=n.left(n.length()-2);
 					}
 <FindMembers>{SCOPENAME}{BN}*/"<"	{ // Note: this could be a return type!
+                                          roundCount=0;
   					  sharpCount=0;
 					  lineCount();
 					  addType( current );
@@ -1833,13 +1840,14 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					  else
 					    BEGIN( EndTemplate );
   					}
-<EndTemplate>"<<<"			{
+<EndTemplate>"<<<"	                {
   					  if (!insidePHP) 
 					  {
 					    REJECT;
 					  }
 					  else
 					  {
+                                            lastHereDocContext = YY_START;
 					    BEGIN(HereDoc);
 					  }
   					}
@@ -1922,20 +1930,44 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					  else
 					    REJECT;
 					}
+<CopyHereDoc>{ID}                       { // PHP heredoc
+  					  g_hereDocId = yytext;
+                                          *pCopyHereDocGString += yytext;
+					  BEGIN(CopyHereDocEnd);
+                                        }
+<CopyHereDoc>"'"{ID}/"'"		{ // PHP nowdoc
+  					  g_hereDocId = &yytext[1];
+                                          *pCopyHereDocGString += yytext;
+					  BEGIN(CopyHereDocEnd);
+                                        }
 <HereDoc>{ID}				{ // PHP heredoc
   					  g_hereDocId = yytext;
 					  BEGIN(HereDocEnd);
   					}
 <HereDoc>"'"{ID}/"'"			{ // PHP nowdoc
   					  g_hereDocId = &yytext[1];
+					  BEGIN(HereDocEnd);
   					}
 <HereDocEnd>^{ID}			{ // id at start of the line could mark the end of the block
   					  if (g_hereDocId==yytext) // it is the end marker
 					  {
-  					    BEGIN(FindMembers);
+  					    BEGIN(lastHereDocContext);
 					  }
   					}
 <HereDocEnd>.				{ }
+<CopyHereDocEnd>^{ID}			{ // id at start of the line could mark the end of the block
+                                          *pCopyHereDocGString += yytext;
+  					  if (g_hereDocId==yytext) // it is the end marker
+					  {
+  					    BEGIN(lastHereDocContext);
+					  }
+  					}
+<CopyHereDocEnd>\n			{ 
+                                          *pCopyHereDocGString += yytext;
+                                        }
+<CopyHereDocEnd>.			{ 
+                                          *pCopyHereDocGString += yytext;
+                                        }
 <FindMembers>"Q_OBJECT"			{ // Qt object macro
   					}
 <FindMembers>"Q_PROPERTY"		{ // Qt property declaration
@@ -2051,6 +2083,10 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					    {
 					      current->protection = Protected;
 					    }
+					    else if (javaLike && strcmp(yytext,"internal")==0)
+					    {
+					      current->protection = Package;
+					    }
 					    else if (javaLike && strcmp(yytext,"private")==0)
 					    {
 					      current->protection = Private;
@@ -2161,6 +2197,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
   					  if (insidePHP)
 					    REJECT;
   					  current->bodyLine = yyLineNr;
+                                          lastDefineContext = YY_START;
   					  BEGIN( Define );
   					}
 <FindMembers,ReadBody,ReadNSBody,ReadBodyIntf,SkipCurly,SkipCurlyCpp>{B}*"#"{B}+[0-9]+{B}+/"\""	{ /* line control directive */
@@ -2245,7 +2282,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					  current_root->addSubEntry(current);
 					  current             = new Entry ;
 					  initEntry();
-					  BEGIN(FindMembers);
+					  BEGIN(lastDefineContext);
   					}
 <DefinePHPEnd>";"			{
   					  //printf("End define\n");
@@ -2460,7 +2497,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					    initEntry();
 					    BEGIN(FindMembers);
 					  }
-					  else if (*yytext==';' || lastInitializerContext==FindFields)
+					  else if (*yytext==';' || (lastInitializerContext==FindFields && initBracketCount==0)) // initBracketCount==0 was added for bug 665778
 					  {
   					    unput(*yytext);
   					    BEGIN(lastInitializerContext);
@@ -3130,7 +3167,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
   /*
 <FindFieldArg>","			{ unput(*yytext); BEGIN(FindFields); }
   */
-<ReadBody,ReadNSBody,ReadBodyIntf>[^\r\n\#{}"@'/]*	{ current->program += yytext ; }
+<ReadBody,ReadNSBody,ReadBodyIntf>[^\r\n\#{}"@'/<]*	{ current->program += yytext ; }
 <ReadBody,ReadNSBody,ReadBodyIntf>"//".*		{ current->program += yytext ; }
 <ReadBody,ReadNSBody,ReadBodyIntf>"#".*	{ if (!insidePHP) 
 					    REJECT;
@@ -3141,6 +3178,18 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
                                           pSkipVerbString = &current->program;
                                           lastSkipVerbStringContext=YY_START;
                                           BEGIN( SkipVerbString );
+					}
+<ReadBody,ReadNSBody,ReadBodyIntf>"<<<"	{ if (insidePHP)
+                                          {
+                                            current->program += yytext ; 
+                                            pCopyHereDocGString = &current->program;
+                                            lastHereDocContext=YY_START;
+                                            BEGIN( CopyHereDoc );
+                                          }
+                                          else
+                                          {
+                                            REJECT;
+                                          }
 					}
 <ReadBody,ReadNSBody,ReadBodyIntf>\"	{ current->program += yytext ; 
                                           pCopyQuotedGString = &current->program;
@@ -3504,7 +3553,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
   */
 <MemberSpecSkip>","			{ BEGIN(MemberSpec); }
 <MemberSpecSkip>";"		        { unput(';'); BEGIN(MemberSpec); }
-<ReadBody,ReadNSBody,ReadBodyIntf>{BN}+	{ current->program += yytext ;
+<ReadBody,ReadNSBody,ReadBodyIntf>{BN}{1,80} { current->program += yytext ;
 					  lineCount() ;
 					}
 <ReadBodyIntf>"@end"/[^a-z_A-Z0-9]	{ // end of Objective C block
@@ -4470,7 +4519,18 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
   					  yyLineNr++;
   				          //addToBody(yytext);
   					}
-<SkipCurly,SkipCurlyCpp>[^\n#"'@\\/{}]+	{
+<SkipCurly,SkipCurlyCpp>"<<<"	        {
+  					  if (!insidePHP) 
+					  {
+					    REJECT;
+					  }
+					  else
+					  {
+                                            lastHereDocContext = YY_START;
+					    BEGIN(HereDoc);
+					  }
+  					}
+<SkipCurly,SkipCurlyCpp>[^\n#"'@\\/{}<]+ {
   				          //addToBody(yytext);
   					}
 <SkipCurlyCpp>\n			{ 
@@ -4959,6 +5019,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 <BasesProt>"virtual"{BN}+               { lineCount(); baseVirt = Virtual; }
 <BasesProt>"public"{BN}+                { lineCount(); baseProt = Public; }
 <BasesProt>"protected"{BN}+             { lineCount(); baseProt = Protected; }
+<BasesProt>"internal"{BN}+              { lineCount(); baseProt = Package; }
 <BasesProt>"private"{BN}+               { lineCount(); baseProt = Private; }
 <BasesProt>{BN}				{ lineCount(); }
 <BasesProt>.				{ unput(*yytext); BEGIN(Bases); }
@@ -5401,7 +5462,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
   				          handleCommentBlock(docBlock.data(),FALSE);
 					  BEGIN(docBlockContext);
   					}
-<DocBlock>^{B}*("//")?{B}*"*"+/[^//]	{ // start of a comment line
+<DocBlock>^{B}*("//")?{B}*"*"+/[^//a-z_A-Z0-9*]	{ // start of a comment line
   					}
 <DocBlock>^{B}*("//"){B}*		{ // strip embedded C++ comments if at the start of a line
   					}

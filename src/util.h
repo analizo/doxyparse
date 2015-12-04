@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -27,6 +27,7 @@
 #include <qtextstream.h>
 #include <ctype.h>
 #include "sortdict.h"
+#include "types.h"
 
 //--------------------------------------------------------------------
 
@@ -87,26 +88,8 @@ class TextGeneratorOLImpl : public TextGeneratorIntf
 
 //--------------------------------------------------------------------
 
-enum SrcLangExt
-{
-  SrcLangExt_Unknown = 0x0000,
-  SrcLangExt_IDL     = 0x0008,
-  SrcLangExt_Java    = 0x0010,
-  SrcLangExt_CSharp  = 0x0020,
-  SrcLangExt_D       = 0x0040,
-  SrcLangExt_PHP     = 0x0080,
-  SrcLangExt_ObjC    = 0x0100,
-  SrcLangExt_Cpp     = 0x0200,
-  SrcLangExt_JS      = 0x0400,
-  SrcLangExt_Python  = 0x0800,
-  SrcLangExt_Fortran = 0x1000,
-  SrcLangExt_VHDL    = 0x2000,
-  SrcLangExt_XML     = 0x4000,
-  SrcLangExt_Tcl     = 0x8000
-};
-
 QCString langToString(SrcLangExt lang);
-QCString getLanguageSpecificSeparator(SrcLangExt lang);
+QCString getLanguageSpecificSeparator(SrcLangExt lang,bool classScope=FALSE);
 
 //--------------------------------------------------------------------
 
@@ -137,7 +120,8 @@ bool getDefs(const QCString &scopeName,
                     GroupDef *&gd,
                     bool forceEmptyScope=FALSE,
                     FileDef *currentFile=0,
-                    bool checkCV=FALSE
+                    bool checkCV=FALSE,
+                    const char *forceTagFile=0
                    );
 
 QCString getFileFilter(const char* name,bool isSourceCode);
@@ -305,7 +289,8 @@ PageDef *addRelatedPage(const char *name,const QCString &ptitle,
                            const char *fileName,int startLine,
                            const QList<ListItemInfo> *sli,
                            GroupDef *gd=0,
-                           TagInfo *tagInfo=0
+                           TagInfo *tagInfo=0,
+                           SrcLangExt lang=SrcLangExt_Unknown
                           );
 
 QCString escapeCharsInString(const char *name,bool allowDots,bool allowUnderscore=FALSE);
@@ -411,6 +396,12 @@ QCString replaceColorMarkers(const char *str);
 
 bool copyFile(const QCString &src,const QCString &dest);
 QCString extractBlock(const QCString text,const QCString marker);
+
+QCString correctURL(const QCString &url,const QCString &relPath);
+
+QCString processMarkup(const QCString &s);
+
+bool protectionLevelVisible(Protection prot);
 
 #endif
 

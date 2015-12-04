@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -28,13 +28,17 @@ class Definition;
 
 struct SectionInfo
 {
-  enum SectionType { Page, Section, Subsection, 
-                     Subsubsection, Paragraph, Anchor 
+  enum SectionType { Page          = 0, 
+                     Section       = 1, 
+                     Subsection    = 2, 
+                     Subsubsection = 3, 
+                     Paragraph     = 4, 
+                     Anchor        = 5 
                    };
   SectionInfo(const char *f,const char *l,const char *t,
-              SectionType st,const char *r=0) :
+              SectionType st,int lev,const char *r=0) :
     label(l), title(t), type(st), ref(r), definition(0), 
-    fileName(f), generated(FALSE)
+    fileName(f), generated(FALSE), level(lev)
   { 
   }
   SectionInfo(const SectionInfo &s)
@@ -51,12 +55,13 @@ struct SectionInfo
   Definition *definition;
   QCString fileName;
   bool generated;
+  int level;
 };
 
-class SectionDict : public QDict<SectionInfo>
+class SectionDict : public SDict<SectionInfo>
 {
   public:
-    SectionDict(int size) : QDict<SectionInfo>(size) {}
+    SectionDict(int size) : SDict<SectionInfo>(size) {}
    ~SectionDict() {}
 };
 

@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -115,6 +115,9 @@ class Definition : public DefinitionIntf, public LockableObj
 
     /*! Returns the name of the definition */
     const QCString& name() const { return m_name; }
+
+    /*! Returns the name of the definition as it appears in the output */
+    virtual QCString displayName() const = 0;
 
     /*! Returns the local name without any scope qualifiers. */
     QCString localName() const;
@@ -257,6 +260,7 @@ class Definition : public DefinitionIntf, public LockableObj
     LockingPtr<MemberSDict> getReferencesMembers() const;
     LockingPtr<MemberSDict> getReferencedByMembers() const;
 
+    bool hasSections() const;
 
     //-----------------------------------------------------------------------------------
     // ----  setters -----
@@ -314,7 +318,7 @@ class Definition : public DefinitionIntf, public LockableObj
     void writeSourceReffedBy(OutputList &ol,const char *scopeName);
     void makePartOfGroup(GroupDef *gd);
     void writePathFragment(OutputList &ol) const;
-    void writeNavigationPath(OutputList &ol,bool showSearchInfo=TRUE) const;
+    void writeNavigationPath(OutputList &ol) const;
     virtual void writeQuickMemberLinks(OutputList &,MemberDef *) const {}
     virtual void writeSummaryLinks(OutputList &) {}
     QCString pathFragment() const;
@@ -323,9 +327,12 @@ class Definition : public DefinitionIntf, public LockableObj
      *  the Doxygen::tagFile stream.
      */
     void writeDocAnchorsToTagFile();
+    void setLocalName(const QCString name);
+
+    void addSectionsToIndex();
+    void writeToc(OutputList &ol);
 
   protected:
-    void setLocalName(const QCString name);
 
     virtual void flushToDisk() const;
     virtual void loadFromDisk() const;

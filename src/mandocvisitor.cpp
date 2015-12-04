@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -954,6 +954,27 @@ void ManDocVisitor::visitPre(DocText *)
 void ManDocVisitor::visitPost(DocText *)
 {
 }
+
+void ManDocVisitor::visitPre(DocHtmlBlockQuote *)
+{
+  if (m_hide) return;
+  if (!m_firstCol)
+  { 
+    m_t << endl;
+    m_t << ".PP" << endl;
+  }
+  m_t << ".RS 4" << endl; // TODO: add support for nested block quotes
+}
+
+void ManDocVisitor::visitPost(DocHtmlBlockQuote *)
+{
+  if (m_hide) return;
+  if (!m_firstCol) m_t << endl;
+  m_t << ".RE" << endl;
+  m_t << ".PP" << endl;
+  m_firstCol=TRUE;
+}
+
 
 void ManDocVisitor::filter(const char *str)
 { 

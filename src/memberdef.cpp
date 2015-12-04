@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -41,6 +41,7 @@
 #include "objcache.h"
 #include "vhdlscanner.h"
 #include "vhdldocgen.h"
+#include "arguments.h"
 
 #define START_MARKER 0x4D454D5B // MEM[
 #define END_MARKER   0x4D454D5D // MEM]
@@ -183,7 +184,7 @@ static bool writeDefArgumentList(OutputList &ol,ClassDef *cd,
   {
     if (isDefine || first) 
     {
-      ol.startParameterType(first,md->isObjCMethod()?"dummy":0);
+      ol.startParameterType(first,0);
       paramTypeStarted=TRUE;
       if (isDefine)
       {
@@ -890,7 +891,6 @@ QCString MemberDef::anchor() const
 void MemberDef::_computeLinkableInProject()
 {
   KEEP_RESIDENT_DURING_CALL;
-  static bool extractPrivate = Config_getBool("EXTRACT_PRIVATE");
   static bool extractStatic  = Config_getBool("EXTRACT_STATIC");
   m_isLinkableCached = 2; // linkable
   //printf("MemberDef::isLinkableInProject(name=%s)\n",name().data());
@@ -943,7 +943,7 @@ void MemberDef::_computeLinkableInProject()
     m_isLinkableCached = 1; // in file (and not in namespace) but file not linkable
     return;
   }
-  if (m_impl->prot==Private && !extractPrivate && m_impl->mtype!=Friend) 
+  if (!protectionLevelVisible(m_impl->prot) && m_impl->mtype!=Friend) 
   {
     //printf("private and invisible!\n");
     m_isLinkableCached = 1; // hidden due to protection
@@ -1029,7 +1029,7 @@ void MemberDef::writeLink(OutputList &ol,ClassDef *,NamespaceDef *,
   SrcLangExt lang = getLanguage();
   //static bool optimizeOutputJava = Config_getBool("OPTIMIZE_OUTPUT_JAVA");
   static bool hideScopeNames     = Config_getBool("HIDE_SCOPE_NAMES");
-  QCString sep = getLanguageSpecificSeparator(lang);
+  QCString sep = getLanguageSpecificSeparator(lang,TRUE);
   QCString n = name();
   if (!hideScopeNames)
   {
@@ -1140,7 +1140,6 @@ bool MemberDef::isBriefSectionVisible() const
   static bool briefMemberDesc     = Config_getBool("BRIEF_MEMBER_DESC");
   static bool repeatBrief         = Config_getBool("REPEAT_BRIEF");
   static bool hideFriendCompounds = Config_getBool("HIDE_FRIEND_COMPOUNDS");
-  static bool extractPrivate      = Config_getBool("EXTRACT_PRIVATE");
 
   //printf("Member %s grpId=%d docs=%s file=%s args=%s\n",
   //    name().data(),
@@ -1190,8 +1189,7 @@ bool MemberDef::isBriefSectionVisible() const
   
   // only include members that are non-private unless EXTRACT_PRIVATE is
   // set to YES or the member is part of a group
-  bool visibleIfPrivate = (protection()!=Private || 
-                           extractPrivate ||
+  bool visibleIfPrivate = (protectionLevelVisible(protection()) || 
                            m_impl->mtype==Friend
                           );
   
@@ -1307,6 +1305,7 @@ void MemberDef::writeDeclaration(OutputList &ol,
   }
 
   QCString cname  = d->name();
+  QCString cdname = d->displayName();
   QCString cfname = getOutputFileBase();
   //QCString osname = cname;
   // in case of class members that are put in a group the name of the outerscope
@@ -1323,14 +1322,17 @@ void MemberDef::writeDeclaration(OutputList &ol,
   // start a new member declaration
   bool isAnonymous = annoClassDef || m_impl->annMemb || m_impl->annEnumType;
   ///printf("startMemberItem for %s\n",name().data());
-  ol.startMemberItem( isAnonymous ? 1 : m_impl->tArgList ? 3 : 0);
+  ol.startMemberItem( anchor(), isAnonymous ? 1 : m_impl->tArgList ? 3 : 0);
 
   // If there is no detailed description we need to write the anchor here.
   bool detailsVisible = isDetailedSectionLinkable();
   if (!detailsVisible && !m_impl->annMemb)
   {
     QCString doxyName=name().copy();
-    if (!cname.isEmpty()) doxyName.prepend(cname+"::");
+    if (!cname.isEmpty()) 
+    {
+      doxyName.prepend(cdname+getLanguageSpecificSeparator(getLanguage()));
+    }
     QCString doxyArgs=argsString();
     ol.startDoxyAnchor(cfname,cname,anchor(),doxyName,doxyArgs);
 
@@ -1355,7 +1357,7 @@ void MemberDef::writeDeclaration(OutputList &ol,
   {
     if (!isAnonymous) ol.startMemberTemplateParams();
     writeTemplatePrefix(ol,m_impl->tArgList);
-    if (!isAnonymous) ol.endMemberTemplateParams();
+    if (!isAnonymous) ol.endMemberTemplateParams(anchor());
   }
 
   // *** write type
@@ -1379,7 +1381,7 @@ void MemberDef::writeDeclaration(OutputList &ol,
       ol.startAnonTypeScope(s_indentLevel++);
       annoClassDef->writeDeclaration(ol,m_impl->annMemb,inGroup);
       //printf(">>>>>>>>>>>>>> startMemberItem(2)\n");
-      ol.startMemberItem(2);
+      ol.startMemberItem(anchor(),2);
       int j;
       for (j=0;j< s_indentLevel-1;j++) 
       {
@@ -1645,7 +1647,7 @@ void MemberDef::writeDeclaration(OutputList &ol,
       /* && !annMemb */
      )
   {
-    ol.startMemberDescription();
+    ol.startMemberDescription(anchor());
     ol.parseDoc(briefFile(),briefLine(),
                 getOuterScope()?getOuterScope():d,this,briefDescription(),
                 TRUE,FALSE,0,TRUE,FALSE);
@@ -1686,7 +1688,6 @@ bool MemberDef::isDetailedSectionLinkable() const
   static bool briefMemberDesc   = Config_getBool("BRIEF_MEMBER_DESC");
   static bool hideUndocMembers  = Config_getBool("HIDE_UNDOC_MEMBERS");
   static bool extractStatic     = Config_getBool("EXTRACT_STATIC");
-  static bool extractPrivate    = Config_getBool("EXTRACT_PRIVATE");
 
   KEEP_RESIDENT_DURING_CALL;
 
@@ -1724,9 +1725,7 @@ bool MemberDef::isDetailedSectionLinkable() const
          
   // only include members that are non-private unless EXTRACT_PRIVATE is
   // set to YES or the member is part of a   group
-  bool privateFilter = (protection()!=Private || extractPrivate ||
-                           m_impl->mtype==Friend
-                          );
+  bool privateFilter = protectionLevelVisible(protection()) || m_impl->mtype==Friend;
 
   // member is part of an anonymous scope that is the type of
   // another member in the list.
@@ -1742,8 +1741,11 @@ bool MemberDef::isDetailedSectionLinkable() const
                                  m_impl->type=="friend union"
                                 )
                                );
+ 
   
-  return ((docFilter && staticFilter && privateFilter && friendCompoundFilter && !isHidden()) /*|| inAnonymousScope*/);
+  bool result = ((docFilter && staticFilter && privateFilter && friendCompoundFilter && !isHidden()));
+  //printf("%s::isDetailedSectionLinkable: %d\n",name().data(),result);
+  return result;
 }
 
 bool MemberDef::isDetailedSectionVisible(bool inGroup,bool inFile) const          
@@ -1758,8 +1760,10 @@ bool MemberDef::isDetailedSectionVisible(bool inGroup,bool inFile) const
 
   bool visible = isDetailedSectionLinkable() && groupFilter && fileFilter && 
                  !isReference();
-  //printf("MemberDef::isDetailedSectionVisible() %d\n",visible);
-  return visible || simpleFilter;
+  bool result = visible || simpleFilter;
+  //printf("%s::isDetailedSectionVisble: %d groupFilter=%d fileFilter=%d\n",
+  //    name().data(),result,groupFilter,fileFilter);
+  return result;
 }
 
 /*! Writes the "detailed documentation" section of this member to
@@ -1787,16 +1791,18 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
   KEEP_RESIDENT_DURING_CALL;
 
   SrcLangExt lang = getLanguage();
+  //printf("member=%s lang=%d\n",name().data(),lang);
   bool optVhdl = lang==SrcLangExt_VHDL;
+  QCString sep = getLanguageSpecificSeparator(lang,TRUE);
 
   QCString scopeName = scName;
   QCString memAnchor = anchor();
   QCString ciname = container->name();
   if (container->definitionType()==TypeGroup)
   {
-    if (getClassDef())          scopeName=getClassDef()->name();
-    else if (getNamespaceDef()) scopeName=getNamespaceDef()->name();
-    else if (getFileDef())      scopeName=getFileDef()->name();
+    if (getClassDef())          scopeName=getClassDef()->displayName();
+    else if (getNamespaceDef()) scopeName=getNamespaceDef()->displayName();
+    else if (getFileDef())      scopeName=getFileDef()->displayName();
     ciname = ((GroupDef *)container)->groupTitle();
   }
   else if (container->definitionType()==TypeFile && getNamespaceDef())
@@ -1805,14 +1811,17 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
     memAnchor.prepend("file_");
   }
 
-  QCString cname  = container->name();
-  QCString cfname = getOutputFileBase();
+  QCString cname   = container->name();
+  QCString cfname  = getOutputFileBase();
   QCString cfiname = container->getOutputFileBase();
 
   // get member name
   QCString doxyName=name();
   // prepend scope if there is any. TODO: make this optional for C only docs
-  if (scopeName) doxyName.prepend((QCString)scopeName+"::");
+  if (!scopeName.isEmpty())
+  {
+    doxyName.prepend(scopeName+sep);
+  }
   QCString doxyArgs=argsString();
 
   QCString ldef = definition();
@@ -1981,7 +1990,7 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
     }
     else
     {
-      linkifyText(TextGeneratorOLImpl(ol),container,getBodyDef(),name(),ldef);
+      linkifyText(TextGeneratorOLImpl(ol),container,getBodyDef(),name(),substitute(ldef,"::",sep));
       hasParameterList=writeDefArgumentList(ol,cd,scopeName,this);
     }
 
@@ -2658,7 +2667,7 @@ void MemberDef::warnIfUndocumented()
   if ((!hasUserDocumentation() && !extractAll) &&
       !isFriendClass() && 
       name().find('@')==-1 && d->name().find('@')==-1 &&
-      (m_impl->prot!=Private || Config_getBool("EXTRACT_PRIVATE"))
+      protectionLevelVisible(m_impl->prot)
      )
   {
     warn_undoc(getDefFileName(),getDefLine(),"warning: Member %s%s (%s) of %s %s is not documented.",
@@ -2934,7 +2943,7 @@ void MemberDef::addListReference(Definition *)
   Definition *pd=getOuterScope();
   QCString pdName = pd->definitionType()==Definition::TypeClass ? 
                     ((ClassDef*)pd)->displayName() : pd->name();
-  QCString sep = getLanguageSpecificSeparator(lang);
+  QCString sep = getLanguageSpecificSeparator(lang,TRUE);
   QCString memArgs;
   if (!isRelated() 
       /* && commented out as a result of bug 597016
@@ -3291,6 +3300,7 @@ void MemberDef::enableCallerGraph(bool e)
   if (e) Doxygen::parseSourcesNeeded = TRUE;
 }
 
+#if 0
 bool MemberDef::protectionVisible() const
 {
   makeResident();
@@ -3299,6 +3309,7 @@ bool MemberDef::protectionVisible() const
          (m_impl->prot==Protected && Config_getBool("EXTRACT_PROTECTED")) ||
          (m_impl->prot==Package   && Config_getBool("EXTRACT_PACKAGE"));
 }
+#endif
 
 #if 0
 void MemberDef::setInbodyDocumentation(const char *docs,

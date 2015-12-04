@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -156,6 +156,7 @@ enum HtmlTagType
   HTML_H6        = 30,
   HTML_SPAN      = 31,
   HTML_DIV       = 32,
+  HTML_BLOCKQUOTE= 33,
 
   XML_CmdMask    = 0x100,
 

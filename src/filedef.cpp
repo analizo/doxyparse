@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -36,6 +36,7 @@
 #include "vhdldocgen.h"
 #include "debug.h"
 #include "layout.h"
+#include "entry.h"
 
 //---------------------------------------------------------------------------
 
@@ -800,7 +801,7 @@ void FileDef::writeSource(OutputList &ol)
   else
   {
     startFile(ol,getSourceFileBase(),0,pageTitle,HLI_FileVisible,
-        !generateTreeView,getOutputFileBase());
+        FALSE,getOutputFileBase());
     startTitle(ol,getSourceFileBase());
     ol.parseText(title);
     endTitle(ol,getSourceFileBase(),0);

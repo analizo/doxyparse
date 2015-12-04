@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -436,7 +436,7 @@ void ManGenerator::startDoxyAnchor(const char *,const char *manName,
 
 void ManGenerator::endMemberDoc(bool)
 {
-    t << "\"";
+    t << "\"\n";
 }
 
 void ManGenerator::startSubsection()    
@@ -524,7 +524,7 @@ void ManGenerator::endAnonTypeScope(int indentLevel)
 }
 
 
-void ManGenerator::startMemberItem(int) 
+void ManGenerator::startMemberItem(const char *,int) 
 { 
   if (firstCol && !insideTabbing) t << ".in +1c\n";
   t << "\n.ti -1c\n.RI \""; 

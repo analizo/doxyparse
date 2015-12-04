@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -667,6 +667,16 @@ class PrintDocVisitor : public DocVisitor
     {
       indent_post();
       printf("</text>\n");
+    }
+    void visitPre(DocHtmlBlockQuote *)
+    {
+      indent_pre();
+      printf("<blockquote>\n");
+    }
+    void visitPost(DocHtmlBlockQuote *)
+    {
+      indent_post();
+      printf("</blockquote>\n");
     }
 
   private:

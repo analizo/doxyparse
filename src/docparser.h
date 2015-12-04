@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -132,7 +132,8 @@ class DocNode
                 Kind_InternalRef    = 45,
                 Kind_Copy           = 46,
                 Kind_Text           = 47,
-                Kind_MscFile        = 48
+                Kind_MscFile        = 48,
+                Kind_HtmlBlockQuote = 49
               };
     /*! Creates a new node */
     DocNode() : m_parent(0), m_insidePre(FALSE) {}
@@ -182,6 +183,8 @@ template<class T> class CompAccept
       for (cli.toFirst();(n=cli.current());++cli) n->accept(v);
       v->visitPost(obj); 
     }
+    const QList<DocNode> &children() const { return m_children; }
+    QList<DocNode> &children() { return m_children; }
   
   protected:
     QList<DocNode> m_children;
@@ -372,7 +375,7 @@ class DocVerbatim : public DocNode
     enum Type { Code, HtmlOnly, ManOnly, LatexOnly, XmlOnly, Verbatim, Dot, Msc };
     DocVerbatim(DocNode *parent,const QCString &context,
                 const QCString &text, Type t,bool isExample,
-                const QCString &exampleFile);
+                const QCString &exampleFile,const QCString &lang=QCString());
     Kind kind() const            { return Kind_Verbatim; }
     Type type() const            { return m_type; }
     QCString text() const        { return m_text; }
@@ -381,14 +384,16 @@ class DocVerbatim : public DocNode
     bool isExample() const       { return m_isExample; }
     QCString exampleFile() const { return m_exampleFile; }
     QCString relPath() const     { return m_relPath; }
+    QCString language() const    { return m_lang; }
 
   private:
     QCString  m_context;
     QCString  m_text;
-    Type     m_type;
-    bool     m_isExample;
+    Type      m_type;
+    bool      m_isExample;
     QCString  m_exampleFile;
     QCString  m_relPath;
+    QCString  m_lang;
 };
 
 
@@ -508,7 +513,7 @@ class DocIndexEntry : public DocNode
 //-----------------------------------------------------------------------
 
 /*! @brief Node representing a copy of documentation block. */
-class DocCopy : public CompAccept<DocCopy>, public DocNode
+class DocCopy : /*public CompAccept<DocCopy>,*/ public DocNode
 {
   public:
     DocCopy(DocNode *parent,const QCString &link,bool copyBrief,bool copyDetails) 
@@ -516,8 +521,8 @@ class DocCopy : public CompAccept<DocCopy>, public DocNode
         m_copyBrief(copyBrief), m_copyDetails(copyDetails) { m_parent = parent; }
     Kind kind() const          { return Kind_Copy; }
     QCString link() const       { return m_link; }
-    void accept(DocVisitor *v) { CompAccept<DocCopy>::accept(this,v); }
-    void parse();
+    void accept(DocVisitor * /*v*/) { /*CompAccept<DocCopy>::accept(this,v);*/ }
+    void parse(QList<DocNode> &children);
 
   private:
     QCString  m_link;
@@ -545,6 +550,24 @@ class DocAutoList : public CompAccept<DocAutoList>, public DocNode
     bool     m_isEnumList;
     int      m_depth;
 };
+
+/*! @brief Node representing an item of a auto list */
+class DocAutoListItem : public CompAccept<DocAutoListItem>, public DocNode
+{
+  public:
+    DocAutoListItem(DocNode *parent,int indent,int num) 
+      : m_indent(indent), m_itemNum(num)
+    { m_parent = parent; }
+    Kind kind() const          { return Kind_AutoListItem; }
+    int itemNumber() const     { return m_itemNum; }
+    void accept(DocVisitor *v) { CompAccept<DocAutoListItem>::accept(this,v); }
+    int parse();
+
+  private:
+    int m_indent;
+    int m_itemNum;
+};
+
 
 
 /*! @brief Node representing a simple section title */
@@ -574,7 +597,6 @@ class DocXRefItem : public CompAccept<DocXRefItem>, public DocNode
     QCString key() const        { return m_key; }
     void accept(DocVisitor *v) { CompAccept<DocXRefItem>::accept(this,v); }
     bool parse();
-    const QList<DocNode> &children() const { return m_children; }
 
   private:
     int      m_id;
@@ -848,7 +870,6 @@ class DocSecRefItem : public CompAccept<DocSecRefItem>, public DocNode
     QCString anchor() const     { return m_anchor; }
     void accept(DocVisitor *v) { CompAccept<DocSecRefItem>::accept(this,v); }
     void parse();
-    const QList<DocNode> &children() const { return m_children; }
 
   private:
     QCString  m_target;
@@ -930,7 +951,6 @@ class DocSimpleSect : public CompAccept<DocSimpleSect>, public DocNode
     int parseRcs();
     int parseXml();
     void appendLinkWord(const QCString &word);
-    const QList<DocNode> &children() const { return m_children; }
 
   private:
     Type            m_type;
@@ -995,8 +1015,6 @@ class DocPara : public CompAccept<DocPara>, public DocNode
     void markLast(bool v=TRUE)  { m_isLast=v; }
     bool isFirst() const        { return m_isFirst; }
     bool isLast() const         { return m_isLast; }
-    const QList<DocNode> &children() const { return m_children; }
-    QList<DocNode> &children()  { return m_children; }
 
     int handleCommand(const QCString &cmdName);
     int handleHtmlStartTag(const QCString &tagName,const HtmlAttribList &tagHtmlAttribs);
@@ -1018,6 +1036,7 @@ class DocPara : public CompAccept<DocPara>, public DocNode
     void handleInheritDoc();
     int handleStartCode();
     int handleHtmlHeader(const HtmlAttribList &tagHtmlAttribs,int level);
+
     bool injectToken(int tok,const QCString &tokText);
 
   private:
@@ -1068,28 +1087,6 @@ class DocParamList : public DocNode
     bool                    m_isLast;
 };
 
-/*! @brief Node representing an item of a auto list */
-class DocAutoListItem : public DocNode
-{
-  public:
-    DocAutoListItem(DocNode *parent,int num) : m_itemNum(num)
-    { m_paragraph=new DocPara(this); m_parent = parent; }
-    virtual ~DocAutoListItem() { delete m_paragraph; }
-    Kind kind() const          { return Kind_AutoListItem; }
-    int itemNumber() const     { return m_itemNum; }
-    void accept(DocVisitor *v) 
-    { 
-      v->visitPre(this); 
-      m_paragraph->accept(v);
-      v->visitPost(this); 
-    }
-    int parse();
-
-  private:
-    DocPara *m_paragraph;
-    int m_itemNum;
-};
-
 /*! @brief Node representing a simple list item */
 class DocSimpleListItem : public DocNode
 {
@@ -1122,7 +1119,6 @@ class DocHtmlListItem : public CompAccept<DocHtmlListItem>, public DocNode
     void accept(DocVisitor *v) { CompAccept<DocHtmlListItem>::accept(this,v); }
     int parse();
     int parseXml();
-    const QList<DocNode> &children() const { return m_children; }
 
   private:
     HtmlAttribList m_attribs;
@@ -1138,7 +1134,6 @@ class DocHtmlDescData : public CompAccept<DocHtmlDescData>, public DocNode
     const HtmlAttribList &attribs() const { return m_attribs; }
     void accept(DocVisitor *v) { CompAccept<DocHtmlDescData>::accept(this,v); }
     int parse();
-    const QList<DocNode> &children() const { return m_children; }
 
   private:
     HtmlAttribList m_attribs;
@@ -1159,7 +1154,6 @@ class DocHtmlCell : public CompAccept<DocHtmlCell>, public DocNode
     void markFirst(bool v=TRUE) { m_isFirst=v; }
     void markLast(bool v=TRUE)  { m_isLast=v; }
     const HtmlAttribList &attribs() const { return m_attribs; }
-    const QList<DocNode> &children() const { return m_children; }
     int parse();
     int parseXml();
 
@@ -1198,6 +1192,9 @@ class DocHtmlRow : public CompAccept<DocHtmlRow>, public DocNode
     const HtmlAttribList &attribs() const { return m_attribs; }
     int parse();
     int parseXml(bool header);
+    bool isHeading() const     { return m_children.count()>0 && 
+                                 ((DocHtmlCell*)m_children.getFirst())->isHeading(); 
+                               }
 
   private:
     HtmlAttribList m_attribs;
@@ -1221,7 +1218,22 @@ class DocHtmlTable : public CompAccept<DocHtmlTable>, public DocNode
 
   private:
     DocHtmlCaption    *m_caption;
-    HtmlAttribList         m_attribs;
+    HtmlAttribList     m_attribs;
+};
+
+/*! @brief Node representing an HTML blockquote */
+class DocHtmlBlockQuote : public CompAccept<DocHtmlBlockQuote>, public DocNode
+{
+  public:
+    DocHtmlBlockQuote(DocNode *parent,const HtmlAttribList &attribs)
+      : m_attribs(attribs) { m_parent = parent; }
+    Kind kind() const       { return Kind_HtmlBlockQuote; }
+    int parse();
+    void accept(DocVisitor *v) { CompAccept<DocHtmlBlockQuote>::accept(this,v); }
+    const HtmlAttribList &attribs() const { return m_attribs; }
+
+  private:
+    HtmlAttribList m_attribs;
 };
 
 /*! @brief Root node of a text fragment */

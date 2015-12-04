@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -53,8 +53,9 @@ static const char *secLabels[maxLevels] =
 
 static const char *getSectionName(int level)
 {
+  static bool compactLatex = Config_getBool("COMPACT_LATEX");
   int l = level;
-  if (Config_getBool("COMPACT_LATEX")) l++;
+  if (compactLatex) l++;
   if (Doxygen::insideMainPage) l--;
   return secLabels[QMIN(maxLevels-1,l)];
 }
@@ -62,16 +63,35 @@ static const char *getSectionName(int level)
 static int rowspan(DocHtmlCell *cell)
 {
   int retval = 0;
-  HtmlAttribList attrs = cell->attribs ();
-  for (unsigned int i = 0; i < attrs.count(); ++i) 
+  HtmlAttribList attrs = cell->attribs();
+  uint i;
+  for (i=0; i<attrs.count(); ++i) 
   {
-    if ("rowspan" == attrs.at(i)->name.lower())
+    if (attrs.at(i)->name.lower()=="rowspan")
     {
       retval = attrs.at(i)->value.toInt();
       break;
     }
   }
   return retval;
+}
+
+static int align(DocHtmlCell *cell)
+{
+  HtmlAttribList attrs = cell->attribs();
+  uint i;
+  for (i=0; i<attrs.count(); ++i) 
+  {
+    if (attrs.at(i)->name.lower()=="align")
+    {
+      if (attrs.at(i)->value.lower()=="center") 
+        return 1;
+      else if (attrs.at(i)->value.lower()=="right") 
+        return 2;
+      else return 0;
+    }
+  }
+  return 0;
 }
 
 QCString LatexDocVisitor::escapeMakeIndexChars(const char *s)
@@ -277,26 +297,19 @@ void LatexDocVisitor::visit(DocVerbatim *s)
 {
   //static bool latexSourceCode = Config_getBool("LATEX_SOURCE_CODE");
   if (m_hide) return;
+  QCString lang = m_langExt;
+  if (!s->language().isEmpty()) // explicit language setting
+  {
+    lang = s->language();
+  }
   switch(s->type())
   {
     case DocVerbatim::Code: 
-      //if (latexSourceCode)
-      //{
-      //  m_t << "\n\n\\begin{footnotesize}\\begin{alltt}" << endl; 
-      //}
-      //else
       {
         m_t << "\n\\begin{DoxyCode}\n";
-      }
-      Doxygen::parserManager->getParser(m_langExt)
-                            ->parseCode(m_ci,s->context(),s->text(),
-                                        s->isExample(),s->exampleFile());
-      //if (latexSourceCode)
-      //{
-      //  m_t << "\\end{alltt}\\end{footnotesize}" << endl; 
-      //}
-      //else
-      {
+        Doxygen::parserManager->getParser(lang)
+                              ->parseCode(m_ci,s->context(),s->text(),
+                                          s->isExample(),s->exampleFile());
         m_t << "\\end{DoxyCode}\n";
       }
       break;
@@ -883,9 +896,10 @@ void LatexDocVisitor::visitPost(DocHtmlCaption *)
   m_t << "}\n";
 }
 
-void LatexDocVisitor::visitPre(DocHtmlRow *)
+void LatexDocVisitor::visitPre(DocHtmlRow *r)
 {
   m_currentColumn = 0;
+  if (r->isHeading()) m_t << "\\rowcolor{lightgray}";
 }
 
 void LatexDocVisitor::visitPost(DocHtmlRow *) 
@@ -896,49 +910,72 @@ void LatexDocVisitor::visitPost(DocHtmlRow *)
   
   QMap<int, int>::Iterator it;
   int col = 1;
-    for (it = m_rowspanIndices.begin(); it != m_rowspanIndices.end(); ++it) 
+  for (it = m_rowspanIndices.begin(); it != m_rowspanIndices.end(); ++it) 
   {
     it.data()--;
     if (it.data () <= 0)
-      m_rowspanIndices.remove (it);
-    else if (0 < it.data() - col)
-      m_t << "\\cline{" << col << "-" << it.data() - col << "}";
-      
-    col = 1 + it.data ();
+    {
+      m_rowspanIndices.remove(it);
     }
+    else if (0 < it.data() - col)
+    {
+      m_t << "\\cline{" << col << "-" << it.data() - col << "}";
+    }
+      
+    col = 1 + it.data();
+  }
 
   if (col <= m_currentColumn)
+  {
     m_t << "\\cline{" << col << "-" << m_currentColumn << "}";
+  }
 
   m_t << "\n";
 }
 
-void LatexDocVisitor::visitPre(DocHtmlCell *cell)
+void LatexDocVisitor::visitPre(DocHtmlCell *c)
 {
   if (m_hide) return;
   
   m_currentColumn++;
   //Skip columns that span from above.
   QMap<int, int>::Iterator it = m_rowspanIndices.find(m_currentColumn);
-  while (0 < it.data() && it != m_rowspanIndices.end())
+  while (it!=m_rowspanIndices.end() && 0<it.data())
   {
     m_t << "&";
     m_currentColumn++;
     it++;
   }
 
-  int rs = rowspan(cell);
-  if (0 < rs)
+  int rs = rowspan(c);
+  if (rs>0)
   {
     m_inRowspan = TRUE;
     m_rowspanIndices[m_currentColumn] = rs;
     m_t << "\\multirow{" << rs << "}{\\linewidth}{";
+  }
+  int a = align(c);
+  if (a==1)
+  {
+    m_t << "\\PBS\\centering ";
+  }
+  else if (a==2)
+  {
+    m_t << "\\PBS\\raggedleft ";
+  }
+  if (c->isHeading())
+  {
+    m_t << "{\\bf ";
   }
 }
 
 void LatexDocVisitor::visitPost(DocHtmlCell *c) 
 {
   if (m_hide) return;
+  if (c->isHeading())
+  {
+    m_t << "}";
+  }
   if (m_inRowspan)
   {
     m_inRowspan = FALSE;
@@ -1365,6 +1402,18 @@ void LatexDocVisitor::visitPre(DocText *)
 
 void LatexDocVisitor::visitPost(DocText *)
 {
+}
+
+void LatexDocVisitor::visitPre(DocHtmlBlockQuote *)
+{
+  if (m_hide) return;
+  m_t << "\\begin{quotation}" << endl;
+}
+
+void LatexDocVisitor::visitPost(DocHtmlBlockQuote *)
+{
+  if (m_hide) return;
+  m_t << "\\end{quotation}" << endl;
 }
 
 void LatexDocVisitor::filter(const char *str)

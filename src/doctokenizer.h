@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -59,7 +59,8 @@ enum Tokens
   RetVal_EndTable       = 0x10010,
   RetVal_Internal       = 0x10011,
   RetVal_SwitchLang     = 0x10012,
-  RetVal_CloseXml       = 0x10013
+  RetVal_CloseXml       = 0x10013,
+  RetVal_EndBlockQuote  = 0x10014
 };
 
 struct TokenInfo

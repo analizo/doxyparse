@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -290,7 +290,8 @@ void DocSets::addIndexItem(Definition *context,MemberDef *md,const char *)
     case SrcLangExt_VHDL:    lang="vhdl"; break;       // VHDL
     case SrcLangExt_XML:     lang="xml"; break;        // DBUS XML
     case SrcLangExt_Tcl:     lang="tcl"; break;        // Tcl
-    case SrcLangExt_Unknown: lang="unknown"; break;   // should not happen!
+    case SrcLangExt_Markdown:lang="markdown"; break;   // Markdown
+    case SrcLangExt_Unknown: lang="unknown"; break;    // should not happen!
   }
 
   if (md)

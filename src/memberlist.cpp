@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -319,14 +319,14 @@ void MemberList::writePlainDeclarations(OutputList &ol,
                 ol.startMemberList();
                 first=FALSE;
               }
-              ol.startMemberItem(0);
+              ol.startMemberItem(md->anchor(),0);
               ol.writeString("enum ");
               ol.insertMemberAlign();
               md->writeEnumDeclaration(ol,cd,nd,fd,gd);
               ol.endMemberItem();
               if (!md->briefDescription().isEmpty() && Config_getBool("BRIEF_MEMBER_DESC"))
               {
-                ol.startMemberDescription();
+                ol.startMemberDescription(md->anchor());
                 ol.parseDoc(
                     md->briefFile(),md->briefLine(),
                     cd,md,
@@ -575,7 +575,7 @@ void MemberList::writeDocumentationPage(OutputList &ol,
               container->getOutputFileBase());
     if (!generateTreeView)
     {
-      container->writeNavigationPath(ol,FALSE);
+      container->writeNavigationPath(ol);
       ol.endQuickIndices();
     }
     ol.startContents();

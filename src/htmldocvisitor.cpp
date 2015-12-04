@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -83,8 +83,8 @@ static bool mustBeOutsideParagraph(DocNode *n)
           /* \internal */
         case DocNode::Kind_Internal:
           /* <div> */
-        case DocNode::Kind_Verbatim:
         case DocNode::Kind_Include:
+        case DocNode::Kind_Verbatim:
         case DocNode::Kind_Image:
         case DocNode::Kind_SecRefList:
           /* <hr> */
@@ -94,6 +94,8 @@ static bool mustBeOutsideParagraph(DocNode *n)
            * preserve formatting.
            */
         case DocNode::Kind_Copy:
+          /* <blockquote> */
+        case DocNode::Kind_HtmlBlockQuote:
           return TRUE;
         case DocNode::Kind_StyleChange:
           return ((DocStyleChange*)n)->style()==DocStyleChange::Preformatted ||
@@ -106,8 +108,6 @@ static bool mustBeOutsideParagraph(DocNode *n)
   }
   return FALSE;
 }
-
-
 
 static QString htmlAttribsToString(const HtmlAttribList &attribs)
 {
@@ -213,11 +213,37 @@ void HtmlDocVisitor::visit(DocSymbol *s)
 void HtmlDocVisitor::visit(DocURL *u)
 {
   if (m_hide) return;
-  m_t << "<a href=\"";
-  if (u->isEmail()) m_t << "mailto:";
-  m_t << u->url() << "\">";
-  filter(u->url());
-  m_t << "</a>";
+  if (u->isEmail()) // mail address
+  {
+    // do obfuscation via javascript
+    m_t << "<a href=\"#\" onclick=\"location.href='mai'+'lto:'";
+    QCString url = u->url();     
+    uint i;
+    int size=3;
+    for (i=0;i<url.length();)
+    {
+      m_t << "+'" << url.mid(i,size) << "'";
+      i+=size;
+      if (size==3) size=2; else size=3;
+    }
+    m_t << "; return false;\">";
+    size=5;
+    for (i=0;i<url.length();)
+    {
+      filter(url.mid(i,size));
+      if (i<url.length()-size) m_t << "<span style=\"display: none;\">.nosp@m.</span>";
+      i+=size;
+      if (size==5) size=4; else size=5;
+    }
+    m_t << "</a>";
+  }
+  else // web address
+  {
+    m_t << "<a href=\"";
+    m_t << u->url() << "\">";
+    filter(u->url());
+    m_t << "</a>";
+  }
 }
 
 void HtmlDocVisitor::visit(DocLineBreak *)
@@ -304,12 +330,17 @@ void HtmlDocVisitor::visit(DocStyleChange *s)
 void HtmlDocVisitor::visit(DocVerbatim *s)
 {
   if (m_hide) return;
+  QCString lang = m_langExt;
+  if (!s->language().isEmpty()) // explicit language setting
+  {
+    lang = s->language();
+  }
   switch(s->type())
   {
     case DocVerbatim::Code: 
       forceEndParagraph(s);
       m_t << PREFRAG_START;
-      Doxygen::parserManager->getParser(m_langExt)
+      Doxygen::parserManager->getParser(lang)
                             ->parseCode(m_ci,s->context(),s->text(),
                                         s->isExample(),s->exampleFile());
       m_t << PREFRAG_END;
@@ -704,8 +735,10 @@ static int getParagraphContext(DocPara *p,bool &isFirst,bool &isLast)
     switch (p->parent()->kind()) 
     {
       case DocNode::Kind_AutoListItem:
-        isFirst=TRUE;
-        isLast =TRUE;
+        //isFirst=TRUE;
+        //isLast =TRUE;
+        isFirst=isFirstChildNode((DocAutoListItem*)p->parent(),p);
+        isLast =isLastChildNode ((DocAutoListItem*)p->parent(),p);
         t=1; // not used
         break;
       case DocNode::Kind_SimpleListItem:
@@ -792,6 +825,7 @@ void HtmlDocVisitor::visitPre(DocPara *p)
       case DocNode::Kind_SimpleSect:
       case DocNode::Kind_XRefItem:
       case DocNode::Kind_Copy:
+      case DocNode::Kind_HtmlBlockQuote:
         needsTag = TRUE;
         break;
       case DocNode::Kind_Root:
@@ -849,16 +883,6 @@ void HtmlDocVisitor::visitPre(DocPara *p)
 
 void HtmlDocVisitor::visitPost(DocPara *p)
 {
-//  if (m_hide) return;
-//  if (!p->isLast() &&            // omit <p> for last paragraph
-//      !(p->parent() &&           // and for parameter sections
-//        p->parent()->kind()==DocNode::Kind_ParamSect
-//       ) 
-//     ) 
-//  {
-//    m_t << "<p>\n";
-//  }
-
   bool needsTag = FALSE;
   if (p && p->parent()) 
   {
@@ -874,6 +898,7 @@ void HtmlDocVisitor::visitPost(DocPara *p)
       case DocNode::Kind_SimpleSect:
       case DocNode::Kind_XRefItem:
       case DocNode::Kind_Copy:
+      case DocNode::Kind_HtmlBlockQuote:
         needsTag = TRUE;
         break;
       case DocNode::Kind_Root:
@@ -929,7 +954,7 @@ void HtmlDocVisitor::visitPre(DocSimpleSect *s)
 {
   if (m_hide) return;
   forceEndParagraph(s);
-  m_t << "<dl class=\"" << s->typeString() << "\"><dt><b>";
+  m_t << "<dl class=\"section " << s->typeString() << "\"><dt>";
   switch(s->type())
   {
     case DocSimpleSect::See: 
@@ -970,7 +995,7 @@ void HtmlDocVisitor::visitPre(DocSimpleSect *s)
   // special case 1: user defined title
   if (s->type()!=DocSimpleSect::User && s->type()!=DocSimpleSect::Rcs)
   {
-    m_t << ":</b></dt><dd>";
+    m_t << ":</dt><dd>";
   }
 }
 
@@ -1209,11 +1234,7 @@ void HtmlDocVisitor::visitPost(DocInternal *)
 void HtmlDocVisitor::visitPre(DocHRef *href)
 {
   if (m_hide) return;
-  QCString url = href->url();
-  if (url.left(5)!="http:" && url.left(6)!="https:" && url.left(4)!="ftp:")
-  {
-    url.prepend(href->relPath());
-  }
+  QCString url = correctURL(href->url(),href->relPath());
   m_t << "<a href=\"" << convertToXML(url)  << "\""
       << htmlAttribsToString(href->attribs()) << ">";
 }
@@ -1261,11 +1282,7 @@ void HtmlDocVisitor::visitPre(DocImage *img)
     }
     else
     {
-      if (url.left(5)!="http:" && url.left(6)!="https:" && url.left(4)!="ftp:")
-      {
-        url.prepend(img->relPath());
-      }
-      m_t << "<img src=\"" << url << "\" " 
+      m_t << "<img src=\"" << correctURL(url,img->relPath()) << "\" " 
           << htmlAttribsToString(img->attribs())
           << "/>" << endl;
     }
@@ -1599,6 +1616,29 @@ void HtmlDocVisitor::visitPre(DocText *)
 
 void HtmlDocVisitor::visitPost(DocText *)
 {
+}
+
+void HtmlDocVisitor::visitPre(DocHtmlBlockQuote *b)
+{
+  if (m_hide) return;
+  forceEndParagraph(b);
+
+  QString attrs = htmlAttribsToString(b->attribs());
+  if (attrs.isEmpty())
+  {
+    m_t << "<blockquote class=\"doxtable\">\n";
+  }
+  else
+  {
+    m_t << "<blockquote " << htmlAttribsToString(b->attribs()) << ">\n";
+  }
+}
+
+void HtmlDocVisitor::visitPost(DocHtmlBlockQuote *b)
+{
+  if (m_hide) return;
+  m_t << "</blockquote>" << endl;
+  forceStartParagraph(b);
 }
 
 void HtmlDocVisitor::filter(const char *str)

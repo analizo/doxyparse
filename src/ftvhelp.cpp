@@ -1,7 +1,7 @@
 /******************************************************************************
  * ftvhelp.cpp,v 1.0 2000/09/06 16:09:00
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -31,6 +31,7 @@
 #include "language.h"
 #include "htmlgen.h"
 #include "layout.h"
+#include "pagedef.h"
 
 #define MAX_INDENT 1024
 
@@ -578,6 +579,26 @@ void FTVHelp::addContentsItem(bool isDir,
   
 }
 
+static QCString node2URL(FTVNode *n)
+{
+  QCString url = n->file;
+  if (!url.isEmpty() && url.at(0)=='!')  // relative URL
+  {
+    // remove leading !
+    url = url.mid(1);
+  }
+  else if (!url.isEmpty() && url.at(0)=='^') // absolute URL
+  {
+    // skip, keep ^ in the output
+  }
+  else // local file (with optional anchor)
+  {
+    url+=Doxygen::htmlFileExtension;
+    if (!n->anchor.isEmpty()) url+="#"+n->anchor;
+  }
+  return url;
+}
+
 
 void FTVHelp::generateIndent(FTextStream &t, FTVNode *n,int level)
 {
@@ -645,8 +666,7 @@ void FTVHelp::generateLink(FTextStream &t,FTVNode *n)
     }
     t << "href=\"";
     t << externalRef("",n->ref,TRUE);
-    t << n->file << Doxygen::htmlFileExtension;
-    if (!n->anchor.isEmpty()) t << "#" << n->anchor;
+    t << node2URL(n);
     if (m_topLevelIndex)
       t << "\" target=\"basefrm\">";
     else
@@ -668,12 +688,10 @@ void FTVHelp::generateJSLink(FTextStream &t,FTVNode *n)
   }
   else // link into other page
   {
-    // TODO: external links with installdox
     // TODO: use m_topLevelIndex
     t << "\"" << convertToJSString(n->name) << "\", \"";
     t << externalRef("",n->ref,TRUE);
-    t << n->file << Doxygen::htmlFileExtension;
-    if (!n->anchor.isEmpty()) t << "#" << n->anchor;
+    t << node2URL(n);
     t << "\", ";
   }
 }
@@ -756,9 +774,7 @@ bool FTVHelp::generateJSTree(FTextStream &tidx,FTextStream &t, const QList<FTVNo
     //if (!n->file.isEmpty() && !childOfHierarchy(n->parent))
     if (n->addToNavIndex)
     {
-      tidx << "," << endl << "\"" << n->file << Doxygen::htmlFileExtension;
-      if (!n->anchor.isEmpty()) tidx << "#" << n->anchor;
-      tidx << "\":[";
+      tidx << "," << endl << "\"" << node2URL(n) << "\":[";
       writePathToNode(tidx,n,n);
       tidx << "]";
     }
@@ -834,10 +850,17 @@ void FTVHelp::generateTreeViewScripts()
       QCString &projName = Config_getString("PROJECT_NAME");
       if (projName.isEmpty())
       {
-        LayoutNavEntry *lne = LayoutDocManager::instance().rootNavEntry()->find(LayoutNavEntry::MainPage);
-        t << "\"" << convertToJSString(lne->title()) << "\", ";
+        if (Doxygen::mainPage && !Doxygen::mainPage->title().isEmpty()) // Use title of main page as root
+        {
+          t << "\"" << convertToJSString(Doxygen::mainPage->title()) << "\", ";
+        }
+        else // Use default section title as root
+        {
+          LayoutNavEntry *lne = LayoutDocManager::instance().rootNavEntry()->find(LayoutNavEntry::MainPage);
+          t << "\"" << convertToJSString(lne->title()) << "\", ";
+        }
       }
-      else
+      else // use PROJECT_NAME as root tree element
       {
         t << "\"" << convertToJSString(projName) << "\", ";
       }
@@ -847,9 +870,11 @@ void FTVHelp::generateTreeViewScripts()
 
       bool first=TRUE;
       generateJSTree(tidx,t,m_indentNodes[0],1,first);
-      if (first) t << "]";
 
-      t << endl << "  ] ]" << endl;
+      if (first) 
+        t << "]" << endl;
+      else 
+        t << endl << "  ] ]" << endl;
       t << "];" << endl;
       t << endl << navtree_script;
 

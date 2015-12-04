@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -162,6 +162,7 @@ CommandMap htmlTagMap[] =
   { "h6",         HTML_H6 },
   { "span",       HTML_SPAN },
   { "div",        HTML_DIV },
+  { "blockquote", HTML_BLOCKQUOTE },
 
   { "c",            XML_C },
   // { "code",       XML_CODE },  <= ambiguous <code> is also a HTML tag

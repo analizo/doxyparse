@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -23,6 +23,7 @@
 #include <qstring.h>
 #include <qstack.h>
 #include <qdict.h>
+#include <qregexp.h>
 
 #include "doctokenizer.h"
 #include "cmdmapper.h"
@@ -257,17 +258,44 @@ static void handleHtmlTag()
   }
 }
   
-static QCString stripEmptyLines(const char *s)
+static QCString stripEmptyLines(const QCString &s)
 {
-  if (s==0) return QCString();
-  int result=0,p=0;
+  if (s.isEmpty()) return QCString();
+  int end=s.length();
+  int start=0,p=0;
+  // skip leading empty lines
   for (;;)
   {
     int c;
-    while ((c=s[p]) && isspace(c)) p++;
-    if (s[p]=='\n') result=++p; else break;
+    while ((c=s[p]) && (c==' ' || c=='\t')) p++;
+    if (s[p]=='\n') 
+    {
+      start=++p; 
+    }
+    else 
+    {
+      break;
+    }
   }
-  return &s[result];
+  // skip trailing empty lines
+  p=end-1;
+  if (p>=start && s.at(p)=='\n') p--;
+  while (p>=start)
+  {
+    int c;
+    while ((c=s[p]) && (c==' ' || c=='\t')) p--;
+    if (s[p]=='\n') 
+    {
+      end=p;
+    }
+    else
+    {
+      break;
+    }
+    p--;
+  }
+  //printf("stripEmptyLines(%d-%d)\n",start,end);
+  return s.mid(start,end-start);
 }
 
 //--------------------------------------------------------------------------
@@ -288,18 +316,21 @@ static int yyread(char *buf,int max_size)
 
 %}
 
-CMD   ("\\"|"@")
-WS    [ \t\r\n]
-NONWS [^ \t\r\n]
-BLANK [ \t\r]
-ID       "$"?[a-z_A-Z\x80-\xFF][a-z_A-Z0-9\x80-\xFF]*
-LABELID  [a-z_A-Z\x80-\xFF][a-z_A-Z0-9\x80-\xFF\-]*
-CITEID   [a-z_A-Z\x80-\xFF][a-z_A-Z0-9\x80-\xFF\-:/]*
-MAILADR  [a-z_A-Z0-9.+-]+"@"[a-z_A-Z0-9-]+("."[a-z_A-Z0-9\-]+)+[a-z_A-Z0-9\-]+
-OPTSTARS ("//"{BLANK}*)?"*"*{BLANK}*
-LISTITEM {BLANK}*{OPTSTARS}"-"("#")?{WS}
-ENDLIST  {BLANK}*{OPTSTARS}"."{BLANK}*\n
-ATTRIB   {ID}{WS}*("="{WS}*(("\""[^\"]*"\"")|("'"[^\']*"'")|[^ \t\r\n'"><]+))?
+CMD       ("\\"|"@")
+WS        [ \t\r\n]
+NONWS     [^ \t\r\n]
+BLANK     [ \t\r]
+ID        "$"?[a-z_A-Z\x80-\xFF][a-z_A-Z0-9\x80-\xFF]*
+LABELID   [a-z_A-Z\x80-\xFF][a-z_A-Z0-9\x80-\xFF\-]*
+PHPTYPE   [\\:a-z_A-Z0-9\x80-\xFF\-]+
+CITEID    [a-z_A-Z\x80-\xFF][a-z_A-Z0-9\x80-\xFF\-:/]*
+MAILADR   ("mailto:")?[a-z_A-Z0-9.+-]+"@"[a-z_A-Z0-9-]+("."[a-z_A-Z0-9\-]+)+[a-z_A-Z0-9\-]+
+OPTSTARS  ("//"{BLANK}*)?"*"*{BLANK}*
+LISTITEM  {BLANK}*[-]("#")?{WS}
+MLISTITEM {BLANK}*[+*]{WS}
+OLISTITEM {BLANK}*[1-9][0-9]*"."{WS}
+ENDLIST   {BLANK}*"."{BLANK}*\n
+ATTRIB    {ID}{WS}*("="{WS}*(("\""[^\"]*"\"")|("'"[^\']*"'")|[^ \t\r\n'"><]+))?
 URLCHAR   [a-z_A-Z0-9\!\~\,\:\;\'\$\?\@\&\%\#\.\-\+\/\=]
 URLMASK   ({URLCHAR}+([({]{URLCHAR}*[)}])?)+
 FILESCHAR [a-z_A-Z0-9\\:\\\/\-\+]
@@ -309,7 +340,7 @@ FILEMASK  ({FILESCHAR}*{FILEECHAR}+("."{FILESCHAR}*{FILEECHAR}+)*)|{HFILEMASK}
 LINKMASK  [^ \t\n\r\\@<&${}]+("("[^\n)]*")")?({BLANK}*("const"|"volatile"){BLANK}+)? 
 VERBATIM  "verbatim"{BLANK}*
 SPCMD1    {CMD}([a-z_A-Z][a-z_A-Z0-9]*|{VERBATIM})
-SPCMD2    {CMD}[\\@<>&$#%~"]
+SPCMD2    {CMD}[\\@<>&$#%~".]
 SPCMD3    {CMD}form#[0-9]+
 SPCMD4    {CMD}"::"
 INOUT	  "in"|"out"|("in"{BLANK}*","{BLANK}*"out")|("out"{BLANK}*","{BLANK}*"in")
@@ -359,6 +390,7 @@ REFWORD   {LABELID}|{REFWORD2}|{REFWORD3}
 %x St_TitleA
 %x St_TitleV
 %x St_Code
+%x St_CodeOpt
 %x St_XmlCode
 %x St_HtmlOnly
 %x St_ManOnly
@@ -389,13 +421,43 @@ REFWORD   {LABELID}|{REFWORD2}|{REFWORD3}
 %x St_SecSkip
 
 %%
-<St_Para>\r               /* skip carriage return */
-<St_Para>^{LISTITEM}      { /* list item */ 
+<St_Para>\r            /* skip carriage return */
+<St_Para>^{LISTITEM}   { /* list item */ 
                          QCString text=yytext;
 			 int dashPos = text.findRev('-');
 			 g_token->isEnumList = text.at(dashPos+1)=='#';
 			 g_token->indent     = computeIndent(yytext,dashPos);
                          return TK_LISTITEM;
+                       }
+<St_Para>^{MLISTITEM}  { /* list item */ 
+                         if (!Doxygen::markdownSupport)
+                         {
+                           REJECT;
+                         }
+                         else
+                         {
+                           QCString text=yytext;
+                           static QRegExp re("[*+]");
+                           int listPos = text.findRev(re);
+                           g_token->isEnumList = FALSE;
+                           g_token->indent     = computeIndent(yytext,listPos);
+                           return TK_LISTITEM;
+                         }
+                       }
+<St_Para>^{OLISTITEM}  { /* numbered list item */ 
+                         if (!Doxygen::markdownSupport)
+                         {
+                           REJECT;
+                         }
+                         else
+                         {
+                           QCString text=yytext;
+                           static QRegExp re("[1-9]");
+                           int digitPos = text.find(re);
+                           g_token->isEnumList = TRUE;
+                           g_token->indent     = computeIndent(yytext,digitPos);
+                           return TK_LISTITEM;
+                         }
                        }
 <St_Para>{BLANK}*\n{LISTITEM}     { /* list item on next line */ 
                          QCString text=yytext;
@@ -404,6 +466,38 @@ REFWORD   {LABELID}|{REFWORD2}|{REFWORD3}
 			 g_token->isEnumList = text.at(dashPos+1)=='#';
 			 g_token->indent     = computeIndent(text,dashPos);
                          return TK_LISTITEM;
+                       }
+<St_Para>{BLANK}*\n{MLISTITEM}     { /* list item on next line */ 
+                         if (!Doxygen::markdownSupport)
+                         {
+                           REJECT;
+                         }
+                         else
+                         {
+                           QCString text=yytext;
+                           static QRegExp re("[*+]");
+                           text=text.right(text.length()-text.find('\n')-1);
+                           int markPos = text.findRev(re);
+                           g_token->isEnumList = FALSE;
+                           g_token->indent     = computeIndent(text,markPos);
+                           return TK_LISTITEM;
+                         }
+                       }
+<St_Para>{BLANK}*\n{OLISTITEM}     { /* list item on next line */ 
+                         if (!Doxygen::markdownSupport)
+                         {
+                           REJECT;
+                         }
+                         else
+                         {
+                           QCString text=yytext;
+                           text=text.right(text.length()-text.find('\n')-1);
+                           static QRegExp re("[1-9]");
+                           int digitPos = text.find(re);
+                           g_token->isEnumList = TRUE;
+                           g_token->indent     = computeIndent(text,digitPos);
+                           return TK_LISTITEM;
+                         }
                        }
 <St_Para>^{ENDLIST}       { /* end list */ 
                          int dotPos = QCString(yytext).findRev('.');
@@ -425,7 +519,7 @@ REFWORD   {LABELID}|{REFWORD2}|{REFWORD3}
   			 g_token->name = "inheritdoc";
 			 return TK_COMMAND;
 		       }
-<St_Para>"\\_fakenl"     { // artificial new line
+<St_Para>"@_fakenl"     { // artificial new line
                              yylineno++; 
   		          }
 <St_Para>{SPCMD3}      {
@@ -479,8 +573,22 @@ REFWORD   {LABELID}|{REFWORD2}|{REFWORD3}
 			 g_token->isEMailAddr=FALSE;
 			 return TK_URL;
                        }
+<St_Para>"<"("http:"|"https:"|"ftp:"|"file:"|"news:"){URLMASK}">" { // URL
+                         g_token->name=yytext;
+                         g_token->name = g_token->name.mid(1,g_token->name.length()-2);
+			 g_token->isEMailAddr=FALSE;
+			 return TK_URL;
+                       }
 <St_Para>{MAILADR}     { // Mail address
                          g_token->name=yytext;
+                         g_token->name.stripPrefix("mailto:");
+			 g_token->isEMailAddr=TRUE;
+			 return TK_URL;
+                       }
+<St_Para>"<"{MAILADR}">" { // Mail address
+                         g_token->name=yytext;
+                         g_token->name = g_token->name.mid(1,g_token->name.length()-2);
+                         g_token->name.stripPrefix("mailto:");
 			 g_token->isEMailAddr=TRUE;
 			 return TK_URL;
                        }
@@ -565,7 +673,7 @@ REFWORD   {LABELID}|{REFWORD2}|{REFWORD3}
                          g_token->name = yytext;
                          return TK_COMMAND;
   		       }
-<St_Para>({BLANK}*\n)+{BLANK}*\n {
+<St_Para>({BLANK}*\n)+{BLANK}*\n{BLANK}* {
                          if (g_insidePre)
 			 {
 			   /* Inside a <pre>..</pre> blank lines are treated
@@ -574,11 +682,31 @@ REFWORD   {LABELID}|{REFWORD2}|{REFWORD3}
                            g_token->chars=yytext;
 			   return TK_WHITESPACE;
 			 }
-			 else
+			 else // found end of a paragraph
 			 {
-                           /* start of a new paragraph */
+                           g_token->indent=computeIndent(yytext,yyleng-1);
+                           int i;
+                           // put back the indentation (needed for list items)
+                           for (i=0;i<g_token->indent;i++)
+                           {
+                             unput(' ');
+                           }
+                           // tell flex that after putting the last indent 
+                           // back we are at the beginning of the line
+                           YY_CURRENT_BUFFER->yy_at_bol=1;
+                           // start of a new paragraph
   		           return TK_NEWPARA;
 			 }
+                       }
+<St_CodeOpt>"{"{LABELID}"}" {
+                         g_token->name = yytext;
+                         g_token->name = g_token->name.mid(1,g_token->name.length()-2);
+                         BEGIN(St_Code);
+                       }
+<St_CodeOpt>\n         |
+<St_CodeOpt>.          {
+                         unput(*yytext);
+                         BEGIN(St_Code);
                        }
 <St_Code>{WS}*{CMD}"endcode" {
                          return RetVal_OK;
@@ -618,9 +746,9 @@ REFWORD   {LABELID}|{REFWORD2}|{REFWORD3}
 <St_XmlOnly>{CMD}"endxmlonly" {
                          return RetVal_OK;
                        }
-<St_XmlOnly>[^\\@\n]+     |
-<St_XmlOnly>\n            |
-<St_XmlOnly>.             {
+<St_XmlOnly>[^\\@\n]+  |
+<St_XmlOnly>\n         |
+<St_XmlOnly>.          {
   			 g_token->verb+=yytext;
   		       }
 <St_Verbatim>{CMD}"endverbatim" {
@@ -831,7 +959,7 @@ REFWORD   {LABELID}|{REFWORD2}|{REFWORD3}
 			 g_token->name = g_token->name.left(yyleng-2);
 			 return TK_WORD;
                        }
-<St_Param>({LABELID}"|")*{LABELID}{WS}+("&")?"$"{LABELID} {
+<St_Param>({PHPTYPE}{BLANK}*"|"{BLANK}*)*{PHPTYPE}{WS}+("&")?"$"{LABELID} {
   			 QCString params = yytext;
 			 int j = params.find('&');
 			 int i = params.find('$');
@@ -1038,12 +1166,14 @@ void doctokenizerYYsetStateTitleAttrValue()
 void doctokenizerYYsetStateCode()
 {
   g_token->verb="";
-  BEGIN(St_Code);
+  g_token->name="";
+  BEGIN(St_CodeOpt);
 }
 
 void doctokenizerYYsetStateXmlCode()
 {
   g_token->verb="";
+  g_token->name="";
   BEGIN(St_XmlCode);
 }
 

@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -348,7 +348,7 @@ class ClassDef : public Definition
     void showUsedFiles(OutputList &ol);
 
   private: 
-    void writeTagFileMarker(OutputList &ol);
+    void writeTagFileMarker();
     void writeDocumentationContents(OutputList &ol,const QCString &pageTitle);
     void internalInsertMember(MemberDef *md,Protection prot,bool addToAllList);
     QCString getMemberListFileName() const;

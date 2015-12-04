@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -120,8 +120,8 @@ class ParserManager
      *  @param[in] name      A symbolic name of the parser, i.e. "c",
      *                       "python", "fortran", "vhdl", ...
      *  @param[in] parser    The parser that is to be used for the
-     *             given extension.
-     *  @param[in] defParser Use this parser as the default parser, using
+     *                       given name.
+     *  @param[in] defParser Use this parser as the default parser, used
      *                       for unregistered file extensions.
      */
     void registerParser(const char *name,ParserInterface *parser,bool defParser=FALSE)

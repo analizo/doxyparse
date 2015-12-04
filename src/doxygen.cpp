@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -34,7 +34,6 @@
 #include "entry.h"
 #include "index.h"
 #include "logos.h"
-#include "instdox.h"
 #include "message.h"
 #include "config.h"
 #include "util.h"
@@ -82,6 +81,8 @@
 #include "eclipsehelp.h"
 #include "cite.h"
 #include "filestorage.h"
+#include "markdown.h"
+#include "arguments.h"
 
 #include "layout.h"
 
@@ -134,7 +135,7 @@ SearchIndex *    Doxygen::searchIndex=0;
 QDict<DefinitionIntf> *Doxygen::symbolMap;
 bool             Doxygen::outputToWizard=FALSE;
 QDict<int> *     Doxygen::htmlDirMap = 0;
-QCache<LookupInfo> Doxygen::lookupCache(50000,50000);
+QCache<LookupInfo> *Doxygen::lookupCache;
 DirSDict        *Doxygen::directories;
 SDict<DirRelation> Doxygen::dirRelations(257);
 ParserManager   *Doxygen::parserManager = 0;
@@ -150,6 +151,7 @@ int              Doxygen::subpageNestingLevel = 0;
 bool             Doxygen::userComments = FALSE;
 QCString         Doxygen::spaces;
 bool             Doxygen::generatingXmlOutput = FALSE;
+bool             Doxygen::markdownSupport = TRUE;
 
 // locally accessible globals
 static QDict<EntryNav>  g_classEntries(1009);
@@ -161,8 +163,6 @@ static FileStorage     *g_storage = 0;
 static bool             g_successfulRun = FALSE;
 static bool             g_dumpSymbolMap = FALSE;
 static bool             g_dumpConfigAsXML = FALSE;
-
-
 
 void clearAll()
 {
@@ -502,11 +502,13 @@ static void addRelatedPage(EntryNav *rootNav)
   PageDef *pd = addRelatedPage(root->name,root->args,doc,root->anchors,
       root->fileName,root->startLine,
       root->sli,
-      gd,rootNav->tagInfo()
+      gd,rootNav->tagInfo(),
+      root->lang
      );
   if (pd)
   {
     pd->addSectionsToDefinition(root->anchors);
+    pd->setShowToc(root->stat);
     addPageToContext(pd,rootNav);
   }
 }
@@ -898,7 +900,7 @@ static Definition *findScope(Entry *root,int level=0)
  *  full qualified name \a name. Creates an artificial scope if the scope is
  *  not found and set the parent/child scope relation if the scope is found.
  */
-static Definition *buildScopeFromQualifiedName(const QCString name,int level)
+static Definition *buildScopeFromQualifiedName(const QCString name,int level,SrcLangExt lang)
 {
   int i=0;
   int p=0,l;
@@ -925,6 +927,7 @@ static Definition *buildScopeFromQualifiedName(const QCString name,int level)
       //printf("++ adding dummy namespace %s to %s\n",nsName.data(),prevScope->name().data());
       nd=new NamespaceDef(
         "[generated]",1,fullScope);
+      nd->setLanguage(lang);
 
       // add namespace to the list
       Doxygen::namespaceSDict->inSort(fullScope,nd);
@@ -1010,7 +1013,7 @@ static Definition *findScopeFromQualifiedName(Definition *startScope,const QCStr
           // so use this instead.
           QCString fqn = QCString(ui.currentKey())+
                          scope.right(scope.length()-p);
-          resultScope = buildScopeFromQualifiedName(fqn,fqn.contains("::"));
+          resultScope = buildScopeFromQualifiedName(fqn,fqn.contains("::"),startScope->getLanguage());
           //printf("Creating scope from fqn=%s result %p\n",fqn.data(),resultScope);
           if (resultScope) 
           {
@@ -1322,7 +1325,7 @@ static void resolveClassNestingRelations()
       //printf("processing unresolved=%s, iteration=%d\n",cd->name().data(),iteration);
       /// create the scope artificially
       // anyway, so we can at least relate scopes properly.
-      Definition *d = buildScopeFromQualifiedName(name,name.contains("::"));
+      Definition *d = buildScopeFromQualifiedName(name,name.contains("::"),cd->getLanguage());
       if (d!=cd && !cd->getDefFileName().isEmpty()) 
                  // avoid recursion in case of redundant scopes, i.e: namespace N { class N::C {}; }
                  // for this case doxygen assumes the exitance of a namespace N::N in which C is to be found!
@@ -1641,7 +1644,7 @@ static void buildNamespaceList(EntryNav *rootNav)
         if (d==0) // we didn't find anything, create the scope artificially
                   // anyway, so we can at least relate scopes properly.
         {
-          Definition *d = buildScopeFromQualifiedName(fullName,fullName.contains("::"));
+          Definition *d = buildScopeFromQualifiedName(fullName,fullName.contains("::"),nd->getLanguage());
           d->addInnerCompound(nd);
           nd->setOuterScope(d);
           // TODO: Due to the order in which the tag file is written
@@ -2226,13 +2229,14 @@ static MemberDef *addVariableToFile(
   Entry *root = rootNav->entry();
   Debug::print(Debug::Variables,0,
       "  global variable:\n"
-      "    type=`%s' scope=`%s' name=`%s' args=`%s' prot=`%d mtype=%d\n",
+      "    type=`%s' scope=`%s' name=`%s' args=`%s' prot=`%d mtype=%d lang=%d\n",
       root->type.data(),
       scope.data(), 
       name.data(),
       root->args.data(),
       root->protection,
-      mtype
+      mtype,
+      root->lang
               );
 
   FileDef *fd = rootNav->fileDef();
@@ -2421,18 +2425,21 @@ static MemberDef *addVariableToFile(
 
 /*! See if the return type string \a type is that of a function pointer 
  *  \returns -1 if this is not a function pointer variable or
- *           the index at which the brace of (...*name) was found.
+ *           the index at which the closing brace of (...*name) was found.
  */
 static int findFunctionPtr(const QCString &type,int lang, int *pLength=0)
 {
   if (lang == SrcLangExt_Fortran) return -1; // Fortran does not have function pointers
   static const QRegExp re("([^)]*[\\*\\^][^)]*)");
   int i=-1,l;
+  int bb=type.find('<');
+  int be=type.findRev('>');
   if (!type.isEmpty() &&             // return type is non-empty
       (i=re.match(type,0,&l))!=-1 && // contains (...*...)
       type.find("operator")==-1 &&   // not an operator
-      (type.find(")(")==-1 || type.find("typedef ")!=-1)
+      (type.find(")(")==-1 || type.find("typedef ")!=-1) &&
                                     // not a function pointer return type
+      !(bb<i && i<be) // bug665855: avoid treating "typedef A<void (T*)> type" as a function pointer
      )
   {
     if (pLength) *pLength=l;
@@ -2610,6 +2617,7 @@ static void addVariable(EntryNav *rootNav,int isFuncPtr=-1)
     {
       int i=isFuncPtr;
       if (i==-1) i=findFunctionPtr(root->type,root->lang); // for typedefs isFuncPtr is not yet set
+      Debug::print(Debug::Variables,0,"  functionPtr? %s\n",i!=-1?"yes":"no");
       if (i!=-1) // function pointer
       {
         int ai = root->type.find('[',i);
@@ -3181,7 +3189,7 @@ static void buildFunctionList(EntryNav *rootNav)
                      )
                     );
               // otherwise, allow a duplicate global member with the same argument list
-              if (!found && gd && gd==md->getGroupDef())
+              if (!found && gd && gd==md->getGroupDef() && nsName==rnsName)
               {
                 // member is already in the group, so we don't want to add it again.
                 found=TRUE;
@@ -4744,8 +4752,8 @@ static void computeClassRelations()
       if (!root->name.isEmpty() && root->name.find('@')==-1 && // normal name
           (guessSection(root->fileName)==Entry::HEADER_SEC || 
            Config_getBool("EXTRACT_LOCAL_CLASSES")) && // not defined in source file
-          (root->protection!=Private || Config_getBool("EXTRACT_PRIVATE")) && // hidden by protection
-          !Config_getBool("HIDE_UNDOC_CLASSES") // undocumented class are visible
+           protectionLevelVisible(root->protection) && // hidden by protection
+           !Config_getBool("HIDE_UNDOC_CLASSES") // undocumented class are visible
          )
         warn_undoc(
                    root->fileName,root->startLine,
@@ -7647,28 +7655,6 @@ static void generateClassList(ClassSDict &classSDict)
 
 static void generateClassDocs()
 {
-  // write the installdox script if necessary
-  if (Config_getBool("GENERATE_HTML") && 
-      (Config_getList("TAGFILES").count()>0 || 
-       Config_getBool("SEARCHENGINE")
-      )
-     ) 
-  {
-    writeInstallScript();
-  }
-  
-  //msg("Generating annotated compound index...\n");
-  //writeAnnotatedIndex(*g_outputList);
-
-  //msg("Generating alphabetical compound index...\n");
-  //writeAlphabeticalIndex(*g_outputList);
-
-  //msg("Generating hierarchical class index...\n");
-  //writeHierarchicalIndex(*g_outputList);
-
-  //msg("Generating member index...\n");
-  //writeClassMemberIndex(*g_outputList);
-
   generateClassList(*Doxygen::classSDict);
   generateClassList(*Doxygen::hiddenClasses);
 }
@@ -7881,13 +7867,13 @@ static void flushCachedTemplateRelations()
   // as there can be new template instances in the inheritance path
   // to this class. Optimization: only remove those classes that
   // have inheritance instances as direct or indirect sub classes.
-  QCacheIterator<LookupInfo> ci(Doxygen::lookupCache);
+  QCacheIterator<LookupInfo> ci(*Doxygen::lookupCache);
   LookupInfo *li=0;
   for (ci.toFirst();(li=ci.current());++ci)
   {
     if (li->classDef)
     {
-      Doxygen::lookupCache.remove(ci.currentKey());
+      Doxygen::lookupCache->remove(ci.currentKey());
     }
   }
   // remove all cached typedef resolutions whose target is a
@@ -7937,13 +7923,13 @@ static void flushUnresolvedRelations()
   // class B : public A {};
   // class C : public B::I {};
   //
-  QCacheIterator<LookupInfo> ci(Doxygen::lookupCache);
+  QCacheIterator<LookupInfo> ci(*Doxygen::lookupCache);
   LookupInfo *li=0;
   for (ci.toFirst();(li=ci.current());++ci)
   {
     if (li->classDef==0 && li->typeDef==0)
     {
-      Doxygen::lookupCache.remove(ci.currentKey());
+      Doxygen::lookupCache->remove(ci.currentKey());
     }
   }
 
@@ -8241,6 +8227,7 @@ static void findMainPage(EntryNav *rootNav)
                               indexName, root->brief+root->doc+root->inbodyDocs,title);
       //setFileNameForSections(root->anchors,"index",Doxygen::mainPage);
       Doxygen::mainPage->setFileName(indexName);
+      Doxygen::mainPage->setShowToc(root->stat);
       addPageToContext(Doxygen::mainPage,rootNav);
           
       // a page name is a label as well!
@@ -8248,8 +8235,9 @@ static void findMainPage(EntryNav *rootNav)
           indexName,
           Doxygen::mainPage->name(),
           Doxygen::mainPage->title(),
-          SectionInfo::Page);
-      Doxygen::sectionDict.insert(indexName,si);
+          SectionInfo::Page,
+          0); // level 0
+      Doxygen::sectionDict.append(indexName,si);
       Doxygen::mainPage->addSectionsToDefinition(root->anchors);
     }
     else
@@ -8325,7 +8313,7 @@ static void checkPageRelations()
 
 static void resolveUserReferences()
 {
-  QDictIterator<SectionInfo> sdi(Doxygen::sectionDict);
+  SDict<SectionInfo>::Iterator sdi(Doxygen::sectionDict);
   SectionInfo *si;
   for (;(si=sdi.current());++sdi)
   {
@@ -8437,6 +8425,7 @@ static void buildExampleList(EntryNav *rootNav)
           root->name,root->brief+root->doc+root->inbodyDocs,root->args);
       pd->setFileName(convertNameToFile(pd->name()+"-example",FALSE,TRUE));
       pd->addSectionsToDefinition(root->anchors);
+      pd->setLanguage(root->lang);
       //pi->addSections(root->anchors);
 
       Doxygen::exampleSDict->inSort(root->name,pd);
@@ -8495,8 +8484,7 @@ static void generateExampleDocs()
                          TRUE,                                     // is example
                          pd->name()
                         );
-    g_outputList->endContents();
-    endFile(*g_outputList);
+    endFile(*g_outputList); // contains g_outputList->endContents()
   }
   g_outputList->enable(OutputGenerator::Man);
 }
@@ -9290,7 +9278,7 @@ void dumpConfigAsXML()
 
 static void usage(const char *name)
 {
-  msg("Doxygen version %s\nCopyright Dimitri van Heesch 1997-2011\n\n",versionString);
+  msg("Doxygen version %s\nCopyright Dimitri van Heesch 1997-2012\n\n",versionString);
   msg("You can use doxygen in a number of ways:\n\n");
   msg("1) Use doxygen to generate a template configuration file:\n");
   msg("    %s [-s] -g [configName]\n\n",name);
@@ -9353,6 +9341,7 @@ void initDoxygen()
   Doxygen::parserManager->registerParser("vhdl",    new VHDLLanguageScanner);
   Doxygen::parserManager->registerParser("dbusxml", new DBusXMLScanner);
   Doxygen::parserManager->registerParser("tcl",     new TclLanguageScanner);
+  Doxygen::parserManager->registerParser("md",      new MarkdownFileParser);
 
   // register any additional parsers here...
 
@@ -9393,9 +9382,8 @@ void initDoxygen()
   Doxygen::sectionDict.setAutoDelete(TRUE);
   Doxygen::memGrpInfoDict.setAutoDelete(TRUE);
   Doxygen::tagDestinationDict.setAutoDelete(TRUE);
-  Doxygen::lookupCache.setAutoDelete(TRUE);
   Doxygen::dirRelations.setAutoDelete(TRUE);
-  Doxygen::citeDict = new CiteDict(256);
+  Doxygen::citeDict = new CiteDict(257);
 }
 
 void cleanUpDoxygen()
@@ -9451,6 +9439,18 @@ void cleanUpDoxygen()
   //                              (such as Doxygen::namespaceSDict)
   //                              with objects based on Definition are made
   //                              dynamic first
+}
+
+static int computeIdealCacheParam(uint v)
+{
+  //printf("computeIdealCacheParam(v=%u)\n",v);
+
+  int r=0;
+  while (v!=0) v>>=1,r++; 
+  // r = log2(v)
+
+  // convert to a valid cache size value
+  return QMAX(0,QMIN(r-16,9));
 }
 
 void readConfiguration(int argc, char **argv)
@@ -9814,6 +9814,8 @@ void adjustConfiguration()
                                 Config_getBool("CALLER_GRAPH") ||
                                 Config_getBool("REFERENCES_RELATION") ||
                                 Config_getBool("REFERENCED_BY_RELATION");
+
+  Doxygen::markdownSupport = Config_getBool("MARKDOWN_SUPPORT");
   
   /**************************************************************************
    *            Add custom extension mappings
@@ -10106,6 +10108,14 @@ void parseInput()
   //Doxygen::symbolCache   = new ObjCache(1);  // only to stress test cache behaviour
   Doxygen::symbolStorage = new Store;
 
+  // also scale lookup cache with SYMBOL_CACHE_SIZE
+  cacheSize = Config_getInt("LOOKUP_CACHE_SIZE");
+  if (cacheSize<0) cacheSize=0;
+  if (cacheSize>9) cacheSize=9;
+  uint lookupSize = 65536 << cacheSize;
+  Doxygen::lookupCache = new QCache<LookupInfo>(lookupSize,lookupSize);
+  Doxygen::lookupCache->setAutoDelete(TRUE);
+
 #ifdef HAS_SIGNALS
   signal(SIGINT, stopDoxygen);
 #endif
@@ -10193,7 +10203,7 @@ void parseInput()
    **************************************************************************/
 
   LayoutDocManager::instance().init();
-  QCString layoutFileName = Config_getString("LAYOUT_FILE");
+  QCString &layoutFileName = Config_getString("LAYOUT_FILE");
   bool defaultLayoutUsed = FALSE;
   if (layoutFileName.isEmpty())
   {
@@ -10328,7 +10338,7 @@ void parseInput()
   // calling buildClassList may result in cached relations that
   // become invalid after resolveClassNestingRelations(), that's why
   // we need to clear the cache here
-  Doxygen::lookupCache.clear();
+  Doxygen::lookupCache->clear();
   // we don't need the list of using declaration anymore
   g_usingDeclarations.clear();
 
@@ -10387,7 +10397,10 @@ void parseInput()
   computeTemplateClassRelations(); 
   flushUnresolvedRelations();
   computeClassRelations();        
-  //VhdlDocGen::computeVhdlComponentRelations(); // @MARTIN: removed because it breaks non-vhdl code
+  if (Config_getBool("OPTIMIZE_OUTPUT_VHDL"))
+  {
+    VhdlDocGen::computeVhdlComponentRelations(); 
+  }
   g_classEntries.clear();          
 
   msg("Add enum values to enums...\n");
@@ -10509,19 +10522,6 @@ void generateOutput()
    **************************************************************************/
 
   //// dump all symbols
-  //SDict<DefinitionList>::Iterator sdi(Doxygen::symbolMap);
-  //DefinitionList *dl;
-  //for (sdi.toFirst();(dl=sdi.current());++sdi)
-  //{
-  //  DefinitionListIterator dli(*dl);
-  //  Definition *d;
-  //  printf("Symbol: ");
-  //  for (dli.toFirst();(d=dli.current());++dli)
-  //  {
-  //    printf("%s ",d->qualifiedName().data());
-  //  }
-  //  printf("\n");
-  //}
   if (g_dumpSymbolMap)
   {
     dumpSymbolMap();
@@ -10536,11 +10536,12 @@ void generateOutput()
     g_outputList->add(new HtmlGenerator);
     HtmlGenerator::init();
 
-    bool generateHtmlHelp = Config_getBool("GENERATE_HTMLHELP");
+    // add HTML indexers that are enabled
+    bool generateHtmlHelp    = Config_getBool("GENERATE_HTMLHELP");
     bool generateEclipseHelp = Config_getBool("GENERATE_ECLIPSEHELP");
-    bool generateQhp      = Config_getBool("GENERATE_QHP");
-    bool generateTreeView = Config_getBool("GENERATE_TREEVIEW");
-    bool generateDocSet   = Config_getBool("GENERATE_DOCSET");
+    bool generateQhp         = Config_getBool("GENERATE_QHP");
+    bool generateTreeView    = Config_getBool("GENERATE_TREEVIEW");
+    bool generateDocSet      = Config_getBool("GENERATE_DOCSET");
     if (generateEclipseHelp) Doxygen::indexList.addIndex(new EclipseHelp);
     if (generateHtmlHelp) Doxygen::indexList.addIndex(new HtmlHelp);
     if (generateQhp)      Doxygen::indexList.addIndex(new Qhp);
@@ -10549,10 +10550,7 @@ void generateOutput()
     Doxygen::indexList.initialize();
     HtmlGenerator::writeTabData();
 
-#if 0
-    if (Config_getBool("GENERATE_INDEXLOG")) Doxygen::indexList.addIndex(new IndexLog);
-#endif
-    //if (Config_getBool("HTML_DYNAMIC_SECTIONS")) HtmlGenerator::generateSectionImages();
+    // copy static stuff
     copyStyleSheet();
     copyLogo();
     copyExtraFiles();
@@ -10653,17 +10651,6 @@ void generateOutput()
     }
   }
 
-  //statistics();
-
-  // count the number of documented elements in the lists we have built. 
-  // If the result is 0 we do not generate the lists and omit the 
-  // corresponding links in the index.
-  //msg("Generating index page...\n"); 
-  //writeIndex(*g_outputList);
-
-  //msg("Generating page index...\n");
-  //writePageIndex(*g_outputList);
-  
   msg("Generating example documentation...\n");
   generateExampleDocs();
 
@@ -10682,24 +10669,12 @@ void generateOutput()
   msg("Generating group documentation...\n");
   generateGroupDocs();
 
-  //msg("Generating group index...\n");
-  //writeGroupIndex(*g_outputList);
- 
   msg("Generating class documentation...\n");
   generateClassDocs();
   
-  //if (Config_getBool("HAVE_DOT") && Config_getBool("GRAPHICAL_HIERARCHY"))
-  //{
-  //  msg("Generating graphical class hierarchy...\n");
-  //  writeGraphicalClassHierarchy(*g_outputList);
-  //}
-
   msg("Generating namespace index...\n");
   generateNamespaceDocs();
   
-  //msg("Generating namespace member index...\n");
-  //writeNamespaceMemberIndex(*g_outputList);
-
   if (Config_getBool("GENERATE_LEGEND"))
   {
     msg("Generating graph info page...\n");
@@ -10712,24 +10687,6 @@ void generateOutput()
     generateDirDocs(*g_outputList);
   }
 
-  //msg("Generating file index...\n");
-  //writeFileIndex(*g_outputList);
- 
-  //if (Config_getBool("SHOW_DIRECTORIES"))
-  //{
-  //  msg("Generating directory index...\n");
-  //  writeDirIndex(*g_outputList);
-  //}
-
-  //msg("Generating example index...\n");
-  //writeExampleIndex(*g_outputList);
-  
-  //msg("Generating file member index...\n");
-  //writeFileMemberIndex(*g_outputList);
-
-  
-  //writeDirDependencyGraph(Config_getString("HTML_OUTPUT"));
-  
   if (Doxygen::formulaList.count()>0 && Config_getBool("GENERATE_HTML")
       && !Config_getBool("USE_MATHJAX"))
   {
@@ -10737,15 +10694,6 @@ void generateOutput()
     Doxygen::formulaList.generateBitmaps(Config_getString("HTML_OUTPUT"));
   }
   
-  //if (Config_getBool("GENERATE_HTML") && Config_getBool("GENERATE_HTMLHELP"))  
-  //{
-  //  HtmlHelp::getInstance()->finalize();
-  //}
-  //if (Config_getBool("GENERATE_HTML") && Config_getBool("GENERATE_TREEVIEW"))  
-  //{
-  //  FTVHelp::getInstance()->finalize();
-  //}
-
   writeIndexHierarchy(*g_outputList);
 
   msg("finalizing index lists...\n");
@@ -10840,6 +10788,27 @@ void generateOutput()
     QDir::setCurrent(oldDir);
   }
 
+  int cacheParam;
+  msg("symbol cache used %d/%d hits=%d misses=%d\n",
+      Doxygen::symbolCache->count(),
+      Doxygen::symbolCache->size(),
+      Doxygen::symbolCache->hits(),
+      Doxygen::symbolCache->misses());
+  cacheParam = computeIdealCacheParam(Doxygen::symbolCache->misses());
+  if (cacheParam>Config_getInt("SYMBOL_CACHE_SIZE"))
+  {
+    msg("Note: based on cache misses the ideal setting for SYMBOL_CACHE_SIZE is %d at the cost of higher memory usage.\n",cacheParam);
+  }
+  msg("lookup cache used %d/%d hits=%d misses=%d\n",
+      Doxygen::lookupCache->count(),
+      Doxygen::lookupCache->size(),
+      Doxygen::lookupCache->hits(),
+      Doxygen::lookupCache->misses());
+  cacheParam = computeIdealCacheParam(Doxygen::lookupCache->misses()*2/3); // part of the cache is flushed, hence the 2/3 correction factor
+  if (cacheParam>Config_getInt("LOOKUP_CACHE_SIZE"))
+  {
+    msg("Note: based on cache misses the ideal setting for LOOKUP_CACHE_SIZE is %d at the cost of higher memory usage.\n",cacheParam);
+  }
 
   if (Debug::isFlagSet(Debug::Time))
   {
@@ -10857,8 +10826,6 @@ void generateOutput()
    *                        Start cleaning up                               *
    **************************************************************************/
 
-  //Doxygen::symbolCache->printStats();
-  //Doxygen::symbolStorage->printStats();
   cleanUpDoxygen();
 
   finializeDocParser();

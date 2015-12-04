@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -952,6 +952,19 @@ void XmlDocVisitor::visitPre(DocText *)
 void XmlDocVisitor::visitPost(DocText *)
 {
 }
+
+void XmlDocVisitor::visitPre(DocHtmlBlockQuote *)
+{
+  if (m_hide) return;
+  m_t << "<blockquote>";
+}
+
+void XmlDocVisitor::visitPost(DocHtmlBlockQuote *)
+{
+  if (m_hide) return;
+  m_t << "</blockquote>";
+}
+
 
 void XmlDocVisitor::filter(const char *str)
 { 

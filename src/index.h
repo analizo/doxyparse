@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -178,6 +178,7 @@ enum HighlightedItem
   HLI_Pages,
   HLI_Examples,
   HLI_Search,
+  HLI_UserGroup,
 
   HLI_ClassVisible,
   HLI_NamespaceVisible,
@@ -257,7 +258,7 @@ void endTitle(OutputList &ol,const char *fileName,const char *name);
 void startFile(OutputList &ol,const char *name,const char *manName,
                const char *title,HighlightedItem hli=HLI_None,
                bool additionalIndices=FALSE,const char *altSidebarName=0);
-void endFile(OutputList &ol,bool skipNavIndex=FALSE);
+void endFile(OutputList &ol,bool skipNavIndex=FALSE,bool skipEndContents=FALSE);
 void endFileWithNavPath(Definition *d,OutputList &ol);
 
 void initClassMemberIndices();

@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -37,6 +37,7 @@
 #include "parserintf.h"
 #include "marshal.h"
 #include "debug.h"
+#include "vhdldocgen.h"
 
 #define START_MARKER 0x4445465B // DEF[
 #define END_MARKER   0x4445465D // DEF]
@@ -319,10 +320,11 @@ void Definition::addSectionsToDefinition(QList<SectionInfo> *anchorList)
     //printf("Add section `%s' to definition `%s'\n",
     //    si->label.data(),name().data());
     SectionInfo *gsi=Doxygen::sectionDict.find(si->label);
+    //printf("===== label=%s gsi=%p\n",si->label.data(),gsi);
     if (gsi==0)
     {
       gsi = new SectionInfo(*si);
-      Doxygen::sectionDict.insert(si->label,gsi);
+      Doxygen::sectionDict.append(si->label,gsi);
     }
     if (m_impl->sectionDict==0) 
     {
@@ -330,11 +332,130 @@ void Definition::addSectionsToDefinition(QList<SectionInfo> *anchorList)
     }
     if (m_impl->sectionDict->find(gsi->label)==0)
     {
-      m_impl->sectionDict->insert(gsi->label,gsi);
+      m_impl->sectionDict->append(gsi->label,gsi);
       gsi->definition = this;
     }
     si=anchorList->next();
   }
+}
+
+bool Definition::hasSections() const
+{
+  makeResident();
+  //printf("Definition::hasSections(%s) #sections=%d\n",name().data(),
+  //    m_impl->sectionDict ? m_impl->sectionDict->count() : 0);
+  if (m_impl->sectionDict==0) return FALSE;
+  SDict<SectionInfo>::Iterator li(*m_impl->sectionDict);
+  SectionInfo *si;
+  for (li.toFirst();(si=li.current());++li)
+  {
+    if (si->type==SectionInfo::Section || 
+        si->type==SectionInfo::Subsection || 
+        si->type==SectionInfo::Subsubsection ||
+        si->type==SectionInfo::Paragraph)
+    {
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
+void Definition::addSectionsToIndex()
+{
+  makeResident();
+  if (m_impl->sectionDict==0) return;
+  //printf("Definition::addSectionsToIndex()\n");
+  SDict<SectionInfo>::Iterator li(*m_impl->sectionDict);
+  SectionInfo *si;
+  int level=1;
+  for (li.toFirst();(si=li.current());++li)
+  {
+    if (si->type==SectionInfo::Section       || 
+        si->type==SectionInfo::Subsection    || 
+        si->type==SectionInfo::Subsubsection ||
+        si->type==SectionInfo::Paragraph)
+    {
+      //printf("  level=%d title=%s\n",level,si->title.data());
+      int nextLevel = (int)si->type;
+      if (nextLevel>level)
+      {
+        Doxygen::indexList.incContentsDepth();
+      }
+      else if (nextLevel<level)
+      {
+        Doxygen::indexList.decContentsDepth();
+      }
+      Doxygen::indexList.addContentsItem(TRUE,si->title,
+                                         getReference(),
+                                         getOutputFileBase(),
+                                         si->label,
+                                         FALSE,
+                                         TRUE);
+      level = nextLevel;
+    }
+  }
+  while (level>1)
+  {
+    Doxygen::indexList.decContentsDepth();
+    level--;
+  }
+}
+
+void Definition::writeToc(OutputList &ol)
+{
+  makeResident();
+  if (m_impl->sectionDict==0) return;
+  ol.pushGeneratorState();
+  ol.disableAllBut(OutputGenerator::Html);
+  ol.writeString("<div class=\"toc\">");
+  ol.writeString("<h3>");
+  ol.writeString(theTranslator->trRTFTableOfContents());
+  ol.writeString("</h3>\n");
+  ol.writeString("<ul>");
+  SDict<SectionInfo>::Iterator li(*m_impl->sectionDict);
+  SectionInfo *si;
+  int level=1;
+  char cs[2];
+  cs[1]='\0';
+  bool inLi[5]={ FALSE, FALSE, FALSE, FALSE };
+  for (li.toFirst();(si=li.current());++li)
+  {
+    if (si->type==SectionInfo::Section       || 
+        si->type==SectionInfo::Subsection    || 
+        si->type==SectionInfo::Subsubsection ||
+        si->type==SectionInfo::Paragraph)
+    {
+      //printf("  level=%d title=%s\n",level,si->title.data());
+      int nextLevel = (int)si->type;
+      if (nextLevel>level)
+      {
+        ol.writeString("<ul>");
+      }
+      else if (nextLevel<level)
+      {
+        if (inLi[level]) ol.writeString("</li>\n");
+        inLi[level]=FALSE;
+        ol.writeString("</ul>\n");
+      }
+      cs[0]='0'+nextLevel;
+      if (inLi[nextLevel]) ol.writeString("</li>\n");
+      ol.writeString("<li class=\"level"+QCString(cs)+"\"><a href=\"#"+si->label+"\">"+si->title+"</a>");
+      inLi[nextLevel]=TRUE;
+      level = nextLevel;
+    }
+  }
+  while (level>1)
+  {
+    if (inLi[level]) ol.writeString("</li>\n");
+    inLi[level]=FALSE;
+    ol.writeString("</ul>\n");
+    level--;
+  }
+  if (inLi[level]) ol.writeString("</li>\n");
+  inLi[level]=FALSE;
+  ol.writeString("</ul>\n");
+  ol.writeString("</div>\n");
+  ol.popGeneratorState();
 }
 
 void Definition::writeDocAnchorsToTagFile()
@@ -343,7 +464,7 @@ void Definition::writeDocAnchorsToTagFile()
   if (!Config_getString("GENERATE_TAGFILE").isEmpty() && m_impl->sectionDict)
   {
     //printf("%s: writeDocAnchorsToTagFile(%d)\n",name().data(),m_sectionDict->count());
-    QDictIterator<SectionInfo> sdi(*m_impl->sectionDict);
+    SDict<SectionInfo>::Iterator sdi(*m_impl->sectionDict);
     SectionInfo *si;
     for (;(si=sdi.current());++sdi)
     {
@@ -615,7 +736,7 @@ static bool readCodeFragment(const char *fileName,
           cn=fgetc(f);
           if (cn!=':') found=TRUE;
         }
-        else if (c=='{')
+        else if (c=='{')   // } so vi matching brackets has no problem
         {
           found=TRUE;
         }
@@ -679,6 +800,8 @@ static bool readCodeFragment(const char *fileName,
     if (usePipe) 
     {
       portable_pclose(f); 
+      Debug::print(Debug::FilterOutput, 0, "Filter output\n");
+      Debug::print(Debug::FilterOutput,0,"-------------\n%s\n-------------\n",result.data());
     }
     else 
     {
@@ -864,6 +987,14 @@ void Definition::writeInlineCode(OutputList &ol,const char *scopeName)
       //printf("Read:\n`%s'\n\n",codeFragment.data());
       MemberDef *thisMd = 0;
       if (definitionType()==TypeMember) thisMd = (MemberDef *)this;
+
+      // vhdl  parser can' t start at an arbitrary point in the source code
+      if(this->getLanguage()==SrcLangExt_VHDL)
+      {
+        if (thisMd) VhdlDocGen::writeCodeFragment(ol,actualStart,codeFragment,thisMd);
+        return;
+      }
+
       ol.startCodeFragment();
       pIntf->parseCode(ol,               // codeOutIntf
                        scopeName,        // scope
@@ -1112,12 +1243,12 @@ void Definition::addInnerCompound(Definition *)
 
 QCString Definition::qualifiedName() const
 {
-  static int count=0;
-  count++;
+  //static int count=0;
+  //count++;
   makeResident();
   if (!m_impl->qualifiedName.isEmpty()) 
   {
-    count--;
+    //count--;
     return m_impl->qualifiedName;
   }
   
@@ -1126,12 +1257,12 @@ QCString Definition::qualifiedName() const
   {
     if (m_impl->localName=="<globalScope>") 
     {
-      count--;
+      //count--;
       return "";
     }
     else 
     {
-      count--;
+      //count--;
       return m_impl->localName; 
     }
   }
@@ -1142,10 +1273,12 @@ QCString Definition::qualifiedName() const
   }
   else
   {
-    m_impl->qualifiedName = m_impl->outerScope->qualifiedName()+"::"+m_impl->localName;
+    m_impl->qualifiedName = m_impl->outerScope->qualifiedName()+
+           getLanguageSpecificSeparator(getLanguage())+
+           m_impl->localName;
   }
   //printf("end %s::qualifiedName()=%s\n",name().data(),m_impl->qualifiedName.data());
-  count--;
+  //count--;
   return m_impl->qualifiedName;
 };
 
@@ -1329,7 +1462,7 @@ void Definition::writePathFragment(OutputList &ol) const
   ol.writeString("      </li>\n");
 }
 
-void Definition::writeNavigationPath(OutputList &ol,bool showSearchInfo) const
+void Definition::writeNavigationPath(OutputList &ol) const
 {
   static bool generateTreeView = Config_getBool("GENERATE_TREEVIEW");
 
@@ -1340,10 +1473,10 @@ void Definition::writeNavigationPath(OutputList &ol,bool showSearchInfo) const
   {
     ol.writeString("</div>\n");
   }
-  if (showSearchInfo)
-  {
-    ol.writeSearchInfo();
-  }
+  //if (showSearchInfo)
+  //{
+  //  ol.writeSearchInfo();
+  //}
 
   ol.writeString("  <div id=\"nav-path\" class=\"navpath\">\n");
   ol.writeString("    <ul>\n");

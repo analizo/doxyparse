@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -115,6 +115,13 @@ static const char svgZoomFooter[] =
 "                  <path fill=\"none\" stroke=\"white\" stroke-width=\"1.5\" d=\"M0,-3.0v7 M-2.5,-0.5L0,-3.0L2.5,-0.5\"/>\n"
 "                </g>\n"
 "        </g>\n"
+"        <svg viewBox=\"0 0 25 25\" width=\"100%\" height=\"30px\" preserveAspectRatio=\"xMaxYMin meet\"> \n"
+"          <g id=\"printButton\" transform=\"scale(0.4 0.4)\" onmousedown=\"handlePrint(evt)\">\n"
+"            <rect height=\"23.33753581\" id=\"paper\" rx=\"2\" style=\"fill:#f2f5e9;fill-rule:evenodd;stroke:#111111;stroke-width:3.224;stroke-linejoin:round;\" transform=\"matrix(1.000000,0.000000,-0.339266,0.940691,0.000000,0.000000)\" width=\"25.55231285\" x=\"26.69387353\" y=\"7.36162977\"/>\n"
+"            <rect height=\"26.272097\" id=\"body\" rx=\"2\" style=\"fill:#404040;fill-rule:evenodd;stroke:#111111;stroke-width:3.125;stroke-linejoin:round;\" width=\"50\" x=\"4.5295201\" y=\"27.078951\"/>\n"
+"            <rect height=\"8.27750969\" id=\"tray\" style=\"fill:#d2d5c9;fill-rule:evenodd;stroke:#111111;stroke-width:3.125;stroke-linecap:round;stroke-linejoin:round;\" width=\"40\" x=\"10.28778839\" y=\"44.96812282\"/>\n"
+"          </g>\n"
+"        </svg>\n"
 "</svg>\n"
 ;
 
@@ -1517,7 +1524,7 @@ static QCString escapeTooltip(const QCString &tooltip)
 
 static void writeBoxMemberList(FTextStream &t,
             char prot,MemberList *ml,ClassDef *scope,
-            bool isStatic=FALSE)
+            bool isStatic=FALSE,const QDict<void> *skipNames=0)
 {
   (void)isStatic;
   if (ml)
@@ -1527,7 +1534,8 @@ static void writeBoxMemberList(FTextStream &t,
     int totalCount=0;
     for (mlia.toFirst();(mma = mlia.current());++mlia)
     {
-      if (mma->getClassDef() == scope)
+      if (mma->getClassDef()==scope && 
+          (skipNames==0 || skipNames->find(mma->name())==0))
       {
         totalCount++;
       }
@@ -1536,9 +1544,11 @@ static void writeBoxMemberList(FTextStream &t,
     int count=0;
     for (mlia.toFirst();(mma = mlia.current());++mlia)
     {
-      if (mma->getClassDef() == scope)
+      if (mma->getClassDef() == scope &&
+          (skipNames==0 || skipNames->find(mma->name())==0))
       {
-        if (totalCount>=15 && count>=10)
+        static int limit = Config_getInt("UML_LIMIT_NUM_FIELDS");
+        if (limit==0 || (totalCount>=limit*3/2 && count>=limit))
         {
           t << "and " << (totalCount-count-1) << " more...";
           // TODO: TRANSLATE ME
@@ -1565,7 +1575,7 @@ static void writeBoxMemberList(FTextStream &t,
       {
         if (mg->members())
         {
-          writeBoxMemberList(t,prot,mg->members(),scope);
+          writeBoxMemberList(t,prot,mg->members(),scope,isStatic,skipNames);
         }
       }
     }
@@ -1588,21 +1598,34 @@ void DotNode::writeBox(FTextStream &t,
 
   if (m_classDef && umlLook && (gt==Inheritance || gt==Collaboration))
   {
+    // add names shown as relation to a dictionary, so we don't show
+    // them as attributes as well
+    QDict<void> arrowNames(17);
+    QListIterator<EdgeInfo> li(*m_edgeInfo);
+    EdgeInfo *ei;
+    for (li.toFirst();(ei=li.current());++li)
+    {
+      if (!ei->m_label.isEmpty())
+      {
+        arrowNames.insert(ei->m_label,(void*)0x8);
+      }
+    }
+
     //printf("DotNode::writeBox for %s\n",m_classDef->name().data());
     static bool extractPrivate = Config_getBool("EXTRACT_PRIVATE");
     t << "{" << convertLabel(m_label);
     t << "\\n|";
-    writeBoxMemberList(t,'+',m_classDef->getMemberList(MemberList::pubAttribs),m_classDef);
-    writeBoxMemberList(t,'+',m_classDef->getMemberList(MemberList::pubStaticAttribs),m_classDef,TRUE);
-    writeBoxMemberList(t,'+',m_classDef->getMemberList(MemberList::properties),m_classDef);
-    writeBoxMemberList(t,'~',m_classDef->getMemberList(MemberList::pacAttribs),m_classDef);
-    writeBoxMemberList(t,'~',m_classDef->getMemberList(MemberList::pacStaticAttribs),m_classDef,TRUE);
-    writeBoxMemberList(t,'#',m_classDef->getMemberList(MemberList::proAttribs),m_classDef);
-    writeBoxMemberList(t,'#',m_classDef->getMemberList(MemberList::proStaticAttribs),m_classDef,TRUE);
+    writeBoxMemberList(t,'+',m_classDef->getMemberList(MemberList::pubAttribs),m_classDef,FALSE,&arrowNames);
+    writeBoxMemberList(t,'+',m_classDef->getMemberList(MemberList::pubStaticAttribs),m_classDef,TRUE,&arrowNames);
+    writeBoxMemberList(t,'+',m_classDef->getMemberList(MemberList::properties),m_classDef,FALSE,&arrowNames);
+    writeBoxMemberList(t,'~',m_classDef->getMemberList(MemberList::pacAttribs),m_classDef,FALSE,&arrowNames);
+    writeBoxMemberList(t,'~',m_classDef->getMemberList(MemberList::pacStaticAttribs),m_classDef,TRUE,&arrowNames);
+    writeBoxMemberList(t,'#',m_classDef->getMemberList(MemberList::proAttribs),m_classDef,FALSE,&arrowNames);
+    writeBoxMemberList(t,'#',m_classDef->getMemberList(MemberList::proStaticAttribs),m_classDef,TRUE,&arrowNames);
     if (extractPrivate)
     {
-      writeBoxMemberList(t,'-',m_classDef->getMemberList(MemberList::priAttribs),m_classDef);
-      writeBoxMemberList(t,'-',m_classDef->getMemberList(MemberList::priStaticAttribs),m_classDef,TRUE);
+      writeBoxMemberList(t,'-',m_classDef->getMemberList(MemberList::priAttribs),m_classDef,FALSE,&arrowNames);
+      writeBoxMemberList(t,'-',m_classDef->getMemberList(MemberList::priStaticAttribs),m_classDef,TRUE,&arrowNames);
     }
     t << "|";
     writeBoxMemberList(t,'+',m_classDef->getMemberList(MemberList::pubMethods),m_classDef);
@@ -1628,7 +1651,7 @@ void DotNode::writeBox(FTextStream &t,
       {
         if (mg->members())
         {
-          writeBoxMemberList(t,'*',mg->members(),m_classDef);
+          writeBoxMemberList(t,'*',mg->members(),m_classDef,FALSE,&arrowNames);
         }
       }
     }

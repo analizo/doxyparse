@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -118,7 +118,7 @@ class Doxygen
     static QDict<DefinitionIntf>    *symbolMap;
     static bool                      outputToWizard;
     static QDict<int>               *htmlDirMap;
-    static QCache<LookupInfo>        lookupCache;
+    static QCache<LookupInfo>       *lookupCache;
     static DirSDict                 *directories;
     static SDict<DirRelation>        dirRelations;
     static ParserManager            *parserManager;
@@ -134,6 +134,7 @@ class Doxygen
     static int                       subpageNestingLevel;
     static QCString                  spaces;
     static bool                      generatingXmlOutput;
+    static bool                      markdownSupport;
 };
 
 void initDoxygen();

@@ -9,6 +9,7 @@
 #include "definition.h"
 #include "groupdef.h"
 #include "example.h"
+#include "arguments.h"
 
 #define HEADER ('D'<<24)+('O'<<16)+('X'<<8)+'!'
 
@@ -157,6 +158,7 @@ void marshalSectionInfoList(StorageIntf *s, QList<SectionInfo> *anchors)
       marshalQCString(s,si->ref);
       marshalInt(s,(int)si->type);
       marshalQCString(s,si->fileName);
+      marshalInt(s,si->level);
     }
   }
 }
@@ -195,7 +197,7 @@ void marshalSectionDict(StorageIntf *s,SectionDict *sections)
   else
   {
     marshalUInt(s,sections->count());
-    QDictIterator<SectionInfo> sli(*sections);
+    SDict<SectionInfo>::IteratorDict sli(*sections);
     SectionInfo *si;
     for (sli.toFirst();(si=sli.current());++sli)
     {
@@ -576,7 +578,8 @@ QList<SectionInfo> *unmarshalSectionInfoList(StorageIntf *s)
     QCString ref   = unmarshalQCString(s);
     SectionInfo::SectionType type = (SectionInfo::SectionType)unmarshalInt(s);
     QCString fileName = unmarshalQCString(s);
-    result->append(new SectionInfo(fileName,label,title,type,ref));
+    int level = unmarshalInt(s);
+    result->append(new SectionInfo(fileName,label,title,type,level,ref));
   }
   return result;
 }
@@ -619,7 +622,7 @@ SectionDict *unmarshalSectionDict(StorageIntf *s)
     QCString key    = unmarshalQCString(s);
     SectionInfo *si = (SectionInfo *)unmarshalObjPointer(s);
     //printf("  unmarshalSectionDict i=%d key=%s si=%s\n",count,key.data(),si->label.data());
-    result->insert(key,si);
+    result->append(key,si);
   }
   return result;
 }

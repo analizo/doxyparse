@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -36,6 +36,8 @@
 #include "dot.h"
 #include "vhdldocgen.h"
 #include "layout.h"
+#include "arguments.h"
+#include "entry.h"
 
 //---------------------------------------------------------------------------
 
@@ -646,7 +648,7 @@ void GroupDef::writeFiles(OutputList &ol,const QCString &title)
     FileDef *fd=fileList->first();
     while (fd)
     {
-      ol.startMemberItem(0);
+      ol.startMemberItem(fd->getOutputFileBase(),0);
       ol.docify(theTranslator->trFile(FALSE,TRUE)+" ");
       ol.insertMemberAlign();
       ol.writeObjectLink(fd->getReference(),fd->getOutputFileBase(),0,fd->name());
@@ -657,7 +659,7 @@ void GroupDef::writeFiles(OutputList &ol,const QCString &title)
       ol.endMemberItem();
       if (!fd->briefDescription().isEmpty() && Config_getBool("BRIEF_MEMBER_DESC"))
       {
-        ol.startMemberDescription();
+        ol.startMemberDescription(fd->getOutputFileBase());
         ol.parseDoc(briefFile(),briefLine(),fd,0,fd->briefDescription(),FALSE,FALSE);
         ol.endMemberDescription();
       }
@@ -685,7 +687,7 @@ void GroupDef::writeNestedGroups(OutputList &ol,const QCString &title)
     GroupDef *gd=groupList->first();
     while (gd)
     {
-      ol.startMemberItem(0);
+      ol.startMemberItem(gd->getOutputFileBase(),0);
       //ol.docify(theTranslator->trGroup(FALSE,TRUE));
       //ol.docify(" ");
       ol.insertMemberAlign();
@@ -697,7 +699,7 @@ void GroupDef::writeNestedGroups(OutputList &ol,const QCString &title)
       ol.endMemberItem();
       if (!gd->briefDescription().isEmpty() && Config_getBool("BRIEF_MEMBER_DESC"))
       {
-        ol.startMemberDescription();
+        ol.startMemberDescription(gd->getOutputFileBase());
         ol.parseDoc(briefFile(),briefLine(),gd,0,gd->briefDescription(),FALSE,FALSE);
         ol.endMemberDescription();
       }
@@ -719,7 +721,7 @@ void GroupDef::writeDirs(OutputList &ol,const QCString &title)
     DirDef *dd=dirList->first();
     while (dd)
     {
-      ol.startMemberItem(0);
+      ol.startMemberItem(dd->getOutputFileBase(),0);
       ol.parseText(theTranslator->trDir(FALSE,TRUE));
       ol.insertMemberAlign();
       ol.writeObjectLink(dd->getReference(),dd->getOutputFileBase(),0,dd->shortName());
@@ -730,8 +732,8 @@ void GroupDef::writeDirs(OutputList &ol,const QCString &title)
       }
       if (!dd->briefDescription().isEmpty() && Config_getBool("BRIEF_MEMBER_DESC"))
       {
-        ol.startMemberDescription();
-        ol.parseDoc(briefFile(),briefLine(),dd,0,dd->briefDescription(),FALSE,FALSE);
+        ol.startMemberDescription(dd->getOutputFileBase());
+        ol.parseDoc(briefFile(),briefLine(),dd,0,dd->briefDescription(),FALSE,FALSE,0,TRUE,FALSE);
         ol.endMemberDescription();
       }
       dd=dirList->next();
@@ -776,7 +778,7 @@ void GroupDef::writePageDocumentation(OutputList &ol)
         ol.endSection(si->label,SectionInfo::Subsection);
       }
       ol.startTextBlock();
-      ol.parseDoc(pd->docFile(),pd->docLine(),pd,0,pd->documentation()+pd->inbodyDocumentation(),TRUE,FALSE);
+      ol.parseDoc(pd->docFile(),pd->docLine(),pd,0,pd->documentation()+pd->inbodyDocumentation(),TRUE,FALSE,0,TRUE,FALSE);
       ol.endTextBlock();
     }
   }
@@ -1441,5 +1443,10 @@ void GroupDef::removeMemberFromList(MemberList::ListType lt,MemberDef *md)
 {
     MemberList *ml = getMemberList(lt);
     if (ml) ml->remove(md); 
+}
+
+void GroupDef::sortSubGroups() 
+{ 
+    groupList->sort(); 
 }
 

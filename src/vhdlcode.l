@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -40,6 +40,7 @@
 #include "membername.h"
 #include "searchindex.h"
 #include "vhdldocgen.h"
+#include "arguments.h"
 
 #define YY_NEVER_INTERACTIVE 1
   
@@ -451,7 +452,14 @@ static void generateFuncLink(CodeOutputInterface &ol,MemberDef* mdef)
 
 static void generateMemLink(CodeOutputInterface &ol,QCString &clName,QCString& memberName)
 {
-  if (clName.isEmpty() || memberName.isEmpty()) return; 
+  if (memberName.isEmpty()) return; 
+  if (clName.isEmpty())
+  {
+    codifyLines(memberName.data());
+
+   return;
+  }
+  
   QCString className=clName;
 
   MemberDef *md=0;
@@ -826,7 +834,7 @@ XILINX      "INST"|"NET"|"PIN"|"BLKNM"|"BUFG"|"COLLAPSE"|"CPLD"|"COMPGRP"|"CONFI
 			    cc=t1.at(index);
 			  }        
 
-			  QCString s1=(QCString)ql[0];
+			  QCString s1=t1;
 			  s1=s1.stripWhiteSpace();
 
 			  //         if (!g_PortMapComp.isEmpty())

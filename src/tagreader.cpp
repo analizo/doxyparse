@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -35,6 +35,7 @@
 #include "util.h"
 #include "message.h"
 #include "defargs.h"
+#include "arguments.h"
 //#include "reflist.h"
 
 /*! Information about an linkable anchor */
@@ -1035,8 +1036,8 @@ void TagFileParser::addDocAnchors(Entry *e,const TagAnchorInfoList &l)
       //printf("New sectionInfo file=%s anchor=%s\n",
       //    ta->fileName.data(),ta->label.data());
       SectionInfo *si=new SectionInfo(ta->fileName,ta->label,ta->label,
-          SectionInfo::Anchor,m_tagName);
-      Doxygen::sectionDict.insert(ta->label,si);
+          SectionInfo::Anchor,0,m_tagName);
+      Doxygen::sectionDict.append(ta->label,si);
       e->anchors->append(si);
     }
     else

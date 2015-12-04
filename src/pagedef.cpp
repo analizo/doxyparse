@@ -17,6 +17,7 @@ PageDef::PageDef(const char *f,int l,const char *n,
   m_subPageDict = new PageSDict(7);
   m_pageScope = 0;
   m_nestingLevel = 0;
+  m_showToc = FALSE;
 }
 
 PageDef::~PageDef()
@@ -98,7 +99,7 @@ void PageDef::writeDocumentation(OutputList &ol)
   {
     if (getOuterScope()!=Doxygen::globalScope && !Config_getBool("DISABLE_INDEX"))
     {
-      getOuterScope()->writeNavigationPath(ol,FALSE);
+      getOuterScope()->writeNavigationPath(ol);
     }
     ol.endQuickIndices();
   }
@@ -138,6 +139,11 @@ void PageDef::writeDocumentation(OutputList &ol)
   ol.startContents();
   ol.popGeneratorState();
   //2.}
+
+  if (m_showToc && hasSections())
+  {
+    writeToc(ol);
+  }
 
   writePageDocumentation(ol);
 
@@ -183,6 +189,13 @@ void PageDef::writeDocumentation(OutputList &ol)
 
 void PageDef::writePageDocumentation(OutputList &ol)
 {
+
+  bool markdownEnabled = Doxygen::markdownSupport;
+  if (getLanguage()==SrcLangExt_Markdown)
+  {
+    Doxygen::markdownSupport = TRUE;
+  }
+
   ol.startTextBlock();
   ol.parseDoc(
       docFile(),           // fileName
@@ -194,6 +207,8 @@ void PageDef::writePageDocumentation(OutputList &ol)
       FALSE                // not an example
       );
   ol.endTextBlock();
+
+  Doxygen::markdownSupport = markdownEnabled;
 
   if (hasSubPages())
   {
@@ -259,5 +274,10 @@ bool PageDef::hasSubPages() const
 void PageDef::setNestingLevel(int l)
 {
   m_nestingLevel = l;
+}
+
+void PageDef::setShowToc(bool b)
+{
+  m_showToc = b;
 }
 

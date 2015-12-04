@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -115,8 +115,6 @@ class RTFDocVisitor : public DocVisitor
     void visitPost(DocSecRefItem *);
     void visitPre(DocSecRefList *);
     void visitPost(DocSecRefList *);
-    //void visitPre(DocLanguage *);
-    //void visitPost(DocLanguage *);
     void visitPre(DocParamSect *);
     void visitPost(DocParamSect *);
     void visitPre(DocParamList *);
@@ -129,6 +127,8 @@ class RTFDocVisitor : public DocVisitor
     void visitPost(DocCopy *);
     void visitPre(DocText *);
     void visitPost(DocText *);
+    void visitPre(DocHtmlBlockQuote *);
+    void visitPost(DocHtmlBlockQuote *);
 
   private:
 

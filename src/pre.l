@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2011 by Dimitri van Heesch.
+ * Copyright (C) 1997-2012 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -47,6 +47,8 @@
 #include "bufstr.h"
 #include "portable.h"
 #include "bufstr.h"
+#include "arguments.h"
+#include "entry.h"
 
 #define YY_NEVER_INTERACTIVE 1
   
@@ -63,19 +65,28 @@ struct FileState
   QCString fileName;
 };  
 
-/** @brief Singleton that manages the defines available while proprocessing files. */
+/** @brief Singleton that manages the defines available while 
+ *  proprocessing files. 
+ */
 class DefineManager
 {
+  /** Local class used to hold the defines for a single file */
   class DefinesPerFile
   {
     public:
+      /** Creates an empty container for defines */
       DefinesPerFile() : m_defines(257), m_includedFiles(17)
       {
         m_defines.setAutoDelete(TRUE);
       }
+      /** Destroys the object */
       virtual ~DefinesPerFile()
       {
       }
+      /** Adds a define in the context of a file. Will replace 
+       *  an existing define with the same name (redefinition)
+       *  @param def The Define object to add.
+       */
       void addDefine(Define *def)
       {
 	Define *d = m_defines.find(def->name);
@@ -85,6 +96,9 @@ class DefineManager
 	}
 	m_defines.insert(def->name,def);
       }
+      /** Adds an include file for this file 
+       *  @param fileName The name of the include file
+       */
       void addInclude(const char *fileName)
       {
 	m_includedFiles.insert(fileName,(void*)0x8);
@@ -97,26 +111,48 @@ class DefineManager
 
   public:
     friend class DefinesPerFile;
+    /** Returns a reference to the singleton */
     static DefineManager &instance()
     {
       if (theInstance==0) theInstance = new DefineManager;
       return *theInstance;
     }
+    /** Deletes the singleton */
     static void deleteInstance()
     {
       delete theInstance;
       theInstance = 0;
     }
-    void startContext()
+    /** Starts a context in which defines are collected. 
+     *  Called at the start of a new file that is preprocessed.
+     *  @param fileName the name of the file to process.
+     */
+    void startContext(const char *fileName)
     {
       //printf("DefineManager::startContext()\n");
       m_contextDefines.clear();
+      if (fileName==0) return;
+      DefinesPerFile *dpf = m_fileMap.find(fileName);
+      if (dpf==0)
+      {
+	//printf("New file!\n");
+	dpf = new DefinesPerFile;
+	m_fileMap.insert(fileName,dpf);
+      }
     }
+    /** Ends the context started with startContext() freeing any
+     *  defines collected within in this context.
+     */
     void endContext()
     {
       //printf("DefineManager::endContext()\n");
       m_contextDefines.clear();
     }
+    /** Add an included file to the current context.
+     *  If the file has been pre-processed already, all defines are added
+     *  to the context.
+     *  @param fileName The name of the include file to add to the context.
+     */
     void addFileToContext(const char *fileName)
     {
       if (fileName==0) return;
@@ -135,24 +171,34 @@ class DefineManager
 	dpf->collectDefines(&m_contextDefines,includeStack);
       }
     }
+
+    /** Add a define to the manager object.
+     *  @param fileName The file in which the define was found
+     *  @param def The Define object to add.
+     */
     void addDefine(const char *fileName,Define *def)
     {
       if (fileName==0) return;
       //printf("DefineManager::addDefine(%s,%s)\n",fileName,def->name.data());
-      DefinesPerFile *dpf = m_fileMap.find(fileName);
-      if (dpf==0)
-      {
-	dpf = new DefinesPerFile;
-      }
-      dpf->addDefine(def);
-
       Define *d = m_contextDefines.find(def->name);
       if (d!=0) // redefine
       {
 	m_contextDefines.remove(d->name);
       }
       m_contextDefines.insert(def->name,def);
+
+      DefinesPerFile *dpf = m_fileMap.find(fileName);
+      if (dpf==0)
+      {
+	dpf = new DefinesPerFile;
+      }
+      dpf->addDefine(def);
     }
+
+    /** Add an include relation to the manager object.
+     *  @param fromFileName file name in which the include was found.
+     *  @param toFileName file name that is included.
+     */
     void addInclude(const char *fromFileName,const char *toFileName)
     {
       //printf("DefineManager::addInclude(%s,%s)\n",fromFileName,toFileName);
@@ -164,16 +210,22 @@ class DefineManager
       }
       dpf->addInclude(toFileName);
     }
+    /** Returns a Define object given its name or 0 if the Define does
+     *  not exist.
+     */
     Define *isDefined(const char *name) const
     {
       return m_contextDefines.find(name);
     }
+    /** Returns a reference to the defines found in the current context. */
     const DefineDict &defineContext() const
     {
       return m_contextDefines;
     }
   private:
     static DefineManager *theInstance;
+
+    /** Helper function to collect all define for a given file */
     void collectDefinesForFile(const char *fileName,DefineDict *dict)
     {
       if (fileName==0) return;
@@ -184,25 +236,41 @@ class DefineManager
 	dpf->collectDefines(dict,includeStack);
       }
     }
+
+    /** Helper function to return the DefinesPerFile object for a given file name. */
     DefinesPerFile *find(const char *fileName) const
     {
       if (fileName==0) return 0;
       return m_fileMap.find(fileName);
     }
+
+    /** Creates a new DefineManager object */
     DefineManager() : m_fileMap(1009), m_contextDefines(1009)
     {
       m_fileMap.setAutoDelete(TRUE);
     }
+
+    /** Destroys the object */
     virtual ~DefineManager() 
     {
     }
+
     QDict<DefinesPerFile> m_fileMap;
     DefineDict m_contextDefines;
 };
 
+/** Singleton instance */
 DefineManager *DefineManager::theInstance = 0;
 
-void DefineManager::DefinesPerFile::collectDefines(DefineDict *dict,QDict<void> &includeStack)
+/** Collects all defines for a file and all files that the file includes.
+ *  This function will recursively call itself for each file.
+ *  @param dict The dictionary to fill with the defines. A redefine will
+ *         replace a previous definition.
+ *  @param includeStack The stack of includes, used to stop recursion in
+ *         case there is a cyclic include dependency.
+ */
+void DefineManager::DefinesPerFile::collectDefines(
+                     DefineDict *dict,QDict<void> &includeStack)
 {
   //printf("DefinesPerFile::collectDefines #defines=%d\n",m_defines.count());
   {
@@ -1468,6 +1536,7 @@ static void readIncludeFile(const QCString &inc)
 	      }
 	      //printf( "absIncFileName = %s\n", absIncFileName.data() );
 	    }
+	    s=includePath.next();
 	  }
 	}
 	//printf( "absIncFileName = %s\n", absIncFileName.data() );
@@ -1485,7 +1554,10 @@ static void readIncludeFile(const QCString &inc)
       //printf("Found include file!\n");
       if (Debug::isFlagSet(Debug::Preprocessor))
       {
-        for (i=0;i<g_includeStack.count();i++) msg("  ");
+        for (i=0;i<g_includeStack.count();i++) 
+        {
+          Debug::print(Debug::Preprocessor,0,"  ");
+        }
         //msg("#include %s: parsing...\n",incFileName.data());
       }
       if (oldFileDef)
@@ -1558,11 +1630,11 @@ static void readIncludeFile(const QCString &inc)
       {
 	if (alreadyIncluded)
 	{
-          msg("#include %s: already included! skipping...\n",incFileName.data());
+          Debug::print(Debug::Preprocessor,0,"#include %s: already included! skipping...\n",incFileName.data());
 	}
 	else
 	{
-          msg("#include %s: not found! skipping...\n",incFileName.data());
+          Debug::print(Debug::Preprocessor,0,"#include %s: not found! skipping...\n",incFileName.data());
 	}
         //printf("error: include file %s not found\n",yytext);
       }
@@ -2772,10 +2844,9 @@ void preprocessFile(const char *fileName,BufStr &input,BufStr &output)
   g_condStack.setAutoDelete(TRUE);
   //g_fileDefineDict->clear();
 
-  DefineManager::instance().startContext();
   setFileName(fileName);
   g_inputFileDef = g_yyFileDef;
-  DefineManager::instance().addFileToContext(g_yyFileName);
+  DefineManager::instance().startContext(g_yyFileName);
   
   static bool firstTime=TRUE;
   if (firstTime)
@@ -2924,25 +2995,32 @@ void preprocessFile(const char *fileName,BufStr &input,BufStr &output)
   {
     char *orgPos=output.data()+orgOffset;
     char *newPos=output.data()+output.curPos();
-    msg("Preprocessor output (size: %d bytes):\n",newPos-orgPos);
+    Debug::print(Debug::Preprocessor,0,"Preprocessor output (size: %d bytes):\n",newPos-orgPos);
     int line=1;
-    msg("---------\n00001 ");
+    Debug::print(Debug::Preprocessor,0,"---------\n00001 ");
     while (orgPos<newPos) 
     {
       putchar(*orgPos);
-      if (*orgPos=='\n') printf("%05d ",++line);
+      if (*orgPos=='\n') Debug::print(Debug::Preprocessor,0,"%05d ",++line);
       orgPos++;
     }
-    msg("\n---------\n");
-    msg("Macros accessible in this file:\n");
-    msg("---------\n");
-    QDictIterator<Define> di(DefineManager::instance().defineContext());
-    Define *def;
-    for (di.toFirst();(def=di.current());++di)
+    Debug::print(Debug::Preprocessor,0,"\n---------\n");
+    if (DefineManager::instance().defineContext().count()>0)
     {
-      msg("%s ",def->name.data());
+      Debug::print(Debug::Preprocessor,0,"Macros accessible in this file:\n");
+      Debug::print(Debug::Preprocessor,0,"---------\n");
+      QDictIterator<Define> di(DefineManager::instance().defineContext());
+      Define *def;
+      for (di.toFirst();(def=di.current());++di)
+      {
+        Debug::print(Debug::Preprocessor,0,"%s ",def->name.data());
+      }
+      Debug::print(Debug::Preprocessor,0,"\n---------\n");
     }
-    msg("\n---------\n");
+    else
+    {
+      Debug::print(Debug::Preprocessor,0,"No macros accessible in this file.\n");
+    }
   }
   DefineManager::instance().endContext();
 }

@@ -1,7 +1,7 @@
 #
 # 
 #
-# Copyright (C) 1997-2011 by Dimitri van Heesch.
+# Copyright (C) 1997-2012 by Dimitri van Heesch.
 #
 # Permission to use, copy, modify, and distribute this software and its
 # documentation under the terms of the GNU General Public License is hereby 
@@ -16,7 +16,8 @@
 
 TEMPLATE     =	libdoxygen.t
 CONFIG       =	console warn_on staticlib $extraopts
-HEADERS      =	bufstr.h \
+HEADERS      =	arguments.h \
+                bufstr.h \
 		cite.h \
                 classdef.h \
                 classlist.h \
@@ -64,7 +65,6 @@ HEADERS      =	bufstr.h \
 		image.h \
 		index.h \
                 index_xsd.h \
-		instdox.h \
 		jquery_js.h \
 		jquery_ui_js.h \
 		sizzle_js.h \
@@ -78,6 +78,7 @@ HEADERS      =	bufstr.h \
 		logos.h \
 		mandocvisitor.h \
 		mangen.h \
+		markdown.h \
                 marshal.h \
 		memberdef.h \
 		membergroup.h \
@@ -158,6 +159,7 @@ HEADERS      =	bufstr.h \
 		translator_ua.h \
 		translator_vi.h \
 		translator_za.h \
+		types.h \
 		unistd.h \
 		util.h \
 		version.h \
@@ -167,7 +169,8 @@ HEADERS      =	bufstr.h \
 		xmldocvisitor.h \
                 xmlgen.h
 
-SOURCES      =	ce_lex.cpp \
+SOURCES      =	arguments.cpp \
+                ce_lex.cpp \
                 ce_parse.cpp \
 		cite.cpp \
 		classdef.cpp \
@@ -208,7 +211,6 @@ SOURCES      =	ce_lex.cpp \
 		indexlog.cpp \
 		image.cpp \
 		index.cpp \
-		instdox.cpp \
 		language.cpp \
                 latexdocvisitor.cpp \
 		latexgen.cpp \
@@ -217,6 +219,7 @@ SOURCES      =	ce_lex.cpp \
 		logos.cpp \
 		mandocvisitor.cpp \
 		mangen.cpp \
+		markdown.cpp \
                 marshal.cpp \
 		memberdef.cpp \
 		membergroup.cpp \
