@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -313,7 +313,7 @@ class DocSymbol : public DocNode
 {
   public:
     enum SymType { Unknown=0, BSlash, At, Less, Greater, Amp, Dollar, Hash,
-                   Percent, Copy, Tm, Reg, Apos, Quot, Uml, Acute, 
+                   DoubleColon, Percent, Copy, Tm, Reg, Apos, Quot, Uml, Acute, 
                    Grave, Circ, Tilde, Szlig, Cedil, Ring, Nbsp, Slash, 
                    Lsquo, Rsquo, Ldquo, Rdquo, Ndash, Mdash, Aelig, AElig
                  };
@@ -451,7 +451,7 @@ class DocFormula : public DocNode
     QCString relPath() const    { return m_relPath; }
     int id() const             { return m_id; }
     void accept(DocVisitor *v) { v->visit(this); }
-    bool isInline()            { return text().at(0)!='\\'; }
+    bool isInline()            { return m_text.length()>0 ? m_text.at(0)!='\\' : TRUE; }
 
   private:
     QCString  m_name;

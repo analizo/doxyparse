@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -30,6 +30,7 @@ class LatexGenerator : public OutputGenerator
     static void init();
     static void writeStyleSheetFile(QFile &f);
     static void writeHeaderFile(QFile &f);
+    static void writeFooterFile(QFile &f);
 
     //OutputGenerator *copy();
     //OutputGenerator *clone() { return new LatexGenerator(*this); }
@@ -90,8 +91,8 @@ class LatexGenerator : public OutputGenerator
     void endHtmlLink();
     void startTypewriter() { t << "{\\ttfamily "; }
     void endTypewriter()   { t << "}";      }
-    void startGroupHeader();
-    void endGroupHeader();
+    void startGroupHeader(int);
+    void endGroupHeader(int);
     void startItemListItem() { t << "\\item " << endl; }
     void endItemListItem()   {}
 
@@ -107,6 +108,10 @@ class LatexGenerator : public OutputGenerator
     void endMemberDocList() {}
     void startMemberList();
     void endMemberList();
+    void startInlineDescription() {}
+    void endInlineDescription() {}
+    void startInlineHeader();
+    void endInlineHeader();
     void startAnonTypeScope(int);
     void endAnonTypeScope(int);
     void startMemberItem(int);
@@ -139,7 +144,7 @@ class LatexGenerator : public OutputGenerator
     void startDescItem();
     void endDescItem();
     void lineBreak(const char *style=0) { (void)style; t << "\\par\n"; }
-    void startMemberDoc(const char *,const char *,const char *,const char *);
+    void startMemberDoc(const char *,const char *,const char *,const char *,bool);
     void endMemberDoc(bool);
     void startDoxyAnchor(const char *,const char *,const char *,const char *,const char *);
     void endDoxyAnchor(const char *,const char *);
@@ -180,6 +185,8 @@ class LatexGenerator : public OutputGenerator
     void endPageRef(const char *,const char *);
     void startQuickIndices() {}
     void endQuickIndices() {}
+    void writeSplitBar(const char *) {}
+    void writeLogo() {}
     void writeQuickLinks(bool,HighlightedItem) {}
     void startContents() {}
     void endContents() {}

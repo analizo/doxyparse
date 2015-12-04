@@ -538,7 +538,7 @@ static void generateLink(CodeOutputInterface &ol, char *lname)
     else 
     { // write type or interface link
       ol.linkableSymbol(g_yyLineNr, lname, cd, g_currentMemberDef?g_currentMemberDef:g_currentDefinition);
-      writeMultiLineCodeLink(ol,cd->getReference(),cd->getOutputFileBase(),0,lname);
+      writeMultiLineCodeLink(ol,cd->getReference(),cd->getOutputFileBase(),cd->anchor(),lname);
       addToSearchIndex(lname);
     }
   }
@@ -645,12 +645,16 @@ B         [ \t]
 BS        [ \t]*
 BS_       [ \t]+
 COMMA     {BS},{BS}
-ARGS      {BS}("("[^)]*")"){BS}
+ARGS_L0   ("("[^)]*")")
+ARGS_L1a  [^()]*"("[^)]*")"[^)]*
+ARGS_L1   ("("{ARGS_L1a}*")")
+ARGS_L2   "("({ARGS_L0}|[^()]|{ARGS_L1a}|{ARGS_L1})*")"
+ARGS      {BS}({ARGS_L0}|{ARGS_L1}|{ARGS_L2})
 
 NUM_TYPE  (complex|integer|logical|real)
 KIND      {ARGS}
 CHAR      (CHARACTER{ARGS}?|CHARACTER{BS}"*"({BS}[0-9]+|{ARGS}))
-TYPE_SPEC (({NUM_TYPE}({BS}"*"{BS}[0-9]+)?)|({NUM_TYPE}{KIND})|DOUBLE{B}PRECISION|{CHAR})
+TYPE_SPEC (({NUM_TYPE}({BS}"*"{BS}[0-9]+)?)|({NUM_TYPE}{KIND})|DOUBLE{BS_}PRECISION|{CHAR}|TYPE{ARGS})
 
 INTENT_SPEC intent{BS}"("{BS}(in|out|in{BS}out){BS}")"
 ATTR_SPEC (ALLOCATABLE|DIMENSION{ARGS}|EXTERNAL|{INTENT_SPEC}|INTRINSIC|OPTIONAL|PARAMETER|POINTER|PRIVATE|PUBLIC|SAVE|TARGET|RECURSIVE|PURE|ELEMENTAL)

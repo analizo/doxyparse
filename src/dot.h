@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -144,7 +144,7 @@ class DotGfxHierarchyTable
   public:
     DotGfxHierarchyTable();
    ~DotGfxHierarchyTable();
-    void writeGraph(FTextStream &t,const char *path,const char *fileName) const;
+    void writeGraph(FTextStream &t,const char *path, const char *fileName) const;
   
   private:
     void addHierarchy(DotNode *n,ClassDef *cd,bool hide);
@@ -357,7 +357,7 @@ class DotRunner
 };
 
 /** @brief Helper class to insert a set of map file into an output file */
-class DotMapConverter
+class DotFilePatcher
 {
   public:
     struct Map
@@ -368,11 +368,14 @@ class DotMapConverter
       QCString context;
       QCString label;
     };
-    DotMapConverter(const char *patchFile);
+    DotFilePatcher(const char *patchFile);
     int addMap(const QCString &mapFile,const QCString &relPath,
                bool urlOnly,const QCString &context,const QCString &label);
     int addFigure(const QCString &baseName,
                   const QCString &figureName,bool heightCheck);
+    int addSVGConversion(const QCString &relPath,bool urlOnly,const QCString &context);
+    int addSVGObject(const QCString &baseName, const QCString &figureName,
+                     const QCString &relPath);
     bool run();
 
   private:
@@ -415,13 +418,17 @@ class DotManager
                 const QCString &context,const QCString &label);
     int addFigure(const QCString &file,const QCString &baseName,
                   const QCString &figureName,bool heightCheck);
+    int addSVGConversion(const QCString &file,const QCString &relPath,
+               bool urlOnly,const QCString &context);
+    int addSVGObject(const QCString &file,const QCString &baseName,
+                     const QCString &figureNAme,const QCString &relPath);
     bool run();
 
   private:
     DotManager();
     virtual ~DotManager();
     QList<DotRunner>       m_dotRuns;
-    SDict<DotMapConverter> m_dotMaps;
+    SDict<DotFilePatcher> m_dotMaps;
     static DotManager     *m_theInstance;
     DotRunnerQueue        *m_queue;
     QList<DotWorkerThread> m_workers;
@@ -433,8 +440,10 @@ void generateGraphLegend(const char *path);
 
 void writeDotGraphFromFile(const char *inFile,const char *outDir,
                            const char *outFile,GraphOutputFormat format);
-QCString getDotImageMapFromFile(const QCString& inFile, const QCString& outDir,
-                                const QCString& relPath,const QCString& context);
+void writeDotImageMapFromFile(FTextStream &t,
+                              const QCString& inFile, const QCString& outDir,
+                              const QCString& relPath,const QCString& baseName,
+                              const QCString& context);
 
 void writeDotDirDepGraph(FTextStream &t,DirDef *dd);
 

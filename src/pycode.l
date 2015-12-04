@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -610,7 +610,7 @@ static void generateClassOrGlobalLink(CodeOutputInterface &ol,char *clName,
 
   if (cd && cd->isLinkable()) // is it a linkable class
   {
-    writeMultiLineCodeLink(ol,cd->getReference(),cd->getOutputFileBase(),0,clName,cd->briefDescriptionAsTooltip());
+    writeMultiLineCodeLink(ol,cd->getReference(),cd->getOutputFileBase(),cd->anchor(),clName,cd->briefDescriptionAsTooltip());
     addToSearchIndex(className);
     if (md)
     {

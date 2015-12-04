@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -413,6 +413,7 @@ class EntryNav
 
     Entry *entry() const { return m_info; }
     int section() const { return m_section; }
+    SrcLangExt lang() const { return m_lang; }
     const QCString &type() const { return m_type; }
     const QCString &name() const { return m_name; }
     TagInfo *tagInfo() const { return m_tagInfo; }
@@ -432,6 +433,7 @@ class EntryNav
     QCString	 m_name;        //!< member name
     TagInfo     *m_tagInfo;      //!< tag file info
     FileDef     *m_fileDef;
+    SrcLangExt   m_lang;         //!< programming language in which this entry was found
 
     Entry       *m_info;
     int64        m_offset;

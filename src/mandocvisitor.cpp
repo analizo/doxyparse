@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -82,6 +82,7 @@ void ManDocVisitor::visit(DocSymbol *s)
     case DocSymbol::Amp:     m_t << "&"; break;
     case DocSymbol::Dollar:  m_t << "$"; break;
     case DocSymbol::Hash:    m_t << "#"; break;
+    case DocSymbol::DoubleColon: m_t << "::"; break;
     case DocSymbol::Percent: m_t << "%"; break;
     case DocSymbol::Copy:    m_t << "(C)"; break;
     case DocSymbol::Tm:      m_t << "(TM)"; break;
@@ -660,19 +661,19 @@ void ManDocVisitor::visitPost(DocHtmlCell *)
 void ManDocVisitor::visitPre(DocInternal *)
 {
   if (m_hide) return;
-  if (!m_firstCol) m_t << endl;
-  m_t << ".PP" << endl;
-  m_t << "\\fB" << theTranslator->trForInternalUseOnly() << "\\fP" << endl;
-  m_t << ".RS 4" << endl;
+  //if (!m_firstCol) m_t << endl;
+  //m_t << ".PP" << endl;
+  //m_t << "\\fB" << theTranslator->trForInternalUseOnly() << "\\fP" << endl;
+  //m_t << ".RS 4" << endl;
 }
 
 void ManDocVisitor::visitPost(DocInternal *) 
 {
   if (m_hide) return;
-  if (!m_firstCol) m_t << endl;
-  m_t << ".RE" << endl;
-  m_t << ".PP" << endl;
-  m_firstCol=TRUE;
+  //if (!m_firstCol) m_t << endl;
+  //m_t << ".RE" << endl;
+  //m_t << ".PP" << endl;
+  //m_firstCol=TRUE;
 }
 
 void ManDocVisitor::visitPre(DocHRef *)

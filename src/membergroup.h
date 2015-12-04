@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -50,16 +50,17 @@ class MemberGroup
     void writePlainDeclarations(OutputList &ol,
                ClassDef *cd,NamespaceDef *nd,FileDef *fd,GroupDef *gd);
     void writeDeclarations(OutputList &ol,
-               ClassDef *cd,NamespaceDef *nd,FileDef *fd,GroupDef *gd);
+               ClassDef *cd,NamespaceDef *nd,FileDef *fd,GroupDef *gd,
+               bool showInline=FALSE);
 
     void writeDocumentation(OutputList &ol,const char *scopeName,
-               Definition *container);
+               Definition *container,bool showEnumValues,bool showInline);
     void writeDocumentationPage(OutputList &ol,const char *scopeName,
                Definition *container);
     QCString documentation() { return doc; }
     bool allMembersInSameSection() { return inSameSection; }
     void addToDeclarationSection();
-    int countDecMembers();
+    int countDecMembers(GroupDef *gd=0);
     int countDocMembers();
     void distributeMemberGroupDocumentation();
     void findSectionsInDocumentation();
@@ -115,6 +116,10 @@ class MemberGroupSDict : public SIntDict<MemberGroup>
   public:
     MemberGroupSDict(int size=17) : SIntDict<MemberGroup>(size) {}
    ~MemberGroupSDict() {}
+    int compareItems(GCI item1,GCI item2)
+    {
+      return ((MemberGroup *)item1)->groupId() - ((MemberGroup*)item2)->groupId();
+    }
 };
 
 

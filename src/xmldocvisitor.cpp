@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -76,6 +76,7 @@ void XmlDocVisitor::visit(DocSymbol *s)
     case DocSymbol::Amp:     m_t << "&amp;"; break;
     case DocSymbol::Dollar:  m_t << "$"; break;
     case DocSymbol::Hash:    m_t << "#"; break;
+    case DocSymbol::DoubleColon: m_t << "::"; break;
     case DocSymbol::Percent: m_t << "%"; break;
     case DocSymbol::Copy:    m_t << "<copy/>"; break;
     case DocSymbol::Tm:      m_t << "<trademark/>"; break;
@@ -720,7 +721,7 @@ void XmlDocVisitor::visitPre(DocMscFile *df)
 void XmlDocVisitor::visitPost(DocMscFile *) 
 {
   if (m_hide) return;
-  m_t << "</dotfile>" << endl;
+  m_t << "</mscfile>" << endl;
 }
 void XmlDocVisitor::visitPre(DocLink *lnk)
 {

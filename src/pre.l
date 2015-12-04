@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -56,12 +56,9 @@ struct FileState
   FileState(int size) : fileBuf(size), 
                         oldFileBuf(0), oldFileBufPos(0) {}
   int lineNr;
-  //FILE *filePtr;
   BufStr fileBuf;
-  //FILE *oldYYin;
   BufStr *oldFileBuf;
   int oldFileBufPos;
-  //bool isPlainFile;
   YY_BUFFER_STATE bufState;
   QCString fileName;
 };  
@@ -95,7 +92,8 @@ static int                g_inputBufPos;
 static BufStr            *g_outputBuf;
 static int                g_roundCount;
 static bool               g_quoteArg;
-static DefineDict        *g_fileDefineDict = new DefineDict(10009);
+static DefineDict        *g_globalDefineDict = new DefineDict(10009);
+static DefineDict        *g_fileDefineDict = new DefineDict(1009);
 static DefineDict        *g_expandedDict;
 static int                g_findDefArgContext;
 static bool               g_expectGuard;
@@ -115,12 +113,13 @@ static int                g_condCtx;
 static bool               g_skip;
 static QStack<bool>       g_condStack;
 static bool               g_insideCS; // C# has simpler preprocessor
+static bool               g_isSource;
 
 static bool               g_lexInit = FALSE;
 
-DefineDict* getFileDefineDict() 
+DefineDict* getGlobalDefineDict() 
 {
-  return g_fileDefineDict;
+  return g_globalDefineDict;
 }
 
 static void setFileName(const char *name)
@@ -138,6 +137,7 @@ static void setFileName(const char *name)
   //    name,g_yyFileName.data(),g_yyFileDef);
   if (g_yyFileDef && g_yyFileDef->isReference()) g_yyFileDef=0;
   g_insideCS = getLanguageFromFileName(g_yyFileName)==SrcLangExt_CSharp;
+  g_isSource = guessSection(g_yyFileName);
 }
 
 static void incrLevel()
@@ -213,7 +213,7 @@ static Define *isDefined(const char *name)
   Define *def=0;
   if (name)
   {
-    def=g_fileDefineDict->find(name);
+    def=g_globalDefineDict->find(name);
     //if ((def=fileDefineCache->findDefine(g_yyFileName,name)) && !def->undef) 
     //	return def;
     if (def && def->undef) def=0;
@@ -1264,7 +1264,10 @@ static void readIncludeFile(const QCString &inc)
       if (oldFileDef)
       {
         // add include dependency to the file in which the #include was found
-        oldFileDef->addIncludeDependency(g_yyFileDef,incFileName,localInclude,g_isImported);
+	bool ambig;
+	// change to local name for bug 641336 
+        FileDef *incFd = findFileDef(Doxygen::inputNameDict,incFileName,ambig);
+        oldFileDef->addIncludeDependency(ambig ? 0 : incFd,incFileName,localInclude,g_isImported);
         // add included by dependency
         if (g_yyFileDef)
         {
@@ -1297,16 +1300,18 @@ static void readIncludeFile(const QCString &inc)
       if (oldFileDef)
       {
 	bool ambig;
-	QCString absPath = incFileName;
-	if (QDir::isRelativePath(incFileName))
-	{
-	  QString absPath = QDir::cleanDirPath(oldFileDef->getPath()+"/"+incFileName);
-	  //printf("%s + %s -> resolved path %s\n",oldFileDef->getPath().data(),incFileName.data(),absPath.data());
-	}
+	//QCString absPath = incFileName;
+	//if (QDir::isRelativePath(incFileName))
+	//{
+	//  absPath = QDir::cleanDirPath(oldFileDef->getPath()+"/"+incFileName);
+	//  //printf("%s + %s -> resolved path %s\n",oldFileDef->getPath().data(),incFileName.data(),absPath.data());
+	//}
+
+	// change to local name for bug 641336 
 	FileDef *fd = findFileDef(Doxygen::inputNameDict,incFileName,ambig);
 	//printf("%s::findFileDef(%s)=%p\n",oldFileDef->name().data(),incFileName.data(),fd);
 	// add include dependency to the file in which the #include was found
-	oldFileDef->addIncludeDependency(fd,incFileName,localInclude,g_isImported);
+	oldFileDef->addIncludeDependency(ambig ? 0 : fd,incFileName,localInclude,g_isImported);
 	// add included by dependency
         if (fd)
         {
@@ -1483,7 +1488,7 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
 					      !(
 					         (g_includeStack.isEmpty() || g_curlyCount>0) &&
 					         g_macroExpansion &&
-					         (def=g_fileDefineDict->find(name)) &&
+					         (def=g_globalDefineDict->find(name)) &&
 						 macroIsAccessible(def) &&
 					         (!g_expandOnlyPredef || def->isPredefined)
 					       )
@@ -1547,7 +1552,7 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
 <CopyLine>{ID}/{BN}{0,80}"("		{
   					  g_expectGuard = FALSE;
   					  Define *def=0;
-					  //def=g_fileDefineDict->find(yytext);
+					  //def=g_globalDefineDict->find(yytext);
 					  //printf("Search for define %s found=%d g_includeStack.isEmpty()=%d "
 					  //       "g_curlyCount=%d g_macroExpansion=%d g_expandOnlyPredef=%d "
 					  //	 "isPreDefined=%d\n",yytext,def ? 1 : 0,
@@ -1556,7 +1561,7 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
 					  //	);
 					  if ((g_includeStack.isEmpty() || g_curlyCount>0) &&
 					      g_macroExpansion &&
-					      (def=g_fileDefineDict->find(yytext)) &&
+					      (def=g_globalDefineDict->find(yytext)) &&
 				              (def->isPredefined || macroIsAccessible(def)) &&
 					      (!g_expandOnlyPredef || def->isPredefined)
 					     )
@@ -1584,7 +1589,7 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
                                           Define *def=0;
   					  if ((g_includeStack.isEmpty() || g_curlyCount>0) && 
 					      g_macroExpansion &&
-					      (def=g_fileDefineDict->find(yytext)) &&
+					      (def=g_globalDefineDict->find(yytext)) &&
 					      def->nargs==-1 &&
 				              (def->isPredefined || macroIsAccessible(def)) &&
 					      (!g_expandOnlyPredef || def->isPredefined)
@@ -2128,12 +2133,15 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
   					  outputArray(yytext,yyleng);
   					  BEGIN(g_condCtx);
   					}
-<SkipCComment,SkipCPPComment>[\\@]"cond"[ \t\r]*\n  |
-<CondLine>.				{
+<SkipCComment,SkipCPPComment>[\\@]"cond"[ \t\r]*/\n {
+  					  g_condCtx = YY_START;
   					  outputArray(yytext,yyleng);
-  					  g_yyLineNr+=QCString(yytext).contains('\n');
+  					  BEGIN(CondLine);
+  					}
+<CondLine>.				{
+  					  unput(*yytext);
   					  startCondSection(" ");
-					  if (YY_START==CondLine) BEGIN(g_condCtx);
+					  BEGIN(g_condCtx);
   					}
 <SkipCComment,SkipCPPComment>[\\@]"endcond"/[^a-z_A-Z0-9] {
   					  outputArray(yytext,yyleng);
@@ -2277,11 +2285,17 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
 					  {
 					    addDefine();
 					  }
-					  def=g_fileDefineDict->find(g_defName);
+					  def=g_globalDefineDict->find(g_defName);
 					  if (def==0) // new define
 					  {
 					    //printf("new define!\n");
-					    g_fileDefineDict->insert(g_defName,newDefine());
+					    Define *nd = newDefine();
+					    g_globalDefineDict->insert(g_defName,nd);
+					    // also add it to the local file list if it is a source file
+					    if (g_isSource && g_includeStack.isEmpty())
+					    {
+					      g_fileDefineDict->insert(g_defName,nd);
+					    }
 					  }
 					  else if (def && macroIsAccessible(def))
 					       // name already exists
@@ -2507,6 +2521,7 @@ void preprocessFile(const char *fileName,BufStr &input,BufStr &output)
   g_expandedDict->clear();
   g_condStack.clear();
   g_condStack.setAutoDelete(TRUE);
+  g_fileDefineDict->clear();
   
   static bool firstTime=TRUE;
   if (firstTime)
@@ -2577,7 +2592,7 @@ void preprocessFile(const char *fileName,BufStr &input,BufStr &output)
 	  def->nonRecursive = nonRecursive;
 	  def->fileDef      = g_yyFileDef;
 	  def->fileName     = fileName;
-	  g_fileDefineDict->insert(def->name,def);
+	  g_globalDefineDict->insert(def->name,def);
 	}
 
 	//printf("#define `%s' `%s' #nargs=%d\n",
@@ -2608,7 +2623,7 @@ void preprocessFile(const char *fileName,BufStr &input,BufStr &output)
 	  def->nonRecursive = nonRecursive;
 	  def->fileDef      = g_yyFileDef;
 	  def->fileName     = fileName;
-	  g_fileDefineDict->insert(def->name,def);
+	  g_globalDefineDict->insert(def->name,def);
 	}
 	else
 	{
@@ -2619,7 +2634,7 @@ void preprocessFile(const char *fileName,BufStr &input,BufStr &output)
 	//  def->name.data(),def->definition.data(),def->nargs);
       }
     }
-    firstTime=FALSE;
+    //firstTime=FALSE;
   }
  
   g_yyLineNr = 1;
@@ -2639,6 +2654,18 @@ void preprocessFile(const char *fileName,BufStr &input,BufStr &output)
 
   // make sure we don't extend a \cond with missing \endcond over multiple files (see bug 624829)
   forceEndCondSection();
+
+  // remove locally defined macros so they can be redefined in another source file
+  if (g_fileDefineDict->count()>0)
+  {
+    QDictIterator<Define> di(*g_fileDefineDict);
+    Define *d;
+    for (di.toFirst();(d=di.current());++di)
+    {
+      g_globalDefineDict->remove(di.currentKey());
+    }
+    g_fileDefineDict->clear();
+  }
 
   if (Debug::isFlagSet(Debug::Preprocessor))
   {

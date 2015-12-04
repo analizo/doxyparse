@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2008 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -122,6 +122,7 @@ followed by the descriptions of the tags grouped by category.
 \refitem cfg_file_version_filter FILE_VERSION_FILTER
 \refitem cfg_filter_patterns FILTER_PATTERNS
 \refitem cfg_filter_source_files FILTER_SOURCE_FILES
+\refitem cfg_filter_source_patterns FILTER_SOURCE_PATTERNS
 \refitem cfg_force_local_includes FORCE_LOCAL_INCLUDES
 \refitem cfg_formula_fontsize FORMULA_FONTSIZE
 \refitem cfg_formula_transparent FORMULA_TRANSPARENT
@@ -160,6 +161,7 @@ followed by the descriptions of the tags grouped by category.
 \refitem cfg_html_colorstyle_hue HTML_COLORSTYLE_HUE
 \refitem cfg_html_colorstyle_sat HTML_COLORSTYLE_SAT
 \refitem cfg_html_dynamic_sections HTML_DYNAMIC_SECTIONS
+\refitem cfg_html_extra_files HTML_EXTRA_FILES
 \refitem cfg_html_file_extension HTML_FILE_EXTENSION
 \refitem cfg_html_footer HTML_FOOTER
 \refitem cfg_html_header HTML_HEADER
@@ -174,6 +176,7 @@ followed by the descriptions of the tags grouped by category.
 \refitem cfg_include_path INCLUDE_PATH
 \refitem cfg_included_by_graph INCLUDED_BY_GRAPH
 \refitem cfg_inherit_docs INHERIT_DOCS
+\refitem cfg_inline_grouped_classes INLINE_GROUPED_CLASSES
 \refitem cfg_inline_info INLINE_INFO
 \refitem cfg_inline_inherited_memb INLINE_INHERITED_MEMB
 \refitem cfg_inline_sources INLINE_SOURCES
@@ -184,6 +187,7 @@ followed by the descriptions of the tags grouped by category.
 \refitem cfg_javadoc_autobrief JAVADOC_AUTOBRIEF
 \refitem cfg_latex_batchmode LATEX_BATCHMODE
 \refitem cfg_latex_cmd_name LATEX_CMD_NAME
+\refitem cfg_latex_footer LATEX_FOOTER
 \refitem cfg_latex_header LATEX_HEADER
 \refitem cfg_latex_hide_indices LATEX_HIDE_INDICES
 \refitem cfg_latex_output LATEX_OUTPUT
@@ -213,8 +217,11 @@ followed by the descriptions of the tags grouped by category.
 \refitem cfg_perlmod_makevar_prefix PERLMOD_MAKEVAR_PREFIX
 \refitem cfg_perlmod_pretty PERLMOD_PRETTY
 \refitem cfg_predefined PREDEFINED
+\refitem cfg_project_brief PROJECT_BRIEF
+\refitem cfg_project_logo PROJECT_LOGO
 \refitem cfg_project_name PROJECT_NAME
 \refitem cfg_project_number PROJECT_NUMBER
+\refitem cfg_qch_file QCH_FILE
 \refitem cfg_qhg_location QHG_LOCATION
 \refitem cfg_qhp_cust_filter_attrs QHP_CUST_FILTER_ATTRS
 \refitem cfg_qhp_cust_filter_name QHP_CUST_FILTER_NAME
@@ -306,6 +313,19 @@ followed by the descriptions of the tags grouped by category.
  This could be handy for archiving the generated documentation or
  if some version control system is used.
 
+\anchor cfg_project_brief
+<dt>\c PROJECT_BRIEF <dd>
+ Using the \c PROJECT_BRIEF tag one can provide an optional one line description 
+ for a project that appears at the top of each page and should give viewer 
+ a quick idea about the purpose of the project. Keep the description short. 
+
+\anchor cfg_project_logo
+<dt>\c PROJECT_LOGO <dd>
+ With the \c PROJECT_LOGO tag one can specify an logo or icon that is 
+ included in the documentation. The maximum height of the logo should not 
+ exceed 55 pixels and the maximum width should not exceed 200 pixels. 
+ Doxygen will copy the logo to the output directory.
+
 \anchor cfg_output_directory
 <dt>\c OUTPUT_DIRECTORY <dd> 
  \addindex OUTPUT_DIRECTORY
@@ -334,7 +354,7 @@ followed by the descriptions of the tags grouped by category.
  Afrikaans, Arabic, Brazilian, Catalan, Chinese, Croatian, Czech, Danish, Dutch, 
  Finnish, French, German, Greek, Hungarian, Italian, Japanese, Korean, 
  Lithuanian, Norwegian, Persian, Polish, Portuguese, Romanian, Russian, Serbian, 
- Slovak, Slovene, Spanish, Swedish, and Ukrainian.
+ Serbian-Cyrillic, Slovak, Slovene, Spanish, Swedish, and Ukrainian.
 
 \anchor cfg_brief_member_desc
 <dt>\c BRIEF_MEMBER_DESC <dd>
@@ -583,6 +603,15 @@ followed by the descriptions of the tags grouped by category.
  \c NO to prevent subgrouping. Alternatively, this can be done per class using
  the \ref cmdnosubgrouping "\\nosubgrouping" command. 
 
+\anchor cfg_inline_grouped_classes
+<dt>\c INLINE_GROUPED_CLASSES <dd>
+ \addindex INLINE_GROUPED_CLASSES
+When the \c INLINE_GROUPED_CLASSES tag is set to \c YES, classes, structs and 
+unions are shown inside the group in which they are included 
+(e.g. using @@ingroup) instead of on a separate page (for HTML and Man pages) 
+or section (for LaTeX and RTF). Note that this feature does not work in
+combination with \ref cfg_separate_member_pages "SEPARATE_MEMBER_PAGES".
+
 \anchor cfg_typedef_hides_struct 
 <dt>\c TYPEDEF_HIDES_STRUCT <dd>
  \addindex TYPEDEF_HIDES_STRUCT
@@ -798,6 +827,16 @@ function's detailed documentation block.
  disable (NO) the deprecated list. This list is created by 
  putting \ref cmddeprecated "\\deprecated"
  commands in the documentation.
+
+\anchor cfg_strict_proto_matching
+<dt>\c STRICT_PROTO_MATCHING <dd>
+ \addindex STRICT_PROTO_MATCHING
+ If the \c STRICT_PROTO_MATCHING option is enabled and doxygen fails to
+ do proper type resolution of all parameters of a function it will reject a  
+ match between the prototype and the implementation of a member function even
+ if there is only one candidate or it is obvious which candidate to choose
+ by doing a simple string match. By disabling \c STRICT_PROTO_MATCHING doxygen 
+ will still accept a match between prototype and implementation in such cases.
 
 \anchor cfg_generate_todolist
 <dt>\c GENERATE_TODOLIST <dd>
@@ -1029,7 +1068,7 @@ FILE_VERSION_INFO = "cleartool desc -fmt \%Vn"
 <dt>\c EXCLUDE_SYMLINKS <dd>
  \addindex EXCLUDE_SYMLINKS
  The \c EXCLUDE_SYMLINKS tag can be used select whether or not files or directories 
- that are symbolic links (a Unix filesystem feature) are excluded from the input.
+ that are symbolic links (a Unix file system feature) are excluded from the input.
 
 \anchor cfg_exclude_patterns
 <dt>\c EXCLUDE_PATTERNS <dd>
@@ -1101,8 +1140,8 @@ AClass::ANamespace, ANamespace::*Test
  basis.  Doxygen will compare the file name with each pattern and apply the
  filter if there is a match.  The filters are a list of the form:
  pattern=filter (like <code>*.cpp=my_cpp_filter</code>). See \c INPUT_FILTER for further
- info on how filters are used. If \c FILTER_PATTERNS is empty, \c INPUT_FILTER
- is applied to all files. 
+ info on how filters are used. If \c FILTER_PATTERNS is empty or if
+ non of the patterns match the file name, \c INPUT_FILTER is applied.
 
 \anchor cfg_filter_source_files
 <dt>\c FILTER_SOURCE_FILES <dd>
@@ -1111,6 +1150,15 @@ AClass::ANamespace, ANamespace::*Test
  \ref cfg_input_filter "INPUT_FILTER" ) will also be used to filter the input
  files that are used for producing the source files to browse 
  (i.e. when SOURCE_BROWSER is set to YES).
+
+\anchor cfg_filter_source_patterns
+<dt>\c FILTER_SOURCE_PATTERNS <dd>
+ \addindex FILTER_SOURCE_PATTERNS
+ The \c FILTER_SOURCE_PATTERNS tag can be used to specify source filters per 
+ file pattern. A pattern will override the setting for \c FILTER_PATTERN (if any) 
+ and it is also possible to disable source filtering for a specific pattern 
+ using *.ext= (so without naming a filter). This option only has effect when 
+ \c FILTER_SOURCE_FILES is enabled.
 
 </dl>
 
@@ -1244,20 +1292,17 @@ AClass::ANamespace, ANamespace::*Test
 <dt>\c HTML_HEADER <dd>      
  \addindex HTML_HEADER
  The \c HTML_HEADER tag can be used to specify a user-defined HTML 
- header file for each generated HTML page. To get valid HTML the header file
- should contain at least a \c \<HTML\> and a \c \<BODY\> tag, but it is
- good idea to include the style sheet that is generated by doxygen as well. 
- Minimal example:
-\verbatim
-  <HTML>
-    <HEAD>
-      <TITLE>My title</TITLE>
-      <LINK HREF="doxygen.css" REL="stylesheet" TYPE="text/css">
-    </HEAD>
-    <BODY BGCOLOR="#FFFFFF">
-\endverbatim
+ header file for each generated HTML page. 
  If the tag is left blank doxygen will generate a 
  standard header. 
+
+ To get valid HTML the header file that
+ includes any scripts and style sheets that doxygen
+ needs, it is highly recommended to start with a default header using
+\verbatim
+doxygen -w html new_header.html new_footer.html new_stylesheet.css YourConfigFile
+\endverbatim
+ and then modify the file \c new_header.html.
 
  The following markers have a special meaning inside the header and footer:
  <dl>
@@ -1267,38 +1312,83 @@ AClass::ANamespace, ANamespace::*Test
  <dt><code>\$year</code><dd>will be replaces with the current year.
  <dt><code>\$doxygenversion</code><dd>will be replaced with the version of doxygen
  <dt><code>\$projectname</code><dd>will be replaced with the name of 
-            the project (see \c PROJECT_NAME)
+            the project (see \ref cfg_project_name "PROJECT_NAME")
  <dt><code>\$projectnumber</code><dd>will be replaced with the project number
-            (see \c PROJECT_NUMBER)
+            (see \ref cfg_project_number "PROJECT_NUMBER")
+ <dt><code>\$projectbrief</code><dd>will be replaced with the project brief
+            description (see \ref cfg_project_brief "PROJECT_BRIEF")
+ <dt><code>\$projectlogo</code><dd>will be replaced with the project logo
+            (see \ref cfg_project_logo "PROJECT_LOGO")
+ <dt><code>\$treeview</code><dd>will be replaced with links to 
+            the javascript and style sheets needed for the navigation tree 
+            (or an empty string when \ref cfg_generate_treeview "GENERATE_TREEVIEW" 
+            is disabled).
+ <dt><code>\$search</code><dd>will be replaced with a links to 
+            the javascript and style sheets needed for the search engine 
+            (or an empty string when \ref cfg_searchengine "SEARCHENGINE" 
+            is disabled).
+ <dt><code>\$mathjax</code><dd>will be replaced with a links to 
+            the javascript and style sheets needed for the MathJax feature 
+            (or an empty string when \ref cfg_use_mathjax "USE_MATHJAX" is disabled).
  <dt><code>\$relpath\$</code><dd>
  If \c CREATE_SUBDIRS is enabled, the command <code>\$relpath\$</code> can be 
  used to produce a relative path to the root of the HTML output directory,
  e.g. use \$relpath\$doxygen.css, to refer to the standard style sheet.
  </dl>
-   
+
+ To cope with differences in the layout of the header and footer that depend on 
+ configuration settings, the header can also contain special blocks that 
+ will be copied to the output or skipped depending on the configuration.
+ Such blocks have the following form:
+\verbatim
+ <!--BEGIN BLOCKNAME-->
+ Some context copied when condition BLOCKNAME holds
+ <!--END BLOCKNAME-->
+ <!--BEGIN !BLOCKNAME-->
+ Some context copied when condition BLOCKNAME does not hold
+ <!--END !BLOCKNAME-->
+\endverbatim
+ The following block names are supported:
+ <dl>
+ <dt><code>DISABLE_INDEX</code><dd>Content within this block is copied to the output
+     when the \ref cfg_disable_index "DISABLE_INDEX" option is enabled (so when the index is disabled).
+ <dt><code>GENERATE_TREEVIEW</code><dd>Content within this block is copied to the output
+     when the \ref cfg_generate_treeview "GENERATE_TREEVIEW" option is enabled.
+ <dt><code>SEARCHENGINE</code><dd>Content within this block is copied to the output
+     when the \ref cfg_searchengine "SEARCHENGINE" option is enabled.
+ <dt><code>PROJECT_NAME</code><dd>Content within the block is copied to the output
+      when the \ref cfg_project_name "PROJECT_NAME" option is not empty.
+ <dt><code>PROJECT_NUMBER</code><dd>Content within the block is copied to the output
+      when the \ref cfg_project_number "PROJECT_NUMBER" option is not empty.
+ <dt><code>PROJECT_BRIEF</code><dd>Content within the block is copied to the output
+      when the \ref cfg_project_brief "PROJECT_BRIEF" option is not empty.
+ <dt><code>PROJECT_LOGO</code><dd>Content within the block is copied to the output
+      when the \ref cfg_project_logo "PROJECT_LOGO" option is not empty.
+ <dt><code>TITLEAREA</code><dd>Content within this block is copied to the output
+     when a title is visible at the top of each page. This is the case
+     if either \ref cfg_project_name "PROJECT_NAME", 
+     \ref cfg_project_brief "PROJECT_BRIEF", \ref cfg_project_logo "PROJECT_LOGO" 
+     is filled in or if both \ref cfg_disable_index "DISABLE_INDEX" and 
+     \ref cfg_searchengine "SEARCHENGINE" are enabled.
+ </dl>
+
  See also section \ref doxygen_usage for information on how to generate
  the default header that doxygen normally uses.
+
+ @note The header is subject to change so you typically
+ have to regenerate the default header when upgrading to a newer version of 
+ doxygen.
    
 \anchor cfg_html_footer
 <dt>\c HTML_FOOTER <dd>
  \addindex HTML_FOOTER
  The \c HTML_FOOTER tag can be used to specify a user-defined HTML footer for 
- each generated HTML page. To get valid HTML the footer file should contain
- at least a \c \</BODY\> and a \c \</HTML\> tag. A minimal example:
-\verbatim
-    </BODY>
-  </HTML>
-\endverbatim
+ each generated HTML page. 
  If the tag is left blank doxygen will generate a standard footer.
 
- The following commands have a special meaning inside the footer:
- <code>\$title</code>, <code>\$datetime</code>, <code>\$date</code>,
- <code>\$doxygenversion</code>, <code>\$projectname</code>, 
- <code>\$projectnumber</code>. 
- Doxygen will replace them by respectively 
- the title of the page, the current date and time, only the current date,
- the version number of doxygen, the project name (see \c PROJECT_NAME), or the
- project number (see \c PROJECT_NUMBER).
+ See \ref cfg_html_header "HTML_HEADER" for more information on 
+ how to generate a default footer and what special commands can be 
+ used inside the footer.
 
  See also section \ref doxygen_usage for information on how to generate
  the default footer that doxygen normally uses.
@@ -1313,6 +1403,16 @@ AClass::ANamespace, ANamespace::*Test
 
  See also section \ref doxygen_usage for information on how to generate
  the style sheet that doxygen normally uses.
+
+\anchor cfg_html_extra_files
+<dt>\c HTML_EXTRA_FILES <dd>
+ \addindex HTML_EXTRA_FILES
+ The \c HTML_EXTRA_FILES tag can be used to specify one or more extra images or 
+ other source files which should be copied to the HTML output directory. Note 
+ that these files will be copied to the base HTML output directory. Use the 
+ $relpath$ marker in the \c HTML_HEADER and/or \c HTML_FOOTER files to load these 
+ files. In the \c HTML_STYLESHEET file, use the file name only. Also note that 
+ the files will be copied as-is; there are no commands or markers available.
 
 \anchor cfg_html_colorstyle_hue
 <dt>\c HTML_COLORSTYLE_HUE <dd>
@@ -1480,6 +1580,13 @@ The GENERATE_PUBLISHER_NAME tag identifies the documentation publisher.
  be generated that can be used as input for Qt's qhelpgenerator
  to generate a Qt Compressed Help (.qch) of the generated HTML
  documentation.
+
+\anchor cfg_qch_file
+<dt>\c QCH_FILE <dd>
+ \addindex QCH_FILE
+ If the QHG_LOCATION tag is specified, the QCH_FILE tag can
+ be used to specify the file name of the resulting .qch file.
+ The path specified is relative to the HTML output folder.
 
 \anchor cfg_qhp_namespace
 <dt>\c QHP_NAMESPACE <dd>
@@ -1761,6 +1868,14 @@ EXTRA_PACKAGES = times
  the title of the page, the current date and time, only the current date,
  the version number of doxygen, the project name (see \c PROJECT_NAME), or the
  project number (see \c PROJECT_NUMBER).
+
+\anchor cfg_latex_footer
+<dt>\c LATEX_FOOTER <dd>
+ \addindex LATEX_FOOTER
+ The LATEX_FOOTER tag can be used to specify a personal LaTeX footer for 
+ the generated latex document. The footer should contain everything after 
+ the last chapter. If it is left blank doxygen will generate a 
+ standard footer. Notice: only use this tag if you know what you are doing! 
    
 \anchor cfg_pdf_hyperlinks
 <dt>\c PDF_HYPERLINKS <dd>
@@ -2169,7 +2284,7 @@ install and use dot, since it yields more powerful graphs.
  directory and reference it in all dot files that doxygen generates. This
  font does not include all possible unicode characters however, so when you need 
  these (or just want a differently looking font) you can specify the font name
- using \c DOT_FONTNAME. You need need to make sure dot is able to find the font,
+ using \c DOT_FONTNAME. You need to make sure dot is able to find the font,
  which can be done by putting it in a standard location or by setting the
  \c DOTFONTPATH environment variable or by setting \c DOT_FONTPATH to the directory
  containing the font.
@@ -2303,7 +2418,7 @@ The default size is 10pt.
 <dt>\c DOT_IMAGE_FORMAT <dd>
  \addindex DOT_IMAGE_FORMAT
  The \c DOT_IMAGE_FORMAT tag can be used to set the image format of the images
- generated by dot. Possible values are gif, jpg, and png.
+ generated by dot. Possible values are svg, png, jpg, or gif.
  If left blank png will be used.
 
 \anchor cfg_dot_path
@@ -2374,7 +2489,7 @@ PROJECT_NAME     = Example
 INPUT            = example.cc example.h
 WARNINGS         = YES
 TAGFILES         = qt.tag
-PERL_PATH        = /usr/bin/perl
+PERL_PATH        = /usr/local/bin/perl
 SEARCHENGINE     = NO
 \endverbatim
 
@@ -2389,7 +2504,7 @@ INPUT            = examples/examples.doc src
 FILE_PATTERNS    = *.cc *.h
 INCLUDE_PATH     = examples
 TAGFILES         = qt.tag
-PERL_PATH        = /usr/local/bin/perl
+PERL_PATH        = /usr/bin/perl
 SEARCHENGINE     = YES
 \endverbatim
 

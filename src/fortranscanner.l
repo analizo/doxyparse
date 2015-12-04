@@ -34,6 +34,8 @@
  * with separate rule?: It seems it is often necessary, because we may parse something like 
  * "functionA" or "MyInterface". So constructs like `(^|[ \t])interface({BS_}{ID})?/[ \t\n]'
  * are desired.
+ *
+ * - Must track yyLineNr when using REJECT, unput() or similar commands.
  */
 
 %{
@@ -66,6 +68,7 @@
 #define YY_NEVER_INTERACTIVE 1
 
 enum ScanVar { V_IGNORE, V_VARIABLE, V_PARAMETER};
+enum InterfaceType { IF_NONE, IF_SPECIFIC, IF_GENERIC, IF_ABSTRACT };
 
 // {{{ ----- Helper structs -----
 //! Holds modifiers (ie attributes) for one symbol (variable, function, etc)
@@ -86,11 +89,17 @@ struct SymbolModifiers {
   bool pointer;
   bool target;
   bool save;
+  bool deferred;
+  bool nonoverridable;
+  bool nopass;
+  bool pass;
+  QCString passVar;
 
   SymbolModifiers() : type(), returnName(), protection(NONE_P), direction(NONE_D),
     optional(FALSE), dimension(), allocatable(FALSE),
     external(FALSE), intrinsic(FALSE), parameter(FALSE),
-    pointer(FALSE), target(FALSE), save(FALSE) {}
+    pointer(FALSE), target(FALSE), save(FALSE), deferred(FALSE), nonoverridable(FALSE),
+    nopass(FALSE), pass(FALSE), passVar() {}
 
   SymbolModifiers& operator|=(const SymbolModifiers &mdfs);
   SymbolModifiers& operator|=(QCString mdfrString);
@@ -114,6 +123,7 @@ static const char *     inputString;
 static int		inputPosition;
 static bool             isFixedForm;
 static QCString         inputStringPrepass; ///< Input string for prepass of line cont. '&'
+static QCString         inputStringSemi; ///< Input string after command separetor ';'
 static unsigned int     inputPositionPrepass;
 static int              lineCountPrepass = 0;
 
@@ -131,6 +141,7 @@ int include_stack_ptr = 0;
 static QFile            inputFile;
 static QCString		yyFileName;
 static int		yyLineNr     = 1 ;
+static int		yyColNr     = 0 ;
 static Entry*		current_root = 0 ;
 static Entry*		global_root  = 0 ;
 static Entry*		file_root    = 0 ;
@@ -158,6 +169,7 @@ static int               initializerArrayScope;  // number if nested array scope
 static int               initializerScope;  // number if nested function calls in initializer
 static QCString          useModuleName;  // name of module in the use statement
 static Protection        defaultProtection;
+static InterfaceType     ifType = IF_NONE;
 
 static char              stringStartSymbol; // single or double quote
 
@@ -174,8 +186,8 @@ static void handleCommentBlock(const QCString &doc,bool brief);
 static void addCurrentEntry();
 static void addModule(const char *name, bool isModule=FALSE);
 static void addSubprogram(const char *text);
-static void addInterface(QCString name);
-static Argument *addFortranParameter(const QCString &type,const QCString &name, const QCString docs);
+static void addInterface(QCString name, InterfaceType type);
+static Argument *getParameter(const QCString &name);
 static void scanner_abort();
 
 static void startScope(Entry *scope);
@@ -188,11 +200,16 @@ static int getAmpOrExclAtTheEnd(const char *buf, int length);
 static void truncatePrepass(int index);
 static void pushBuffer(QCString &buffer);
 static void popBuffer();
-static void extractPrefix(QCString& text);
+//static void extractPrefix(QCString& text);
+static QCString extractFromParens(const QCString name);
+static CommentInPrepass* locatePrepassComment(int from, int to);
+static void updateVariablePrepassComment(int from, int to);
+static void newLine();
 
 //-----------------------------------------------------------------------------
 #undef	YY_INPUT
 #define	YY_INPUT(buf,result,max_size) result=yyread(buf,max_size);
+#define YY_USER_ACTION yyColNr+=yyleng;
 //-----------------------------------------------------------------------------
 
 %}
@@ -205,22 +222,27 @@ SEPARATE  [:, \t]
 ID        [a-z_A-Z%]+{IDSYM}*
 PP_ID     {ID}
 LABELID   [a-z_A-Z]+[a-z_A-Z0-9\-]*
-SUBPROG   (subroutine|function|block)
+SUBPROG   (subroutine|function)
 B         [ \t]
 BS        [ \t]*
 BS_       [ \t]+
 COMMA     {BS},{BS}
-ARGS      {BS}("("[^)]*")")
+ARGS_L0   ("("[^)]*")")
+ARGS_L1a  [^()]*"("[^)]*")"[^)]*
+ARGS_L1   ("("{ARGS_L1a}*")")
+ARGS_L2   "("({ARGS_L0}|[^()]|{ARGS_L1a}|{ARGS_L1})*")"
+ARGS      {BS}({ARGS_L0}|{ARGS_L1}|{ARGS_L2})
 NOARGS    {BS}"\n"
 
 NUM_TYPE  (complex|integer|logical|real)
 KIND      {ARGS}
 CHAR      (CHARACTER{ARGS}?|CHARACTER{BS}"*"({BS}[0-9]+|{ARGS}))
-TYPE_SPEC (({NUM_TYPE}({BS}"*"{BS}[0-9]+)?)|({NUM_TYPE}{KIND})|DOUBLE{BS_}PRECISION|{CHAR}|TYPE{ARGS})
+TYPE_SPEC (({NUM_TYPE}({BS}"*"{BS}[0-9]+)?)|({NUM_TYPE}{KIND})|DOUBLE{BS_}PRECISION|{CHAR}|TYPE{ARGS}|CLASS{ARGS}|PROCEDURE{ARGS}?)
 
 INTENT_SPEC intent{BS}"("{BS}(in|out|in{BS}out){BS}")"
-ATTR_SPEC (ALLOCATABLE|DIMENSION{ARGS}|EXTERNAL|{INTENT_SPEC}|INTRINSIC|OPTIONAL|PARAMETER|POINTER|PRIVATE|PUBLIC|SAVE|TARGET)
+ATTR_SPEC (ALLOCATABLE|DIMENSION{ARGS}|EXTERNAL|{INTENT_SPEC}|INTRINSIC|OPTIONAL|PARAMETER|POINTER|PRIVATE|PUBLIC|SAVE|TARGET|NOPASS|PASS{ARGS}?|DEFERRED|NON_OVERRIDABLE)
 ACCESS_SPEC (PRIVATE|PUBLIC)
+LANGUAGE_BIND_SPEC BIND{BS}"("{BS}C{BS}(,{BS}NAME{BS}"="{BS}"\""(.*)"\""{BS})?")"
 /* Assume that attribute statements are almost the same as attributes. */
 ATTR_STMT {ATTR_SPEC}|DIMENSION|{ACCESS_SPEC}
 
@@ -252,6 +274,7 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
 %x      ArrayInitializer
 %x      Typedef
 %x      TypedefBody
+%x      TypedefBodyContains
 %x      InterfaceBody
 %x      StrIgnore
 %x      String
@@ -285,9 +308,12 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
                                                  // Only take input after initial ampersand
                                                  inputStringPrepass+=(const char*)(yytext+(indexStart+1));
    
+						 //printf("BUFFER:%s\n", (const char*)inputStringPrepass);
                                                  pushBuffer(inputStringPrepass);
+						 yyColNr = 0;						 
                                                  yy_pop_state();
                                                } else { // simple line
+					         yyColNr = 0;
                                                  REJECT;
                                                }
 
@@ -321,7 +347,7 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
 					    initializer+=yytext;
 					}
 <String>\"|\'                           { // string ends with next quote without previous backspace
-                                          if (yytext[0]!=stringStartSymbol) REJECT; // single vs double quote
+                                          if (yytext[0]!=stringStartSymbol) { yyColNr -= yyleng; REJECT; } // single vs double quote
 					  if (yy_top_state() == Initialization
 					      || yy_top_state() == ArrayInitializer)
 					    initializer+=yytext;
@@ -332,7 +358,7 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
 					    initializer+=yytext;
 					} 
 <*>\"|\'                                { /* string starts */
-					  if (YY_START == StrIgnore) REJECT; // ignore in simple comments
+					  if (YY_START == StrIgnore) { yyColNr -= yyleng; REJECT; }; // ignore in simple comments
                                           yy_push_state(YY_START);
                                           if (yy_top_state() == Initialization
 					      || yy_top_state() == ArrayInitializer)
@@ -343,7 +369,7 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
 
  /*------ ignore simple comment (not documentation comments) */
 
-<*>"!"/[^<>\n]                         {  if (YY_START == String) REJECT; // "!" is ignored in strings
+<*>"!"/[^<>\n]                         {  if (YY_START == String) { yyColNr -= yyleng; REJECT; } // "!" is ignored in strings
                                           // skip comment line (without docu comments "!>" "!<" ) 
                                           /* ignore further "!" and ignore comments in Strings */
                                           if ((YY_START != StrIgnore) && (YY_START != String)) 
@@ -362,7 +388,7 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
 
  /*------ use handling ------------------------------------------------------------*/
 
-<Start,ModuleBody,TypedefBody,SubprogBody>"use"{BS_} {
+<Start,ModuleBody,SubprogBody>"use"{BS_} {
                                           if(YY_START == Start)
                                           {
                                             addModule(NULL); 
@@ -377,6 +403,7 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
   					  current->section=Entry::USINGDIR_SEC;
 					  current_root->addSubEntry(current);
 					  current = new Entry;
+                                          current->lang    = SrcLangExt_F90; 
                                           yy_pop_state();
                                         }
 <Use>{ID}/,                             { 
@@ -391,47 +418,64 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
   					  current->section=Entry::USINGDECL_SEC;
 					  current_root->addSubEntry(current);
 					  current = new Entry ;
+                                          current->lang    = SrcLangExt_F90; 
   					}
 <Use,UseOnly>"\n"                       {
+					  yyColNr -= 1;
                                           unput(*yytext);
                                           yy_pop_state();
                                         }
 
- /*------ ignore special fortran statements */
-<Start,ModuleBody,SubprogBody>^[ \t]*interface({BS_}{ID}({BS}\({BS}[^ \t()]+{BS}\))?)?/{BS}(!|\n) { // handle interface block
-                                          if(YY_START == Start)
-                                          {
-                                            addModule(NULL); 
-                                            yy_push_state(ModuleBody); //anon program
-                                          }
-
-					  QCString name = yytext;
-					  int index = name.find("interface", 0, FALSE);
-					  index = name.find(QRegExp("[^ \\t]"), index+9);
-					  //printf(stderr,"%s,%d\n",name.data(),index);
-					  if (index!=-1)
-					    name = name.right(name.length()-index);
-					  else // interface without name, must be inside subprog
-					    name = "interface"; 
-					  addInterface(name);
-					  yy_push_state(InterfaceBody);
- 					  startScope(last_entry);
+ /* INTERFACE definitions */
+<Start,ModuleBody,SubprogBody>{
+^{BS}interface                          { ifType = IF_SPECIFIC;
+                                          yy_push_state(InterfaceBody);
+                                          // do not start a scope here, every
+                                          // interface body is a scope of its own
                                         }
-<InterfaceBody>^{BS}"end"({BS}"interface"({BS_}{ID})?)?{BS}/(\n|!)   {
-					  if (!endScope(current_root))
-					    yyterminate();
-					  yy_pop_state();
+
+^{BS}abstract{BS_}interface             { ifType = IF_ABSTRACT;
+                                          yy_push_state(InterfaceBody);
+                                          // do not start a scope here, every
+                                          // interface body is a scope of its own
+                                        }
+
+^{BS}interface{BS_}{ID}{ARGS}?          { ifType = IF_GENERIC;
+                                          yy_push_state(InterfaceBody);
+
+                                          // extract generic name
+                                          QCString name = QCString(yytext).stripWhiteSpace();
+                                          name = name.right(name.length() - 9).stripWhiteSpace();
+                                          addInterface(name, ifType);
+
+                                          startScope(last_entry);
+                                        }
+}
+
+<InterfaceBody>^{BS}end{BS}interface({BS_}{ID})? {
+                                          // end scope only if GENERIC interface
+                                          if (ifType == IF_GENERIC && !endScope(current_root))
+                                            yyterminate();
+
+                                          ifType = IF_NONE;
+                                          yy_pop_state();
                                         }
 <InterfaceBody>module{BS}procedure      { yy_push_state(YY_START);
                                           BEGIN(ModuleProcedure);
                                         }
-<ModuleProcedure>{ID}                   {                       			
+<ModuleProcedure>{ID}                   { if (ifType == IF_ABSTRACT || ifType == IF_SPECIFIC)
+                                          {
+                                            addInterface(yytext, ifType);
+                                            startScope(last_entry);
+                                          }
+
                                           current->section = Entry::FUNCTION_SEC ;
                                           current->name = yytext; 
- 	                                  moduleProcedures.append(current);
+                                          moduleProcedures.append(current);
                                           addCurrentEntry();
                                         }
-<ModuleProcedure>"\n"                   { unput(*yytext); 
+<ModuleProcedure>"\n"                   { yyColNr -= 1;
+					  unput(*yytext); 
                                           yy_pop_state();
                                         }
 <InterfaceBody>.                        {}
@@ -446,6 +490,7 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
                                         }
 <ModuleBody>^{BS}{CONTAINS}/({BS}|\n|!)   { BEGIN(ModuleBodyContains); }
 <SubprogBody>^{BS}{CONTAINS}/({BS}|\n|!)  { BEGIN(SubprogBodyContains); }
+<TypedefBody>^{BS}{CONTAINS}/({BS}|\n|!)  { BEGIN(TypedefBodyContains); }
 
  /*------ module handling ------------------------------------------------------------*/ 
 <Start>module|program{BS_}             {  //
@@ -479,77 +524,134 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
 
  /*------- type definition  -------------------------------------------------------------------------------*/
 
-<Start,ModuleBody>"type"({BS_}|({COMMA}{ACCESS_SPEC})) { /* type definition found : TYPE , access-spec::type-name |*/
+<Start,ModuleBody>^{BS}type             {
                                           if(YY_START == Start)
                                           {
                                             addModule(NULL); 
                                             yy_push_state(ModuleBody); //anon program
                                           }
 
- 					    yy_push_state(Typedef);
-					    current->protection = defaultProtection;
+                                          yy_push_state(Typedef);
+                                          current->protection = defaultProtection;
                                         }
-<Typedef>{ACCESS_SPEC}          	{ 	
-                                            QCString type= yytext;				    
-                                        }
-<Typedef>{ID}                        	{ /* type name found */
-                                            //cout << "=========> got typedef " << yytext << ": " << yyLineNr << endl; 
-                                            current->section = Entry::CLASS_SEC; // was Entry::STRUCT_SEC;
-   					    current->spec = Entry::Struct;        	
-  					    current->name = yytext;
+<Typedef>{
+{COMMA}                                 {}
 
-                                            /* if type is part of a module, mod name is necessary for output */
-                                            if ((current_root) && 
-                                               (current_root->section ==  Entry::CLASS_SEC ||
-					        current_root->section ==  Entry::NAMESPACE_SEC))
-						//current_root->section ==  Entry::INTERFACE_SEC)) 
-					    {
-                                              current->name= current_root->name+"::"+current->name;
-                                            }
-					    current->fileName = yyFileName;
-					    current->bodyLine  = yyLineNr; 
-                                            addCurrentEntry();
-					    startScope(last_entry); 
-                                            BEGIN(TypedefBody);
+{BS}"::"{BS}                            {}
+
+abstract                                {
+                                          current->spec |= Entry::AbstractClass;
                                         }
-<TypedefBody>^{BS}"end"{BS}"type"({BS_}{ID})?{BS}/(\n|!)         { /* end type definition */
-                                           //printf("=========> got typedef end \n"); 
-					   if (!endScope(current_root))
-					     yyterminate();
-                                           yy_pop_state();
-                                        } 
+extends{ARGS}                           {
+                                          QCString basename = extractFromParens(yytext);
+                                          current->extends->append(new BaseInfo(basename, Public, Normal));
+                                        }
+public                                  {
+                                          current->protection = Public;
+                                        }
+private                                 {
+                                          current->protection = Private;
+                                        }
+{LANGUAGE_BIND_SPEC}                    {
+                                          /* ignored for now */
+                                        }
+{ID}                                    { /* type name found */
+                                          current->section = Entry::CLASS_SEC;
+                                          current->spec |= Entry::Struct;
+                                          current->name = yytext;
+                                          current->fileName = yyFileName;
+                                          current->bodyLine  = yyLineNr; 
+
+                                          /* if type is part of a module, mod name is necessary for output */
+                                          if ((current_root) && 
+                                              (current_root->section == Entry::CLASS_SEC
+                                               || current_root->section == Entry::NAMESPACE_SEC))
+                                          {
+                                            current->name = current_root->name + "::" + current->name;
+                                          }
+
+                                          addCurrentEntry();
+                                          startScope(last_entry); 
+                                          BEGIN(TypedefBody);
+                                        }
+}
+
+<TypedefBodyContains>{                  /* Type Bound Procedures */
+^{BS}PROCEDURE{ARGS}?                   {
+                                          current->type = QCString(yytext).simplifyWhiteSpace();
+                                        }
+^{BS}final                              {
+                                          current->spec |= Entry::Final;
+                                          current->type = QCString(yytext).simplifyWhiteSpace();
+                                        }
+^{BS}generic                            {
+                                          current->type = QCString(yytext).simplifyWhiteSpace();
+                                        }
+{COMMA}                                 {
+                                        }
+{ATTR_SPEC}                             {
+                                          currentModifiers |= QCString(yytext);
+                                        }
+{BS}"::"{BS}                            {
+                                        }
+{ID}                                    {
+                                          QCString name = yytext;
+                                          modifiers[current_root][name.lower()] |= currentModifiers;
+                                          current->section  = Entry::FUNCTION_SEC;
+                                          current->name     = name;
+                                          current->fileName = yyFileName;
+                                          current->bodyLine = yyLineNr;
+                                          addCurrentEntry();
+                                        }
+{BS}"=>"[^(\n|\!)]*                     { /* Specific bindings come after the ID. */
+                                          last_entry->args = yytext;
+                                        }
+"\n"                                    {
+                                          currentModifiers = SymbolModifiers();
+					  newLine();
+                                          docBlock.resize(0);
+                                        }
+}
+
+
+<TypedefBody,TypedefBodyContains>{
+^{BS}"end"{BS}"type"({BS_}{ID})?{BS}/(\n|!) { /* end type definition */
+                                          if (!endScope(current_root))
+                                            yyterminate();
+                                          yy_pop_state();
+                                        }
+}
 
  /*------- module/global/typedef variable ---------------------------------------------------*/
 
-<SubprogBody,SubprogBodyContains>^{BS}"end"({BS}{SUBPROG}({BS_}{ID})?)?{BS}/(\n|!) {  
-                                           //fprintf(stderr,"1e=========> got end subprog: %s\n", yytext);
+<SubprogBody,SubprogBodyContains>^{BS}[0-9]*{BS}"end"({BS}{SUBPROG}({BS_}{ID})?)?{BS}/(\n|!) {  
+                                           //
+                                           // ABSTRACT and specific interfaces are stored
+                                           // in a scope of their own, even if multiple
+                                           // are group in one INTERFACE/END INTERFACE block.
+                                           //
+                                           if (ifType == IF_ABSTRACT || ifType == IF_SPECIFIC)
+                                             endScope(current_root);
 
-                                           /* args is used for parameters in list of functions, argList for 
-                                             parameters in detailed function descripttion */
-                                           //current->args = argListToString(current->argList); 
-					   //current->endBodyLine  = yyLineNr; // ??? what ist endBodyLine for
 					   if (!endScope(current_root))
 					     yyterminate();
 					   yy_pop_state() ;
-				       } 
+				        }
 <Start,ModuleBody,TypedefBody,SubprogBody>{
-^{BS}{TYPE_SPEC}/{SEPARATE}			{
+^{BS}{TYPE_SPEC}/{SEPARATE}             {
                                           /* variable declaration starts */
                                           if(YY_START == Start)
                                           {
                                             addModule(NULL); 
                                             yy_push_state(ModuleBody); //anon program
                                           }
-                                          //fprintf(stderr,"4=========> got variable type: %s\n",yytext);
- 					  QCString help=yytext;
-					  help= help.simplifyWhiteSpace();
-					  argType= help;
+					  argType = QCString(yytext).simplifyWhiteSpace();
 					  yy_push_state(AttributeList);
                                         }
 ^{BS}{PP_ID}{KIND}?			{ /* check for preprocessor symbol expand to type */
 					  QCString str = yytext;
 					  str = str.stripWhiteSpace();
-					  DefineDict* defines = getFileDefineDict();
+					  DefineDict* defines = getGlobalDefineDict();
 					  QCString name;
 					  int index = str.find("(");
 					  if (index != -1)
@@ -565,6 +667,7 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
 					  } 
 					  else 
 					  {
+					    yyColNr -= yyleng;
 					    REJECT;
 					  }
 					}
@@ -584,21 +687,35 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
 <AttributeList>{
 {COMMA}					{}
 {BS}					{}
-{ATTR_SPEC}				{ /* update current modifiers */
-                                          QCString tmp = yytext;
-                                          currentModifiers |= (tmp);
+{ATTR_SPEC}.				{ /* update current modifierswhen it is an ATTR_SPEC and not a variable name */
+            				  /* bug_625519 */
+                                          QChar chr = yytext[yyleng-1];
+                                          if (chr.isLetter() || chr.isDigit() || (chr == '_'))
+                                          {
+					    yyColNr -= yyleng;
+                                            REJECT;
+                                          }
+                                          else
+                                          {
+                                            QCString tmp = yytext;
+                                            tmp = tmp.left(tmp.length() - 1);
+					    yyColNr -= 1;
+                                            unput(yytext[yyleng-1]);
+                                            currentModifiers |= (tmp);
+                                          }
 					}
 "::"					{ /* end attribute list */
 					  BEGIN( Variable );
 					}
 .					{ /* unknown attribute, consider variable name */
 					  //cout<<"start variables, unput "<<*yytext<<endl;
+					  yyColNr -= 1;
 					  unput(*yytext);
 					  BEGIN( Variable );
 					}
 }
 
-<Variable>{BS}				{}
+<Variable>{BS}				{ }
 <Variable>{ID}				{ /* parse variable declaration */
                                           //cout << "5=========> got variable: " << argType << "::" << yytext << endl;
  					  /* work around for bug in QCString.replace (QCString works) */
@@ -620,8 +737,16 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
                                           } 
 					  else if (!argType.isEmpty())
 					  { // deklaration of parameter list: add type for corr. parameter 
-					    parameter= addFortranParameter(argType,argName,docBlock);
-					    if (parameter) v_type= V_PARAMETER;
+					    parameter = getParameter(argName);
+					    if (parameter) {
+					      v_type= V_PARAMETER;
+      					      if (!argType.isNull())
+        				        parameter->type=argType.stripWhiteSpace();
+					      if (!docBlock.isNull()) {
+					        parameter->docs += "\n";
+					        parameter->docs += docBlock;
+      					      }					    
+					    }
 					    // save, it may be function return type
 					    modifiers[current_root][name.lower()].type = argType;
 					    // any accumulated doc for argument should be emptied,
@@ -637,7 +762,10 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
 					  attr += yytext;
 					  modifiers[current_root][name] |= attr;
 					}
-<Variable>{COMMA}	                {}
+<Variable>{COMMA}	                { //printf("COMMA: %d<=..<=%d\n", yyColNr-yyleng, yyColNr);
+					  // locate !< comment
+					  updateVariablePrepassComment(yyColNr-yyleng, yyColNr);
+					}
 <Variable>{BS}"="                       { yy_push_state(YY_START);
                                           initializer="";
                                           initializerScope = initializerArrayScope = 0;
@@ -645,8 +773,14 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
                                         }
 <Variable>"\n"	                        { currentModifiers = SymbolModifiers();
                                           yy_pop_state(); // end variable deklaration list
-                                          yyLineNr++; yyLineNr+=lineCountPrepass; lineCountPrepass=0;
+					  newLine();
                                           docBlock.resize(0);
+                                        }
+<Variable>";".*"\n"                     { currentModifiers = SymbolModifiers();
+                                          yy_pop_state(); // end variable deklaration list
+                                          docBlock.resize(0);
+                                          inputStringSemi =(const char*)(yytext+1);
+                                          pushBuffer(inputStringSemi);
                                         }
 
 <Initialization,ArrayInitializer>"(/"   { initializer+=yytext;
@@ -670,6 +804,7 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
 					}
 <Initialization>{COMMA}                 { if (initializerScope == 0)
 					  {
+					    updateVariablePrepassComment(yyColNr-yyleng, yyColNr);
 					    yy_pop_state(); // end initialization
                                             if (v_type == V_VARIABLE) last_entry->initializer= initializer;
 					  }
@@ -679,6 +814,7 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
 <Initialization>"\n"|"!"                { //|
                                           yy_pop_state(); // end initialization
                                           if (v_type == V_VARIABLE) last_entry->initializer= initializer;
+					  yyColNr -= 1;
  					  unput(*yytext);
                                         }
 <Initialization>.                       { initializer+=yytext; }
@@ -686,15 +822,18 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
  /*------ fortran subroutine/function handling ------------------------------------------------------------*/
  /*       Start is initial condition                                                                       */
  
-<Start,ModuleBody,SubprogBody,InterfaceBody,ModuleBodyContains,SubprogBodyContains>^{BS}({PREFIX}{BS_})?{TYPE_SPEC}{BS}/{SUBPROG}{BS_} {   
-		                           // TYPE_SPEC is for old function style function result
-                                           result= yytext;
-                                           result= result.stripWhiteSpace();
-                                           extractPrefix(result);
-                                           //fprintf(stderr, "===%s\n", (const char*)result);
-  					   current->type = result;
-                                           yy_push_state(SubprogPrefix);
-                                       }          
+<Start,ModuleBody,SubprogBody,InterfaceBody,ModuleBodyContains,SubprogBodyContains>^{BS}({PREFIX}{BS_})?{TYPE_SPEC}{BS}/{SUBPROG}{BS_} {
+                                         if (ifType == IF_ABSTRACT || ifType == IF_SPECIFIC)
+                                         {
+                                           addInterface("$interface$", ifType);
+                                           startScope(last_entry);
+                                         }
+
+                                         // TYPE_SPEC is for old function style function result
+                                         result = QCString(yytext).stripWhiteSpace();
+                                         current->type = result;
+                                         yy_push_state(SubprogPrefix);
+                                       }
 
 <SubprogPrefix>{BS}{SUBPROG}{BS_}     {
                                          // Fortran subroutine or function found
@@ -704,38 +843,59 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
 
 <Start,ModuleBody,SubprogBody,InterfaceBody,ModuleBodyContains,SubprogBodyContains>^{BS}({PREFIX}{BS_})?{SUBPROG}{BS_} {
                                          // Fortran subroutine or function found
-                                         result= yytext;
-                                         result= result.stripWhiteSpace();
-                                         extractPrefix(result);
+                                         if (ifType == IF_ABSTRACT || ifType == IF_SPECIFIC)
+                                         {
+                                           addInterface("$interface$", ifType);
+                                           startScope(last_entry);
+                                         }
+
+                                         result = QCString(yytext).stripWhiteSpace();
                                          addSubprogram(result);
                                          yy_push_state(Subprog);
                                        }
 
 <Subprog>{BS}                          {   /* ignore white space */   }
-<Subprog>{ID}                          {   current->name = yytext;
-					   //cout << "1a==========> got " << current->type << " " << yytext << " " << yyLineNr << endl;
-					   modifiers[current_root][current->name.lower()].returnName = current->name;
-					   BEGIN(Parameterlist);
-                                       } 
-<Parameterlist>{ARGS}                  {   
+<Subprog>{ID}                          { current->name = yytext;
+                                         //cout << "1a==========> got " << current->type << " " << yytext << " " << yyLineNr << endl;
+                                         modifiers[current_root][current->name.lower()].returnName = current->name;
+
+                                         if (ifType == IF_ABSTRACT || ifType == IF_SPECIFIC)
+                                         {
+                                           current_root->name.replace(QRegExp("\\$interface\\$"), yytext);
+                                         }
+
+                                         BEGIN(Parameterlist);
+                                       }
+<Parameterlist>"("                     { current->args = "("; }
+<Parameterlist>")"                     {
+				         current->args += ")";
+				         current->args = removeRedundantWhiteSpace(current->args);
+                                         addCurrentEntry();
+					 startScope(last_entry);
+					 BEGIN(SubprogBody);
+				       }
+<Parameterlist>{COMMA}|{BS}            { current->args += yytext;
+					 CommentInPrepass *c = locatePrepassComment(yyColNr-yyleng, yyColNr);
+					 if (c!=NULL) {
+                                           if(current->argList->count()>0) {
+					     current->argList->at(current->argList->count()-1)->docs = c->str;
+					   }
+					 }		         
+				       }
+<Parameterlist>{ID}                    {
 				           //current->type not yet available
-                                           QCString arglist= yytext;
-					   //cout << "3=========> got parameterlist " << yytext << endl;
-                                           //yyLineNr+= arglist.contains('\n');
-					   //static QRegExp re("&[^\n]*\n");
-                                           //arglist = arglist.replace(re,"");
-					   //cout << "3=========> got parameterlist " << arglist << endl;
-					   current->args = arglist;
-					   current->args = removeRedundantWhiteSpace(current->args);
-					   stringToArgumentList(current->args, current->argList);
-                                           addCurrentEntry();
-					   startScope(last_entry);
-					   BEGIN(SubprogBody);
+                                           QCString param = yytext;
+					   // std::cout << "3=========> got parameter " << param << std::endl;
+					   current->args += param;
+					   Argument *arg = new Argument;
+					   arg->name = param;
+					   arg->type = "";
+					   current->argList->append(arg);
  				       } 
 <Parameterlist>{NOARGS}                {   
-                                           yyLineNr++; yyLineNr+=lineCountPrepass; lineCountPrepass=0;
+				           newLine();
 					   //printf("3=========> without parameterlist \n");
- 					   stringToArgumentList("", current->argList);
+ 					   //current->argList = ;
                                            addCurrentEntry();
 					   startScope(last_entry);
 					   BEGIN(SubprogBody);				           
@@ -750,15 +910,14 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
 
  /*---- documentation comments --------------------------------------------------------------------*/
 
-<Variable>"!<"                           { /* backward docu comment (only one line) */
+<Variable,SubprogBody,ModuleBody,TypedefBody>"!<"  { /* backward docu comment (only one line) */
                                           if (v_type != V_IGNORE) {
-                                           yy_push_state(YY_START);
 					   current->docLine  = yyLineNr;
  					   docBlockJavaStyle = FALSE;
 					   docBlock.resize(0);
 					   docBlockJavaStyle = Config_getBool("JAVADOC_AUTOBRIEF");
 					   startCommentBlock(TRUE);
-					   BEGIN(DocBackLine);
+                                           yy_push_state(DocBackLine);
                                           }
   					 }
 <DocBackLine>.*    			 { // contents of current comment line
@@ -772,12 +931,12 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
                                           }
 					  else if (v_type == V_PARAMETER) 
 					  {
-					    parameter->docs=docBlock;
+					    parameter->docs+=docBlock;
                                           }
                                           yy_pop_state();
  					 }
    
-<Start,SubprogBody,ModuleBody,TypedefBody,InterfaceBody,ModuleBodyContains,SubprogBodyContains>"!>"  {
+<Start,SubprogBody,ModuleBody,TypedefBody,InterfaceBody,ModuleBodyContains,SubprogBodyContains,TypedefBodyContains>"!>"  {
                                           yy_push_state(YY_START);
 					  current->docLine  = yyLineNr;
  					  docBlockJavaStyle = FALSE;
@@ -793,10 +952,11 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
   					}
 <DocBlock>"\n"{BS}"!"(">"|"!"+)		{ // comment block (next line is also comment line)
 					  docBlock+="\n"; // \n is necessary for lists
-                                          yyLineNr++; yyLineNr+=lineCountPrepass; lineCountPrepass=0;
+					  newLine();
   					}
 <DocBlock>"\n"        			{ // comment block ends at the end of this line
                                           //cout <<"3=========> comment block : "<< docBlock << endl;
+					  yyColNr -= 1;
 					  unput(*yytext);                                        
  					  handleCommentBlock(docBlock,TRUE);
                                           yy_pop_state();                                          
@@ -805,7 +965,7 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
  /*------------------------------------------------------------------------------------------------*/
 
 <*>"\n"                                 {
-                                          yyLineNr++; yyLineNr+=lineCountPrepass; lineCountPrepass=0;
+					  newLine();
                                           //if (debugStr.stripWhiteSpace().length() > 0) cout << "ignored text: " << debugStr << " state: " <<YY_START << endl;
                                           debugStr="";
                                         }
@@ -835,7 +995,9 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
 %%
 //----------------------------------------------------------------------------
 
-static void extractPrefix(QCString &text) {
+#if 0
+static void extractPrefix(QCString &text) 
+{
   int prefixIndex = 0;
   int curIndex = 0;
   bool cont = TRUE;
@@ -852,6 +1014,37 @@ static void extractPrefix(QCString &text) {
         cont = TRUE;
       }
     }
+  }
+}
+#endif
+
+static void newLine() {
+  yyLineNr++;
+  yyLineNr+=lineCountPrepass;
+  lineCountPrepass=0;
+  comments.clear();
+}
+
+static CommentInPrepass* locatePrepassComment(int from, int to) {
+  //printf("Locate %d-%d\n", from, to);
+  for(uint i=0; i<comments.count(); i++) { // todo: optimize
+    int c = comments.at(i)->column;
+    //printf("Candidate %d\n", c);
+    if (c>=from && c<=to) {
+      // comment for previous variable or parameter
+      return comments.at(i);
+    }
+  }
+  return NULL;
+}
+
+static void updateVariablePrepassComment(int from, int to) {
+  CommentInPrepass *c = locatePrepassComment(from, to);
+  if (c!=NULL && v_type == V_VARIABLE) {
+    last_entry->brief = c->str;
+  } else if (c!=NULL && v_type == V_PARAMETER) {
+    Argument *parameter = getParameter(argName);
+    if (parameter) parameter->docs = c->str;
   }
 }
 
@@ -941,9 +1134,8 @@ void truncatePrepass(int index)
 {
   int length = inputStringPrepass.length();
   for (int i=index+1; i<length; i++) {
-    if (inputStringPrepass[i]=='!') { // save comment 
-      //printf("-----SAVE----- %d:%s", i, (const char*)inputStringPrepass.right(length-i));
-      struct CommentInPrepass *c=new CommentInPrepass(index, inputStringPrepass.right(length-i));
+    if (inputStringPrepass[i]=='!' && i<length-1 && inputStringPrepass[i+1]=='<') { // save comment 
+      struct CommentInPrepass *c=new CommentInPrepass(index, inputStringPrepass.right(length-i-2));
       comments.append(c);
     }
   }
@@ -1159,6 +1351,11 @@ SymbolModifiers& SymbolModifiers::operator|=(const SymbolModifiers &mdfs)
   pointer |= mdfs.pointer;
   target |= mdfs.target;
   save |= mdfs.save;
+  deferred |= mdfs.deferred;
+  nonoverridable |= mdfs.nonoverridable;
+  nopass |= mdfs.nopass;
+  pass |= mdfs.pass;
+  passVar = mdfs.passVar;
   return *this;
 }
 
@@ -1220,6 +1417,26 @@ SymbolModifiers& SymbolModifiers::operator|=(QCString mdfString)
   else if (mdfString=="save") 
   {
     newMdf.save = TRUE;
+  }
+  else if (mdfString=="nopass")
+  {
+    newMdf.nopass = TRUE;
+  }
+  else if (mdfString=="deferred")
+  {
+    newMdf.deferred = TRUE;
+  }
+  else if (mdfString=="non_overridable")
+  {
+    newMdf.nonoverridable = TRUE;
+  }
+  else if (mdfString.contains("pass"))
+  {
+    newMdf.pass = TRUE;
+    if (mdfString.contains("("))
+      newMdf.passVar = extractFromParens(mdfString);
+    else
+      newMdf.passVar = "";
   }
 
   (*this) |= newMdf;
@@ -1326,6 +1543,38 @@ static QCString applyModifiers(QCString typeName, SymbolModifiers& mdfs)
   {
     typeName += ",";
     typeName += "save";
+  }
+  if (mdfs.deferred) 
+  {
+    typeName += ",";
+    typeName += "deferred";
+  }
+  if (mdfs.nonoverridable) 
+  {
+    typeName += ",";
+    typeName += "non_overridable";
+  }
+  if (mdfs.nopass) 
+  {
+    typeName += ",";
+    typeName += "nopass";
+  }
+  if (mdfs.pass) 
+  {
+    typeName += ",";
+    typeName += "pass";
+    if (!mdfs.passVar.isEmpty())
+      typeName += "(" + mdfs.passVar + ")";
+  }
+  if (mdfs.protection == SymbolModifiers::PUBLIC)
+  {
+    typeName += ",";
+    typeName += "public";
+  }
+  else if (mdfs.protection == SymbolModifiers::PRIVATE)
+  {
+    typeName += ",";
+    typeName += "private";
   }
 
   return typeName;
@@ -1485,6 +1734,7 @@ static void initEntry()
   current->mtype      = mtype;
   current->virt       = virt;
   current->stat       = gstat;
+  current->lang       = SrcLangExt_F90; 
   initGroupInfo(current);
 }
 
@@ -1550,23 +1800,40 @@ static void addSubprogram(const char *text)
  * \note Code was brought to this procedure from the parser,
  * because there was/is idea to use it in several parts of the parser.
  */ 
-static void addInterface(QCString name) 
+static void addInterface(QCString name, InterfaceType type)
 {
+  if (YY_START == Start)
+  {
+    addModule(NULL);
+    yy_push_state(ModuleBody); //anon program
+  }
+
   current->section = Entry::CLASS_SEC; // was Entry::INTERFACE_SEC;
   current->spec = Entry::Interface;
   current->name = name;
+
+  switch (type)
+  {
+    case IF_ABSTRACT:
+      current->type = "abstract";
+      break;
+
+    case IF_GENERIC:
+      current->type = "generic";
+      break;
+
+    case IF_SPECIFIC:
+    case IF_NONE:
+    default:
+      current->type = "";
+  }
 
   /* if type is part of a module, mod name is necessary for output */
   if ((current_root) && 
       (current_root->section ==  Entry::CLASS_SEC ||
        current_root->section ==  Entry::NAMESPACE_SEC)) 
   {
-    current->name= current_root->name+"::"+current->name;
-  }
-  if ((current_root) &&
-      (current_root->section ==  Entry::FUNCTION_SEC)) 
-  {
-    current->name = getFullName(current_root) + "__" + QCString(current->name);
+    current->name= current_root->name + "::" + current->name;
   }
 
   current->fileName = yyFileName;
@@ -1577,25 +1844,21 @@ static void addInterface(QCString name)
 
 //-----------------------------------------------------------------------------
 
-/*! Update the argument \a name with additional \a type info. 
+/*! Get the argument \a name.
  */
-static Argument *addFortranParameter(const QCString &type,const QCString &name, const QCString docs)
+static Argument* getParameter(const QCString &name)
 {
-  //cout<<"addFortranParameter(): "<<name<<" DOCS:"<<(docs.isNull()?QCString("null"):docs)<<endl;
+  // std::cout<<"addFortranParameter(): "<<name<<" DOCS:"<<(docs.isNull()?QCString("null"):docs)<<std::endl;
   Argument *ret = 0;
   if (current_root->argList==0) return 0;
   ArgumentListIterator ali(*current_root->argList);
   Argument *a;
   for (ali.toFirst();(a=ali.current());++ali)
   {
-    if (a->type.lower()==name.lower())
+    if (a->name.lower()==name.lower())
     {
       ret=a;
-//cout << "addParameter found:   " << type << " , " << name << endl;
-      a->type=type.stripWhiteSpace();
-      a->name=name.stripWhiteSpace();
-      if (!docs.isNull())
-        a->docs = docs;
+      //printf("parameter found: %s\n",(const char*)name);
       break;
     }
   } // for
@@ -1706,11 +1969,13 @@ static void parseMain(const char *fileName,const char *fileBuf,Entry *rt)
     groupEnterFile(yyFileName,yyLineNr);
 
     current          = new Entry;
+    current->lang    = SrcLangExt_F90; 
     current->name    = yyFileName;
     current->section = Entry::SOURCE_SEC;
     current_root->addSubEntry(current);
     file_root        = current;
     current          = new Entry;
+    current->lang    = SrcLangExt_F90; 
 
     fscanYYrestart( fscanYYin );
     {
@@ -1764,8 +2029,8 @@ void FortranLanguageScanner::parseCode(CodeOutputInterface & codeOutIntf,
 
 bool FortranLanguageScanner::needsPreprocessing(const QCString &extension)
 {
-  (void)extension;
-  return TRUE;
+  return !(extension==".f"||extension==".f90"||
+           extension==".f95"||extension==".f03");
 }
 void FortranLanguageScanner::resetCodeParserState()
 {

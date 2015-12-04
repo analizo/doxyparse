@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -105,12 +105,13 @@ void MemberGroup::setAnchors(ClassDef *context)
 }
 
 void MemberGroup::writeDeclarations(OutputList &ol,
-               ClassDef *cd,NamespaceDef *nd,FileDef *fd,GroupDef *gd)
+               ClassDef *cd,NamespaceDef *nd,FileDef *fd,GroupDef *gd,
+               bool showInline)
 {
-  //printf("MemberGroup::writeDeclarations() memberList->count()=%d\n",memberList->count());
+  //printf("MemberGroup::writeDeclarations() %s\n",grpHeader.data());
   QCString ldoc = doc;
-  if (!ldoc.isEmpty()) ldoc.prepend("<a name=\""+anchor()+"\"></a>");
-  memberList->writeDeclarations(ol,cd,nd,fd,gd,grpHeader,ldoc/*,TRUE,TRUE*/);
+  if (!ldoc.isEmpty()) ldoc.prepend("<a name=\""+anchor()+"\" id=\""+anchor()+"\"></a>");
+  memberList->writeDeclarations(ol,cd,nd,fd,gd,grpHeader,ldoc,FALSE,showInline);
 }
 
 void MemberGroup::writePlainDeclarations(OutputList &ol,
@@ -122,9 +123,9 @@ void MemberGroup::writePlainDeclarations(OutputList &ol,
 }
 
 void MemberGroup::writeDocumentation(OutputList &ol,const char *scopeName,
-               Definition *container)
+               Definition *container,bool showEnumValues,bool showInline)
 {
-  memberList->writeDocumentation(ol,scopeName,container,0);
+  memberList->writeDocumentation(ol,scopeName,container,0,showEnumValues,showInline);
 }
 
 void MemberGroup::writeDocumentationPage(OutputList &ol,const char *scopeName,
@@ -146,11 +147,11 @@ void MemberGroup::addToDeclarationSection()
   }
 }
 
-int MemberGroup::countDecMembers(/*bool sectionPerType*/)
+int MemberGroup::countDecMembers(GroupDef *gd)
 {
   if (m_numDecMembers==-1) /* number of member not cached */
   {
-    memberList->countDecMembers(/*TRUE,TRUE,sectionPerType*/);
+    memberList->countDecMembers(gd);
     m_numDecMembers = memberList->numDecMembers();
   }
   return m_numDecMembers;

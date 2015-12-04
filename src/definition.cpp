@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -18,7 +18,7 @@
 #include "qtbc.h"
 #include <ctype.h>
 #include <qregexp.h>
-#include <md5.h>
+#include "md5.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -544,7 +544,7 @@ static bool readCodeFragment(const char *fileName,
   static bool filterSourceFiles = Config_getBool("FILTER_SOURCE_FILES");
   //printf("readCodeFragment(%s,%d,%d)\n",fileName,startLine,endLine);
   if (fileName==0 || fileName[0]==0) return FALSE; // not a valid file name
-  QCString filter = getFileFilter(fileName);
+  QCString filter = getFileFilter(fileName,TRUE);
   FILE *f=0;
   bool usePipe = !filter.isEmpty() && filterSourceFiles;
   if (!usePipe) // no filter given or wanted
@@ -575,6 +575,7 @@ static bool readCodeFragment(const char *fileName,
       char cn=0;
       while (lineNr<=endLine && !feof(f) && !found)
       {
+        int pc=0;
         while ((c=fgetc(f))!='{' && c!=':' && c!=EOF) 
         {
           //printf("parsing char `%c'\n",c);
@@ -586,10 +587,24 @@ static bool readCodeFragment(const char *fileName,
           {
             col+=Config_getInt("TAB_SIZE") - (col%Config_getInt("TAB_SIZE"));
           }
+          else if (pc=='/' && c=='/') // skip single line comment
+          {
+            while ((c=fgetc(f))!='\n' && c!=EOF) pc=c;
+            if (c=='\n') lineNr++,col=0;
+          }
+          else if (pc=='/' && c=='*') // skip C style comment
+          {
+            while (((c=fgetc(f))!='/' || pc!='*') && c!=EOF) 
+            {
+              if (c=='\n') lineNr++,col=0;
+              pc=c;
+            }
+          }
           else
           {
             col++;
           }
+          pc = c;
         }
         if (c==':')
         {
@@ -1291,7 +1306,7 @@ void Definition::writePathFragment(OutputList &ol) const
   {
     m_impl->outerScope->writePathFragment(ol);
   }
-  ol.writeString("      <li>");
+  ol.writeString("      <li class=\"navelem\">");
   if (isLinkable())
   {
     if (definitionType()==Definition::TypeGroup && ((const GroupDef*)this)->groupTitle())
@@ -1327,14 +1342,31 @@ void Definition::writePathFragment(OutputList &ol) const
 
 void Definition::writeNavigationPath(OutputList &ol) const
 {
+  static bool generateTreeView = Config_getBool("GENERATE_TREEVIEW");
+  static bool hasCustomFooter = !Config_getString("HTML_FOOTER").isEmpty();
+
   ol.pushGeneratorState();
   ol.disableAllBut(OutputGenerator::Html);
 
-  ol.writeString("  <div class=\"navpath\">\n");
+  if (generateTreeView)
+  {
+    ol.writeString("</div>\n");
+  }
+
+  ol.writeString("  <div id=\"nav-path\" class=\"navpath\">\n");
   ol.writeString("    <ul>\n");
   writePathFragment(ol);
-  ol.writeString("    </ul>\n");
-  ol.writeString("  </div>\n");
+  if (!hasCustomFooter && generateTreeView) // write the doxygen logo as part of the navigation bar
+  {
+    ol.writeString("      <li class=\"footer\">");
+    ol.writeLogo();
+    ol.writeString("</li>\n");
+  }
+  if (!hasCustomFooter || !generateTreeView)
+  {
+    ol.writeString("    </ul>\n");
+    ol.writeString("  </div>\n");
+  }
 
   ol.popGeneratorState();
 }

@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -118,7 +118,7 @@ void linkifyText(const TextGeneratorIntf &ol,
 
 void setAnchors(ClassDef *cd,char id,MemberList *ml,int groupId=-1);
 
-QCString fileToString(const char *name,bool filter=FALSE);
+QCString fileToString(const char *name,bool filter=FALSE,bool isSourceCode=FALSE);
 
 QCString dateToString(bool);
 
@@ -135,7 +135,7 @@ bool getDefs(const QCString &scopeName,
                     bool checkCV=FALSE
                    );
 
-QCString getFileFilter(const char* name);
+QCString getFileFilter(const char* name,bool isSourceCode);
 
 bool resolveRef(/* in */  const char *scName,
                 /* in */  const char *name,
@@ -154,8 +154,8 @@ bool resolveLink(/* in */  const char *scName,
                  /* out */ QCString &resAnchor
                 );
 
-bool generateRef(OutputDocInterface &od,const char *,
-                        const char *,bool inSeeBlock,const char * =0);
+//bool generateRef(OutputDocInterface &od,const char *,
+//                        const char *,bool inSeeBlock,const char * =0);
 
 bool generateLink(OutputDocInterface &od,const char *,
                          const char *,bool inSeeBlock,const char *);
@@ -177,6 +177,10 @@ void mergeArguments(ArgumentList *,ArgumentList *,bool forceNameOverwrite=FALSE)
 QCString substituteClassNames(const QCString &s);
 
 QCString substitute(const char *s,const char *src,const char *dst);
+
+QCString clearBlock(const char *s,const char *begin,const char *end);
+
+QCString selectBlock(const QCString& s,const QCString &name,bool which);
 
 QCString resolveDefines(const char *n);
 
@@ -207,7 +211,7 @@ inline bool isId(int c)
 
 QCString removeRedundantWhiteSpace(const QCString &s);
 
-QCString argListToString(ArgumentList *al,bool useCanonicalType=FALSE);
+QCString argListToString(ArgumentList *al,bool useCanonicalType=FALSE,bool showDefVals=TRUE);
 
 QCString tempArgListToString(ArgumentList *al);
 
@@ -225,7 +229,7 @@ bool rightScopeMatch(const QCString &scope, const QCString &name);
 
 bool leftScopeMatch(const QCString &scope, const QCString &name);
 
-QCString substituteKeywords(const QCString &s,const char *title,const QCString &relPath="");
+QCString substituteKeywords(const QCString &s,const char *title);
 
 int getPrefixIndex(const QCString &name);
 
@@ -252,6 +256,8 @@ QCString stripScope(const char *name);
 QCString convertToHtml(const char *s,bool keepEntities=TRUE);
 
 QCString convertToXML(const char *s);
+
+QCString convertToJSString(const char *s);
 
 QCString getOverloadDocs();
 
@@ -381,6 +387,18 @@ void writeSummaryLink(OutputList &ol,const char *label,const char *title,
 QCString externalLinkTarget();
 QCString externalRef(const QCString &relPath,const QCString &ref,bool href);
 int nextUtf8CharPosition(const QCString &utf8Str,int len,int startPos);
+
+struct ColoredImgDataItem
+{
+  const char *name;
+  unsigned short width;
+  unsigned short height;
+  unsigned char *content;
+  unsigned char *alpha;
+};
+
+void writeColoredImgData(const char *dir,ColoredImgDataItem data[]);
+QCString replaceColorMarkers(const char *str);
 
 #endif
 

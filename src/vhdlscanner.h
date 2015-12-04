@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -31,21 +31,6 @@
 
 #include "entry.h"
 #include "memberlist.h"
-
-#if 0
-#include "qcstring.h"
-#include "qlist.h"
-#include "qstringlist.h"
-#include "filedef.h"
-#include "classlist.h"
-#include "classdef.h"
-#include "translator.h"
-#include "qregexp.h"
-#include "outputlist.h"
-#include "membername.h"
-#include "memberdef.h"
-#include "memberlist.h"
-#endif
 
 class Entry;
 class ClassSDict;

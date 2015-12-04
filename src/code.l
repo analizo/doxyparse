@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -471,10 +471,12 @@ static void startCodeLine()
     //lineAnchor.sprintf("l%05d",g_yyLineNr);
    
     Definition *d   = g_sourceFileDef->getSourceDefinition(g_yyLineNr);
+    //printf("%s:startCodeLine(%d)=%p\n",g_sourceFileDef->name().data(),g_yyLineNr,d);
     if (!g_includeCodeFragment && d)
     {
       g_currentDefinition = d;
       g_currentMemberDef = g_sourceFileDef->getSourceMember(g_yyLineNr);
+      //printf("->startCodeLine(%s)=%p\n",d->name().data(),g_currentMemberDef);
       g_insideBody = FALSE;
       g_searchingForBody = TRUE;
       g_realScope = d->name().copy();
@@ -623,7 +625,7 @@ static void addParmType()
 
 static void addUsingDirective(const char *name)
 {
-  if (g_exampleBlock && g_sourceFileDef && name)
+  if (g_sourceFileDef && name)
   {
     NamespaceDef *nd = Doxygen::namespaceSDict->find(name);
     if (nd)
@@ -1004,7 +1006,7 @@ static void generateClassOrGlobalLink(CodeOutputInterface &ol,char *clName,
     }
     ol.linkableSymbol(g_yyLineNr,cd->name(),cd,
                       g_currentMemberDef ? g_currentMemberDef : g_currentDefinition);
-    writeMultiLineCodeLink(ol,cd->getReference(),cd->getOutputFileBase(),0,clName,cd->briefDescriptionAsTooltip());
+    writeMultiLineCodeLink(ol,cd->getReference(),cd->getOutputFileBase(),cd->anchor(),clName,cd->briefDescriptionAsTooltip());
     addToSearchIndex(className);
     g_theCallContext.setClass(cd);
     if (md)
@@ -1556,7 +1558,7 @@ static void writeObjCMethodCall(ObjCCallCtx *ctx)
 	      writeMultiLineCodeLink(*g_code,
 		    cd->getReference(),
 		    cd->getOutputFileBase(),
-		    0,
+		    cd->anchor(),
 		    pObject->data(),
 		    cd->briefDescriptionAsTooltip());
 	    }
@@ -1572,7 +1574,7 @@ static void writeObjCMethodCall(ObjCCallCtx *ctx)
 	   	writeMultiLineCodeLink(*g_code,
 		    cd->getReference(),
 		    cd->getOutputFileBase(),
-		    0,
+		    cd->anchor(),
 		    pObject->data(),
 		    cd->briefDescriptionAsTooltip());
 	      }
@@ -1721,7 +1723,7 @@ SCOPENAME "$"?(({ID}?{BN}*"::"{BN}*)*)((~{BN}*)?{ID})
 TEMPLIST "<"[^\"\}\{\(\)\/\n\>]*">"
 SCOPETNAME ((({ID}{TEMPLIST}?){BN}*"::"{BN}*)*)((~{BN}*)?{ID})
 SCOPEPREFIX ({ID}{TEMPLIST}?{BN}*"::"{BN}*)+
-KEYWORD_OBJC ("@public"|"@private"|"@protected"|"@class"|"@implementation"|"@interface"|"@end"|"@selector"|"@protocol"|"@optional"|"@required"|"@throw"|"@synthesize")
+KEYWORD_OBJC ("@public"|"@private"|"@protected"|"@class"|"@implementation"|"@interface"|"@end"|"@selector"|"@protocol"|"@optional"|"@required"|"@throw"|"@synthesize"|"@property")
 KEYWORD ("asm"|"__assume"|"auto"|"class"|"const"|"delete"|"enum"|"explicit"|"extern"|"false"|"friend"|"gcnew"|"gcroot"|"get"|"inline"|"internal"|"mutable"|"namespace"|"new"|"nullptr"|"override"|"operator"|"pin_ptr"|"private"|"protected"|"public"|"raise"|"register"|"remove"|"self"|"set"|"sizeof"|"static"|"struct"|"__super"|"template"|"generic"|"this"|"true"|"typedef"|"typeid"|"typename"|"union"|"using"|"virtual"|"volatile"|"abstract"|"final"|"import"|"synchronized"|"transient"|{KEYWORD_OBJC})
 FLOWKW ("break"|"catch"|"continue"|"default"|"do"|"else"|"finally"|"return"|"switch"|"@catch"|"@finally"|"throw"|"throws")
 FLOWCONDITION  ("case"|"for"|"foreach"|"for each"|"goto"|"if"|"try"|"while"|"@try")
@@ -1894,10 +1896,15 @@ OPERATOR {ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP}
 					  //FileInfo *f;
 					  bool ambig;
 					  bool found=FALSE;
-                                          FileDef *fd=0;
-					  //printf("looking for include %s\n",yytext);
-					  if ((fd=findFileDef(Doxygen::inputNameDict,yytext,ambig)) &&
-					      fd->isLinkable())
+					  //QCString absPath = yytext;
+					  //if (g_sourceFileDef && QDir::isRelativePath(absPath))
+					  //{
+					  //  absPath = QDir::cleanDirPath(g_sourceFileDef->getPath()+"/"+absPath);
+					  //}
+
+                                          FileDef *fd=findFileDef(Doxygen::inputNameDict,yytext,ambig);
+					  //printf("looking for include %s -> %s fd=%p\n",yytext,absPath.data(),fd);
+					  if (fd && fd->isLinkable())
 					  {
 					    if (ambig) // multiple input files match the name
 					    {
@@ -1924,9 +1931,9 @@ OPERATOR {ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP}
 					      found = TRUE;
 					    }
 					  }
+					  //printf("      include file %s found=%d\n",fd ? fd->absFilePath().data() : "<none>",found);
 					  if (found)
 					  {
-					    //printf("      include file %s found=%d\n",fd->absFilePath().data(),found);
 					    g_code->writeCodeLink(fd->getReference(),fd->getOutputFileBase(),0,yytext,fd->briefDescriptionAsTooltip());
 					  }
 					  else
@@ -3445,10 +3452,12 @@ void parseCCode(CodeOutputInterface &od,const char *className,const QCString &s,
   g_exampleName   = exName;
   g_sourceFileDef = fd;
   g_lineNumbers   = fd!=0 && showLineNumbers;
-  if (exBlock && fd==0)
+  bool cleanupSourceDef = FALSE;
+  if (/* exBlock */ fd==0)
   {
     // create a dummy filedef for the example
-    g_sourceFileDef = new FileDef("",exName);
+    g_sourceFileDef = new FileDef("",(exName?exName:"generated"));
+    cleanupSourceDef = TRUE;
   }
   if (g_sourceFileDef) 
   {
@@ -3484,7 +3493,7 @@ void parseCCode(CodeOutputInterface &od,const char *className,const QCString &s,
     endFontClass();
     g_code->endCodeLine();
   }
-  if (exBlock && fd==0)
+  if (cleanupSourceDef)
   {
     // delete the temporary file definition used for this example
     delete g_sourceFileDef;

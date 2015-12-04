@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -95,7 +95,7 @@ void LatexGenerator::init()
   FTextStream t(&file);
   if (!Config_getBool("USE_PDFLATEX")) // use plain old latex
   {
-    t << "all: clean refman.dvi" << endl
+    t << "all: refman.dvi" << endl
       << endl
       << "ps: refman.ps" << endl
       << endl
@@ -116,7 +116,7 @@ void LatexGenerator::init()
 #else
     t << "\tps2pdf refman.ps refman.pdf" << endl << endl;
 #endif
-    t << "refman.dvi: refman.tex doxygen.sty" << endl
+    t << "refman.dvi: clean refman.tex doxygen.sty" << endl
       << "\techo \"Running latex...\"" << endl
       << "\t" << latex_command << " refman.tex" << endl
       << "\techo \"Running makeindex...\"" << endl
@@ -144,9 +144,9 @@ void LatexGenerator::init()
   }
   else // use pdflatex for higher quality output
   {
-    t << "all: clean refman.pdf" << endl << endl
+    t << "all: refman.pdf" << endl << endl
       << "pdf: refman.pdf" << endl << endl;
-    t << "refman.pdf: refman.tex" << endl;
+    t << "refman.pdf: clean refman.tex" << endl;
     t << "\tpdflatex refman.tex" << endl;
     t << "\tmakeindex refman.idx" << endl;
     t << "\tpdflatex refman.tex" << endl
@@ -162,7 +162,7 @@ void LatexGenerator::init()
   t << endl
     << "clean:" << endl
 #if defined(_MSC_VER)
-    << "\tdel "  
+    << "\tdel /s/y " 
 #else
     << "\trm -f " 
 #endif
@@ -240,6 +240,8 @@ static void writeDefaultHeaderPart1(FTextStream &t)
   t << "\\usepackage{mathptmx}\n";
   t << "\\usepackage[scaled=.90]{helvet}\n";
   t << "\\usepackage{courier}\n";
+  t << "\\usepackage{sectsty}\n";
+  t << "\\usepackage[titles]{tocloft}\n";
   t << "\\usepackage{doxygen}\n";
 
   // define option for listings
@@ -261,6 +263,7 @@ static void writeDefaultHeaderPart1(FTextStream &t)
   t << "\\makeindex\n"
     "\\setcounter{tocdepth}{3}\n"
     "\\renewcommand{\\footrulewidth}{0.4pt}\n"
+    "\\renewcommand{\\familydefault}{\\sfdefault}\n"
     "\\begin{document}\n";
   static bool pdfHyperlinks = Config_getBool("PDF_HYPERLINKS");
   static bool usePDFLatex   = Config_getBool("USE_PDFLATEX");
@@ -321,48 +324,48 @@ static void writeDefaultStyleSheetPart1(FTextStream &t)
        "\\RequirePackage{longtable}\n"
        "\\RequirePackage{verbatim}\n"
        "\\RequirePackage{ifthen}\n"
-       "\\RequirePackage{xcolor}\n\n";
+       "\\RequirePackage[table]{xcolor}\n\n";
 
   t << "% Use helvetica font instead of times roman\n"
        "\\RequirePackage{helvet}\n"
        "\\RequirePackage{sectsty}\n"
        "\\RequirePackage{tocloft}\n"
-       "\\allsectionsfont{\\usefont{OT1}{phv}{bc}{n}\\selectfont}\n"
-       "\\renewcommand{\\cftchapfont}{%\n"
-       "  \\fontsize{11}{13}\\usefont{OT1}{phv}{bc}{n}\\selectfont\n"
-       "}\n"
-       "\\renewcommand{\\cftchappagefont}{%\n"
-       "  \\fontsize{11}{13}\\usefont{OT1}{phv}{c}{n}\\selectfont\n"
-       "}\n"
-       "\\renewcommand{\\cftsecfont}{%\n"
-       "  \\fontsize{10}{12}\\usefont{OT1}{phv}{c}{n}\\selectfont\n"
-       "}\n"
-       "\\renewcommand{\\cftsecpagefont}{%\n"
-       "  \\fontsize{10}{12}\\usefont{OT1}{phv}{c}{n}\\selectfont\n"
-       "}\n"
-       "\\renewcommand{\\cftsubsecfont}{%\n"
-       "  \\fontsize{10}{12}\\usefont{OT1}{phv}{c}{n}\\selectfont\n"
-       "}\n"
-       "\\renewcommand{\\cftsubsecpagefont}{%\n"
-       "  \\fontsize{10}{12}\\usefont{OT1}{phv}{c}{n}\\selectfont\n"
-       "}\n"
-       "\\renewcommand{\\cftsubsubsecfont}{%\n"
-       "  \\fontsize{9}{11}\\usefont{OT1}{phv}{c}{n}\\selectfont\n"
-       "}\n"
-       "\\renewcommand{\\cftsubsubsecpagefont}{%\n"
-       "  \\fontsize{9}{11}\\usefont{OT1}{phv}{c}{n}\\selectfont\n"
-       "}\n"
-       "\\renewcommand{\\cftparafont}{%\n"
-       "  \\fontsize{9}{11}\\usefont{OT1}{phv}{c}{n}\\selectfont\n"
-       "}\n"
-       "\\renewcommand{\\cftparapagefont}{%\n"
-       "  \\fontsize{9}{11}\\usefont{OT1}{phv}{c}{n}\\selectfont\n"
-       "}\n"
-       "\\renewcommand{\\cfttoctitlefont}{%\n"
-       "  \\fontsize{20}{22}\\usefont{OT1}{phv}{b}{n}\\selectfont\n"
-       "}\n"
-       "\\renewcommand{\\rmdefault}{phv}\n"
-       "\\renewcommand{\\bfdefault}{bc}\n"
+//       "\\allsectionsfont{\\usefont{OT1}{phv}{bc}{n}\\selectfont}\n"
+//       "\\providecommand{\\cftchapfont}{%\n"
+//       "  \\fontsize{11}{13}\\usefont{OT1}{phv}{bc}{n}\\selectfont\n"
+//       "}\n"
+//       "\\providecommand{\\cftchappagefont}{%\n"
+//       "  \\fontsize{11}{13}\\usefont{OT1}{phv}{c}{n}\\selectfont\n"
+//       "}\n"
+//       "\\providecommand{\\cftsecfont}{%\n"
+//       "  \\fontsize{10}{12}\\usefont{OT1}{phv}{c}{n}\\selectfont\n"
+//       "}\n"
+//       "\\providecommand{\\cftsecpagefont}{%\n"
+//       "  \\fontsize{10}{12}\\usefont{OT1}{phv}{c}{n}\\selectfont\n"
+//       "}\n"
+//       "\\providecommand{\\cftsubsecfont}{%\n"
+//       "  \\fontsize{10}{12}\\usefont{OT1}{phv}{c}{n}\\selectfont\n"
+//       "}\n"
+//       "\\providecommand{\\cftsubsecpagefont}{%\n"
+//       "  \\fontsize{10}{12}\\usefont{OT1}{phv}{c}{n}\\selectfont\n"
+//       "}\n"
+//       "\\providecommand{\\cftsubsubsecfont}{%\n"
+//       "  \\fontsize{9}{11}\\usefont{OT1}{phv}{c}{n}\\selectfont\n"
+//       "}\n"
+//       "\\providecommand{\\cftsubsubsecpagefont}{%\n"
+//       "  \\fontsize{9}{11}\\usefont{OT1}{phv}{c}{n}\\selectfont\n"
+//       "}\n"
+//       "\\providecommand{\\cftparafont}{%\n"
+//       "  \\fontsize{9}{11}\\usefont{OT1}{phv}{c}{n}\\selectfont\n"
+//       "}\n"
+//       "\\providecommand{\\cftparapagefont}{%\n"
+//       "  \\fontsize{9}{11}\\usefont{OT1}{phv}{c}{n}\\selectfont\n"
+//       "}\n"
+//       "\\providecommand{\\cfttoctitlefont}{%\n"
+//       "  \\fontsize{20}{22}\\usefont{OT1}{phv}{b}{n}\\selectfont\n"
+//       "}\n"
+       "\\providecommand{\\rmdefault}{phv}\n"
+       "\\providecommand{\\bfdefault}{bc}\n"
        "\n\n";
 
   t << "% Setup fancy headings\n"
@@ -741,16 +744,21 @@ static void writeDefaultStyleSheetPart3(FTextStream &t)
 
   t << "\\setlength{\\parindent}{0cm}\n";
   t << "\\setlength{\\parskip}{0.2cm}\n";
-  t << "\\addtocounter{secnumdepth}{1}\n";
+  t << "\\addtocounter{secnumdepth}{2}\n";
   // \sloppy should not be used, see bug 563698 
   //t << "\\sloppy\n";
   t << "\\usepackage[T1]{fontenc}\n";
   t << "\\makeatletter\n";
   t << "\\renewcommand{\\paragraph}{\\@startsection{paragraph}{4}{0ex}%\n";
-  t << "   {-3.25ex plus -1ex minus -0.2ex}%\n";
-  t << "   {1.5ex plus 0.2ex}%\n";
-  t << "   {\\normalfont\\normalsize\\bfseries}}\n";
+  t << "   {-1.0ex}%\n";
+  t << "   {1.0ex}%\n";
+  t << "   {\\usefont{OT1}{phv}{bc}{n}\\color{darkgray}}}\n";
+  t << "\\renewcommand{\\subparagraph}{\\@startsection{subparagraph}{5}{0ex}%\n";
+  t << "   {-1.0ex}%\n";
+  t << "   {1.0ex}%\n";
+  t << "   {\\usefont{OT1}{phv}{bc}{n}\\color{darkgray}}}\n";
   t << "\\makeatother\n";
+  t << "\\allsectionsfont{\\usefont{OT1}{phv}{bc}{n}\\selectfont\\color{darkgray}}\n";
   t << "\\stepcounter{secnumdepth}\n";
   t << "\\stepcounter{tocdepth}\n";
   t << "\\definecolor{comment}{rgb}{0.5,0.0,0.0}\n";
@@ -766,6 +774,12 @@ static void writeDefaultStyleSheetPart3(FTextStream &t)
   t << "\\definecolor{vhdlchar}{rgb}{0.0,0.0,0.0}\n";
 }
 
+static void writeDefaultFooter(FTextStream &t)
+{
+  t << "\\printindex\n";
+  t << "\\end{document}\n";
+}
+
 void LatexGenerator::writeHeaderFile(QFile &f)
 {
   FTextStream t(&f);
@@ -774,6 +788,12 @@ void LatexGenerator::writeHeaderFile(QFile &f)
   writeDefaultHeaderPart2(t);
   t << "Generated by";
   writeDefaultHeaderPart3(t);
+}
+
+void LatexGenerator::writeFooterFile(QFile &f)
+{
+  FTextStream t(&f);
+  writeDefaultFooter(t);
 }
 
 void LatexGenerator::writeStyleSheetFile(QFile &f)
@@ -786,12 +806,12 @@ void LatexGenerator::writeStyleSheetFile(QFile &f)
   t << theTranslator->trGeneratedAt( dateToString(TRUE), projectName );
   t << " doxygen";
   //t << " " << theTranslator->trWrittenBy() << " ";
-  //t << "Dimitri van Heesch \\copyright~1997-2010";
+  //t << "Dimitri van Heesch \\copyright~1997-2011";
   writeDefaultStyleSheetPart2(t);
   t << theTranslator->trGeneratedAt( dateToString(TRUE), projectName );
   t << " doxygen";
   //t << " << theTranslator->trWrittenBy() << " ";
-  //t << "Dimitri van Heesch \\copyright~1997-2010";
+  //t << "Dimitri van Heesch \\copyright~1997-2011";
   writeDefaultStyleSheetPart3(t);
 }
 
@@ -939,7 +959,10 @@ void LatexGenerator::startIndexSection(IndexSections is)
         bool found=FALSE;
         for (cli.toFirst();(cd=cli.current()) && !found;++cli)
         {
-          if (cd->isLinkableInProject() && cd->templateMaster()==0)
+          if (cd->isLinkableInProject() && 
+              cd->templateMaster()==0 &&
+              !cd->isEmbeddedInGroupDocs()
+             )
           {
             if (compactLatex) t << "\\section"; else t << "\\chapter";
             t << "{"; //Compound Documentation}\n";
@@ -997,6 +1020,7 @@ void LatexGenerator::endIndexSection(IndexSections is)
   //static bool compactLatex = Config_getBool("COMPACT_LATEX");
   static bool sourceBrowser = Config_getBool("SOURCE_BROWSER");
   static QCString latexHeader = Config_getString("LATEX_HEADER");
+  static QCString latexFooter = Config_getString("LATEX_FOOTER");
   switch (is)
   {
     case isTitlePageStart:
@@ -1116,7 +1140,10 @@ void LatexGenerator::endIndexSection(IndexSections is)
         bool found=FALSE;
         for (cli.toFirst();(cd=cli.current()) && !found;++cli)
         {
-          if (cd->isLinkableInProject() && cd->templateMaster()==0)
+          if (cd->isLinkableInProject() && 
+              cd->templateMaster()==0 &&
+             !cd->isEmbeddedInGroupDocs()
+             )
           {
             t << "}\n\\input{" << cd->getOutputFileBase() << "}\n";
             found=TRUE;
@@ -1124,7 +1151,10 @@ void LatexGenerator::endIndexSection(IndexSections is)
         }
         for (;(cd=cli.current());++cli)
         {
-          if (cd->isLinkableInProject() && cd->templateMaster()==0)
+          if (cd->isLinkableInProject() && 
+              cd->templateMaster()==0 &&
+             !cd->isEmbeddedInGroupDocs()
+             )
           {
             //if (compactLatex) t << "\\input"; else t << "\\include";
             t << "\\input"; 
@@ -1215,8 +1245,15 @@ void LatexGenerator::endIndexSection(IndexSections is)
     case isPageDocumentation2:
       break;
     case isEndIndex:
-      t << "\\printindex\n";
-      t << "\\end{document}\n";
+      if (latexFooter.isEmpty())
+      {
+        writeDefaultFooter(t);
+      }
+      else
+      {
+        QCString footer = fileToString(latexFooter);
+        t << substituteKeywords(footer,0);
+      }
       break;
   }
 }
@@ -1507,20 +1544,33 @@ void LatexGenerator::startTitle()
   }
 }
 
-void LatexGenerator::startGroupHeader()
+void LatexGenerator::startGroupHeader(int extraIndentLevel)
 {
   if (Config_getBool("COMPACT_LATEX")) 
   {
-    t << "\\subsubsection{"; 
+    extraIndentLevel++;
   }
-  else 
+
+  if (extraIndentLevel==3)
+  {
+    t << "\\subparagraph*{"; 
+  }
+  else if (extraIndentLevel==2)
+  {
+    t << "\\paragraph{";
+  }
+  else if (extraIndentLevel==1)
+  {
+    t << "\\subsubsection{";
+  }
+  else // extraIndentLevel==0
   {
     t << "\\subsection{";
   }
   disableLinks=TRUE;
 }
 
-void LatexGenerator::endGroupHeader()
+void LatexGenerator::endGroupHeader(int)
 {
   disableLinks=FALSE;
   t << "}" << endl;
@@ -1548,7 +1598,8 @@ void LatexGenerator::endMemberHeader()
 void LatexGenerator::startMemberDoc(const char *clname,
                                     const char *memname,
                                     const char *,
-                                    const char *title)
+                                    const char *title,
+                                    bool showInline)
 { 
   if (memname && memname[0]!='@')
   {
@@ -1578,7 +1629,13 @@ void LatexGenerator::startMemberDoc(const char *clname,
     }
     t << "}" << endl;
   }
-  if (Config_getBool("COMPACT_LATEX")) t << "\\paragraph"; else t << "\\subsubsection";
+  static const char *levelLab[] = { "subsubsection","paragraph","subparagraph", "subparagraph" };
+  static bool compactLatex = Config_getBool("COMPACT_LATEX");
+  int level=0;
+  if (showInline) level+=2;
+  if (compactLatex) level++;
+  t << "\\" << levelLab[level]; 
+
   //if (Config_getBool("PDF_HYPERLINKS") && memname) 
   //{
   //  t << "["; 
@@ -1596,7 +1653,7 @@ void LatexGenerator::endMemberDoc(bool)
 { 
   disableLinks=FALSE;
   t << "}";
-  if (Config_getBool("COMPACT_LATEX")) t << "\\hfill";
+  //if (Config_getBool("COMPACT_LATEX")) t << "\\hfill";
 }
 
 void LatexGenerator::startDoxyAnchor(const char *fName,const char *,
@@ -1886,7 +1943,8 @@ void LatexGenerator::endMemberDescription()
 { 
   if (!insideTabbing)
   {
-    t << "\\item\\end{DoxyCompactList}"; 
+    //t << "\\item\\end{DoxyCompactList}"; 
+    t << "\\end{DoxyCompactList}"; 
   }
   else
   {
@@ -1927,12 +1985,19 @@ void LatexGenerator::endMemberList()
 void LatexGenerator::startMemberGroupHeader(bool hasHeader)
 {
   if (hasHeader) t << "\\begin{Indent}";
-  t << "{\\bf ";
+  if (Config_getBool("COMPACT_LATEX")) 
+  {
+    t << "\\subparagraph*{";
+  }
+  else
+  {
+    t << "\\paragraph*{";
+  }
 }
 
 void LatexGenerator::endMemberGroupHeader()
 {
-  t << "}\\par" << endl;
+  t << "}" << endl;
 }
 
 void LatexGenerator::startMemberGroupDocs()
@@ -2282,5 +2347,22 @@ void LatexGenerator::startCodeAnchor(const char *name)
 
 void LatexGenerator::endCodeAnchor() 
 {
+}
+
+void LatexGenerator::startInlineHeader()
+{
+  if (Config_getBool("COMPACT_LATEX")) 
+  {
+    t << "\\paragraph*{"; 
+  }
+  else 
+  {
+    t << "\\subsubsection*{";
+  }
+}
+
+void LatexGenerator::endInlineHeader()
+{
+  t << "}" << endl;
 }
 

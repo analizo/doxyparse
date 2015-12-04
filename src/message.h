@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -22,6 +22,7 @@
 
 extern void msg(const char *fmt, ...);
 extern void warn(const char *file,int line,const char *fmt, ...);
+extern void warn_simple(const char *file,int line,const char *text);
 extern void warn_undoc(const char *file,int line,const char *fmt, ...);
 extern void warn_doc_error(const char *file,int line,const char *fmt, ...);
 extern void err(const char *fmt, ...);

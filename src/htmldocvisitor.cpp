@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -142,6 +142,7 @@ HtmlDocVisitor::HtmlDocVisitor(FTextStream &t,CodeOutputInterface &ci,
 
 void HtmlDocVisitor::visit(DocWord *w)
 {
+  //printf("word: %s\n",w->word().data());
   if (m_hide) return;
   filter(w->word());
 }
@@ -179,6 +180,7 @@ void HtmlDocVisitor::visit(DocSymbol *s)
     case DocSymbol::Amp:     m_t << "&amp;"; break;
     case DocSymbol::Dollar:  m_t << "$"; break;
     case DocSymbol::Hash:    m_t << "#"; break;
+    case DocSymbol::DoubleColon: m_t << "::"; break;
     case DocSymbol::Percent: m_t << "%"; break;
     case DocSymbol::Copy:    m_t << "&copy;"; break;
     case DocSymbol::Tm:      m_t << "&trade;"; break;
@@ -304,7 +306,7 @@ void HtmlDocVisitor::visit(DocVerbatim *s)
   if (m_hide) return;
   switch(s->type())
   {
-    case DocVerbatim::Code: // fall though
+    case DocVerbatim::Code: 
       forceEndParagraph(s);
       m_t << PREFRAG_START;
       Doxygen::parserManager->getParser(m_langExt)
@@ -378,7 +380,7 @@ void HtmlDocVisitor::visit(DocVerbatim *s)
 
         forceEndParagraph(s);
         m_t << "<div align=\"center\">" << endl;
-        writeMscFile(baseName,s->relPath(),s->context());
+        writeMscFile(baseName+".msc",s->relPath(),s->context());
         m_t << "</div>" << endl;
         forceStartParagraph(s);
 
@@ -556,6 +558,7 @@ void HtmlDocVisitor::visit(DocSimpleSectSep *)
 
 void HtmlDocVisitor::visitPre(DocAutoList *l)
 {
+  //printf("DocAutoList::visitPre\n");
   if (m_hide) return;
   forceEndParagraph(l);
   if (l->isEnumList())
@@ -579,6 +582,7 @@ void HtmlDocVisitor::visitPre(DocAutoList *l)
 
 void HtmlDocVisitor::visitPost(DocAutoList *l)
 {
+  //printf("DocAutoList::visitPost\n");
   if (m_hide) return;
   if (l->isEnumList())
   {
@@ -667,6 +671,11 @@ static int getParagraphContext(DocPara *p,bool &isFirst,bool &isLast)
         isLast =TRUE;
         t=1; // not used
         break;
+      case DocNode::Kind_ParamList:
+        isFirst=TRUE;
+        isLast =TRUE;
+        t=1; // not used
+        break;
       case DocNode::Kind_HtmlListItem:
         isFirst=isFirstChildNode((DocHtmlListItem*)p->parent(),p);
         isLast =isLastChildNode ((DocHtmlListItem*)p->parent(),p);
@@ -723,7 +732,7 @@ void HtmlDocVisitor::visitPre(DocPara *p)
 {
   if (m_hide) return;
 
-  //printf("Processing docpara with parent of kind %d\n",
+  //printf("DocPara::visitPre: parent of kind %d ",
   //       p->parent() ? p->parent()->kind() : -1);
 
   bool needsTag = FALSE;
@@ -791,6 +800,7 @@ void HtmlDocVisitor::visitPre(DocPara *p)
   //printf("startPara first=%d last=%d\n",isFirst,isLast);
   if (isFirst && isLast) needsTag=FALSE;
 
+  //printf("  needsTag=%d\n",needsTag);
   // write the paragraph tag (if needed)
   if (needsTag) m_t << "<p" << contexts[t] << ">";
 }
@@ -858,6 +868,8 @@ void HtmlDocVisitor::visitPost(DocPara *p)
   getParagraphContext(p,isFirst,isLast);
   //printf("endPara first=%d last=%d\n",isFirst,isLast);
   if (isFirst && isLast) needsTag=FALSE;
+
+  //printf("DocPara::visitPost needsTag=%d\n",needsTag);
 
   if (needsTag) m_t << "</p>\n";
 
@@ -1137,17 +1149,17 @@ void HtmlDocVisitor::visitPost(DocHtmlCaption *)
   m_t << "</caption>\n";
 }
 
-void HtmlDocVisitor::visitPre(DocInternal *i)
+void HtmlDocVisitor::visitPre(DocInternal *)
 {
   if (m_hide) return;
-  forceEndParagraph(i);
-  m_t << "<p><b>" << theTranslator->trForInternalUseOnly() << "</b></p>" << endl;
+  //forceEndParagraph(i);
+  //m_t << "<p><b>" << theTranslator->trForInternalUseOnly() << "</b></p>" << endl;
 }
 
-void HtmlDocVisitor::visitPost(DocInternal *i) 
+void HtmlDocVisitor::visitPost(DocInternal *) 
 {
   if (m_hide) return;
-  forceStartParagraph(i);
+  //forceStartParagraph(i);
 }
 
 void HtmlDocVisitor::visitPre(DocHRef *href)
@@ -1190,13 +1202,13 @@ void HtmlDocVisitor::visitPre(DocImage *img)
     {
       baseName=baseName.right(baseName.length()-i-1);
     }
-    m_t << "<div align=\"center\">" << endl;
+    m_t << "<div class=\"image\">" << endl;
     m_t << "<img src=\"" << img->relPath() << img->name() << "\" alt=\"" 
         << baseName << "\"" << htmlAttribsToString(img->attribs()) 
         << "/>" << endl;
     if (img->hasCaption())
     {
-      m_t << "<p><strong>";
+      m_t << "<div class=\"caption\">" << endl;
     }
   }
   else // other format -> skip
@@ -1213,7 +1225,7 @@ void HtmlDocVisitor::visitPost(DocImage *img)
     if (m_hide) return;
     if (img->hasCaption())
     {
-      m_t << "</strong></p>";
+      m_t << "</div>";
     }
     m_t << "</div>" << endl;
     forceStartParagraph(img);
@@ -1227,11 +1239,11 @@ void HtmlDocVisitor::visitPost(DocImage *img)
 void HtmlDocVisitor::visitPre(DocDotFile *df)
 {
   if (m_hide) return;
+  m_t << "<div class=\"dotgraph\">" << endl;
   writeDotFile(df->file(),df->relPath(),df->context());
-  m_t << "<div align=\"center\">" << endl;
   if (df->hasCaption())
   { 
-    m_t << "<p><strong>";
+    m_t << "<div class=\"caption\">" << endl;
   }
 }
 
@@ -1240,7 +1252,7 @@ void HtmlDocVisitor::visitPost(DocDotFile *df)
   if (m_hide) return;
   if (df->hasCaption())
   {
-    m_t << "</strong></p>" << endl;
+    m_t << "</div>" << endl;
   }
   m_t << "</div>" << endl;
 }
@@ -1248,11 +1260,11 @@ void HtmlDocVisitor::visitPost(DocDotFile *df)
 void HtmlDocVisitor::visitPre(DocMscFile *df)
 {
   if (m_hide) return;
+  m_t << "<div class=\"mscgraph\">" << endl;
   writeMscFile(df->file(),df->relPath(),df->context());
-  m_t << "<div align=\"center\">" << endl;
   if (df->hasCaption())
   { 
-    m_t << "<p><strong>";
+    m_t << "<div class=\"caption\">" << endl;
   }
 }
 void HtmlDocVisitor::visitPost(DocMscFile *df) 
@@ -1260,7 +1272,7 @@ void HtmlDocVisitor::visitPost(DocMscFile *df)
   if (m_hide) return;
   if (df->hasCaption())
   {
-    m_t << "</strong></p>" << endl;
+    m_t << "</div>" << endl;
   }
   m_t << "</div>" << endl;
 }
@@ -1393,6 +1405,7 @@ void HtmlDocVisitor::visitPost(DocParamSect *s)
 
 void HtmlDocVisitor::visitPre(DocParamList *pl)
 {
+  //printf("DocParamList::visitPre\n");
   if (m_hide) return;
   m_t << "    <tr>";
   DocParamSect *sect = 0;
@@ -1465,6 +1478,7 @@ void HtmlDocVisitor::visitPre(DocParamList *pl)
 
 void HtmlDocVisitor::visitPost(DocParamList *)
 {
+  //printf("DocParamList::visitPost\n");
   if (m_hide) return;
   m_t << "</td></tr>" << endl;
 }
@@ -1630,15 +1644,14 @@ void HtmlDocVisitor::writeDotFile(const QCString &fn,const QCString &relPath,
   {
     baseName=baseName.right(baseName.length()-i-1);
   }
+  if ((i=baseName.find('.'))!=-1) // strip extension
+  {
+    baseName=baseName.left(i);
+  }
+  baseName.prepend("dot_");
   QCString outDir = Config_getString("HTML_OUTPUT");
   writeDotGraphFromFile(fn,outDir,baseName,BITMAP);
-  QCString mapName = baseName+".map";
-  QCString mapFile = fn+".map";
-  m_t << "<img src=\"" << relPath << baseName << "." 
-      << Config_getEnum("DOT_IMAGE_FORMAT") << "\" alt=\""
-      << baseName << "\" border=\"0\" usemap=\"#" << mapName << "\">" << endl;
-  QCString imap = getDotImageMapFromFile(fn,outDir,relPath,context);
-  m_t << "<map name=\"" << mapName << "\" id=\"" << mapName << "\">" << imap << "</map>" << endl;
+  writeDotImageMapFromFile(m_t,fn,outDir,relPath,baseName,context);
 }
 
 void HtmlDocVisitor::writeMscFile(const QCString &fileName,const QCString &relPath,
@@ -1646,18 +1659,18 @@ void HtmlDocVisitor::writeMscFile(const QCString &fileName,const QCString &relPa
 {
   QCString baseName=fileName;
   int i;
-  if ((i=baseName.findRev('/'))!=-1)
+  if ((i=baseName.findRev('/'))!=-1) // strip path
   {
     baseName=baseName.right(baseName.length()-i-1);
   }
+  if ((i=baseName.find('.'))!=-1) // strip extension
+  {
+    baseName=baseName.left(i);
+  }
+  baseName.prepend("msc_");
   QCString outDir = Config_getString("HTML_OUTPUT");
   writeMscGraphFromFile(fileName,outDir,baseName,MSC_BITMAP);
-  QCString mapName = baseName+".map";
-  QCString mapFile = fileName+".map";
-  m_t << "<img src=\"" << relPath << baseName << ".png\" alt=\""
-    << baseName << "\" border=\"0\" usemap=\"#" << mapName << "\">" << endl;
-  QCString imap = getMscImageMapFromFile(fileName,outDir,relPath,context);
-  m_t << "<map name=\"" << mapName << "\" id=\"" << mapName << "\">" << imap << "</map>" << endl;
+  writeMscImageMapFromFile(m_t,fileName,outDir,relPath,baseName,context);
 }
 
 /** Used for items found inside a paragraph, which due to XHTML restrictions

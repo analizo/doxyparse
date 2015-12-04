@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -259,6 +259,7 @@ static void handleHtmlTag()
   
 static QCString stripEmptyLines(const char *s)
 {
+  if (s==0) return QCString();
   int result=0,p=0;
   for (;;)
   {
@@ -309,6 +310,7 @@ VERBATIM  "verbatim"{BLANK}*
 SPCMD1    {CMD}([a-z_A-Z][a-z_A-Z0-9]*|{VERBATIM})
 SPCMD2    {CMD}[\\@<>&$#%~"]
 SPCMD3    {CMD}form#[0-9]+
+SPCMD4    {CMD}"::"
 INOUT	  "in"|"out"|("in"{BLANK}*","{BLANK}*"out")|("out"{BLANK}*","{BLANK}*"in")
 PARAMIO   {CMD}param{BLANK}*"["{BLANK}*{INOUT}{BLANK}*"]"
 TEMPCHAR  [a-z_A-Z0-9,: \t\*\&]
@@ -332,16 +334,18 @@ CVSPEC    {BLANK}*("const"|"volatile")
 LNKWORD2  (({SCOPEPRE}*"operator"{OPMASK})|({SCOPEPRE}"operator"{OPMASKOPT})|(("::"|"#"){SCOPEPRE}*"operator"{OPMASKOPT})){CVSPEC}?
 LNKWORD3  ([0-9a-z_A-Z\-]+("/"|"\\"))*[0-9a-z_A-Z\-]+("."[0-9a-z_A-Z]+)+
 CHARWORDQ [^ \t\n\r\\@<>()\[\]:;\?{}&%$#,."]
-WORD1     "%"?{CHARWORDQ}+|"{"|"}"|"'\"'"|("\""[^"\n]*\n?[^"\n]*"\"")
+ESCWORD   "%"{ID}(("::"|"."){ID})*
+WORD1     {ESCWORD}|{CHARWORDQ}+|"{"|"}"|"'\"'"|("\""[^"\n]*\n?[^"\n]*"\"")
 WORD2     "."|","|"("|")"|"["|"]"|":"|";"|"\?"
-WORD1NQ   "%"?{CHARWORDQ}+
+WORD1NQ   {ESCWORD}|{CHARWORDQ}+
 WORD2NQ   "."|","|"("|")"|"["|"]"|":"|";"|"\?"
 HTMLTAG   "<"(("/")?){ID}({WS}+{ATTRIB})*{WS}*(("/")?)">" 
 HTMLKEYL  "strong"|"center"|"table"|"caption"|"small"|"code"|"dfn"|"var"|"img"|"pre"|"sub"|"sup"|"tr"|"td"|"th"|"ol"|"ul"|"li"|"tt"|"kbd"|"em"|"hr"|"dl"|"dt"|"dd"|"br"|"i"|"a"|"b"|"p"
 HTMLKEYU  "STRONG"|"CENTER"|"TABLE"|"CAPTION"|"SMALL"|"CODE"|"DFN"|"VAR"|"IMG"|"PRE"|"SUB"|"SUP"|"TR"|"TD"|"TH"|"OL"|"UL"|"LI"|"TT"|"KBD"|"EM"|"HR"|"DL"|"DT"|"DD"|"BR"|"I"|"A"|"B"|"P"
 HTMLKEYW  {HTMLKEYL}|{HTMLKEYU}
 REFWORD2  ("#"|"::")?({ID}{TEMPLPART}?("."|"#"|"::"|"-"|"/"))*({ID}(":")?){FUNCARG}?
-REFWORD   {LABELID}|{REFWORD2}
+REFWORD3  ({ID}":")*{ID}":"?
+REFWORD   {LABELID}|{REFWORD2}|{REFWORD3}
 
 %option noyywrap
 %option yylineno
@@ -428,7 +432,8 @@ REFWORD   {LABELID}|{REFWORD2}
 			 return TK_COMMAND;
   		       }
 <St_Para>{SPCMD1}      |
-<St_Para>{SPCMD2}      { /* special command */
+<St_Para>{SPCMD2}      |
+<St_Para>{SPCMD4}      { /* special command */
                          g_token->name = yytext+1;
 			 g_token->name = g_token->name.stripWhiteSpace();
 			 g_token->paramDir=TokenInfo::Unspecified;

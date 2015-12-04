@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -114,7 +114,8 @@ enum CommandType
   CMD_COPYBRIEF    = 80,
   CMD_COPYDETAILS  = 81,
   CMD_QUOTE        = 82,
-  CMD_MSCFILE      = 83 
+  CMD_MSCFILE      = 83,
+  CMD_DCOLON       = 84
 };
 
 enum HtmlTagType

@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -34,10 +34,14 @@ class HtmlGenerator : public OutputGenerator
     virtual ~HtmlGenerator();
     static void init();
     static void writeStyleSheetFile(QFile &f);
-    static void writeHeaderFile(QFile &f);
+    static void writeHeaderFile(QFile &f, const char *cssname);
     static void writeFooterFile(QFile &f);
-    static void writeSearchPage();
     static void writeTabData();
+    static void writeSearchFooter(FTextStream &t,const QCString &relPath);
+    static void writeSearchData(const char *dir);
+    static void writeSearchPage();
+    static QCString writeLogoAsString(const char *path);
+    static QCString writeSplitBarAsString(const char *name,const char *relpath);
    
     void enable() 
     { if (genStack->top()) active=*genStack->top(); else active=TRUE; }
@@ -63,8 +67,8 @@ class HtmlGenerator : public OutputGenerator
     void writeStyleInfo(int part);
     void startTitleHead(const char *);
     void endTitleHead(const char *,const char *);
-    void startTitle() { t << "<h1>"; }
-    void endTitle() { t << "</h1>"; }
+    void startTitle() { t << "<div class=\"title\">"; }
+    void endTitle() { t << "</div>"; }
     
     void startParagraph();
     void endParagraph();
@@ -94,8 +98,8 @@ class HtmlGenerator : public OutputGenerator
     void endHtmlLink();
     void startTypewriter() { t << "<code>"; }
     void endTypewriter()   { t << "</code>"; }
-    void startGroupHeader();
-    void endGroupHeader();
+    void startGroupHeader(int);
+    void endGroupHeader(int);
     void startItemListItem() { t << "<li>"; }
     void endItemListItem() { t << "</li>\n"; }
 
@@ -111,6 +115,10 @@ class HtmlGenerator : public OutputGenerator
     void endMemberDocList();
     void startMemberList();
     void endMemberList();
+    void startInlineDescription();
+    void endInlineDescription();
+    void startInlineHeader();
+    void endInlineHeader();
     void startAnonTypeScope(int) {}
     void endAnonTypeScope(int) {}
     void startMemberItem(int);
@@ -131,7 +139,7 @@ class HtmlGenerator : public OutputGenerator
 
     void writeRuler()    { t << "<hr/>"; }
     void writeAnchor(const char *,const char *name) 
-                         { t << "<a name=\"" << name <<"\"></a>"; }
+                         { t << "<a name=\"" << name <<"\" id=\"" << name << "\"></a>"; }
     void startCodeFragment() { t << PREFRAG_START; }
     void endCodeFragment()   { t << PREFRAG_END; } 
     void writeLineNumber(const char *,const char *,const char *,int);
@@ -149,7 +157,7 @@ class HtmlGenerator : public OutputGenerator
     void endDescForItem()   { t << "</dd>\n"; }
     void lineBreak(const char *style);
     void writeChar(char c);
-    void startMemberDoc(const char *,const char *,const char *,const char *);
+    void startMemberDoc(const char *,const char *,const char *,const char *,bool);
     void endMemberDoc(bool); 
     void startDoxyAnchor(const char *fName,const char *manName,
                          const char *anchor,const char *name,
@@ -188,6 +196,8 @@ class HtmlGenerator : public OutputGenerator
     void endPageRef(const char *,const char *) {}
     void startQuickIndices();
     void endQuickIndices();
+    void writeSplitBar(const char *name);
+    void writeLogo();
     void writeQuickLinks(bool compact,HighlightedItem hli);
     void startContents();
     void endContents();
@@ -218,8 +228,10 @@ class HtmlGenerator : public OutputGenerator
     void endDirDepGraph(const DotDirDeps &g);
     void writeGraphicalHierarchy(const DotGfxHierarchyTable &g);
 
-    void startTextBlock(bool) {}
-    void endTextBlock(bool) {}
+    void startTextBlock(bool) 
+    { t << "<div class=\"textblock\">"; }
+    void endTextBlock(bool) 
+    { t << "</div>"; }
     void lastIndexPage() {}
 
     void startMemberDocPrefixItem();
@@ -245,15 +257,15 @@ class HtmlGenerator : public OutputGenerator
     void startFontClass(const char *s) { t << "<span class=\"" << s << "\">"; }
     void endFontClass() { t << "</span>"; }
 
+
     void writeCodeAnchor(const char *anchor) 
     { t << "<a name=\"" << anchor << "\"></a>"; }
     void linkableSymbol(int,const char *,Definition *,Definition *) {}
 
-    static void writeSearchFooter(FTextStream &t,const QCString &relPath);
-    static void writeSearchData(const char *dir);
     //static void generateSectionImages();
 
   private:
+    static void writePageFooter(FTextStream &t,const QCString &,const QCString &);
     QCString lastTitle;
     QCString lastFile;
     QCString relPath;

@@ -3,7 +3,7 @@
  *
  *
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  * Authors: Dimitri van Heesch, Miguel Lobo.
  *
  * Permission to use, copy, modify, and distribute this software and its
@@ -532,6 +532,7 @@ void PerlModDocVisitor::visit(DocSymbol *sy)
     case DocSymbol::Amp:     c = '&'; break;
     case DocSymbol::Dollar:  c = '$'; break;
     case DocSymbol::Hash:    c = '#'; break;
+    case DocSymbol::DoubleColon: s = "::"; break;
     case DocSymbol::Percent: c = '%'; break;
     case DocSymbol::Quot:    c = '"'; break;
     case DocSymbol::Lsquo:   s = "\\\'"; break;
@@ -1106,7 +1107,7 @@ void PerlModDocVisitor::visitPre(DocMscFile *)
 void PerlModDocVisitor::visitPost(DocMscFile *)
 {
 #if 0
-  m_output.add("</dotfile>");
+  m_output.add("<mscfile>");
 #endif
 }
 

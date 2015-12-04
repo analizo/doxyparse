@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -66,10 +66,12 @@ void OutputGenerator::endPlainFile()
 void OutputGenerator::pushGeneratorState()
 {
   genStack->push(new bool(isEnabled()));
+  //printf("%p:pushGeneratorState(%d)\n",this,genStack->count());
 }
 
 void OutputGenerator::popGeneratorState()
 {
+  //printf("%p:popGeneratorState(%d)\n",this,genStack->count());
   bool *lb = genStack->pop();
   ASSERT(lb!=0);
   if (lb==0) return; // for some robustness against superfluous \endhtmlonly commands.

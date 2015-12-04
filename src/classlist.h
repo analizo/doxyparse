@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -54,6 +54,7 @@ class ClassSDict : public SDict<ClassDef>
    int compareItems(GCI item1,GCI item2);
    void writeDeclaration(OutputList &ol,const ClassDef::CompoundType *filter=0,
                          const char *header=0,bool localNames=FALSE);
+   void writeDocumentation(OutputList &ol);
    bool declVisible(const ClassDef::CompoundType *filter=0) const;
 };
 

@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -79,7 +79,7 @@ class HtmlHelp  : public IndexIntf
     //                  const char *anchor,const MemberDef *md);
     void addIndexItem(Definition *context,MemberDef *md,const char *title);
     void addIndexFile(const char *name);
-    void addImageFile(const char *) {}
+    void addImageFile(const char *);
     void addStyleSheetFile(const char *) {}
 
   private:
@@ -90,6 +90,7 @@ class HtmlHelp  : public IndexIntf
     HtmlHelpIndex *index;
     int dc;
     QStrList indexFiles;
+    QStrList imageFiles;
     QDict<void> indexFileDict;
     static HtmlHelp *theInstance;
     QCString recode(const QCString &s);

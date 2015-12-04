@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -540,6 +540,7 @@ static void detectNoDocumentedParams()
         g_memberDef->hasDocumentedReturnType() ||
         returnType.isEmpty()         || // empty return type
         returnType.find("void")!=-1  || // void return type
+        returnType.find("subroutine")!=-1 || // fortran subroutine
         g_memberDef->isConstructor() || // a constructor
         g_memberDef->isDestructor()     // or destructor
        )
@@ -1008,7 +1009,7 @@ static void handleLinkedWord(DocNode *parent,QList<DocNode> &children)
   ClassDef *cd=0;
   bool ambig;
   FileDef *fd = findFileDef(Doxygen::inputNameDict,g_fileName,ambig);
-  //printf("handleLinkedWord(%s) g_context=%s\n",name.data(),g_context.data());
+  //printf("handleLinkedWord(%s) g_context=%s\n",g_token->name.data(),g_context.data());
   if (!g_insideHtmlLink && 
       (resolveRef(g_context,g_token->name,g_inSeeBlock,&compound,&member,TRUE,fd,TRUE)
        || (!g_context.isEmpty() &&  // also try with global scope
@@ -1035,6 +1036,7 @@ static void handleLinkedWord(DocNode *parent,QList<DocNode> &children)
     }
     else if (compound->isLinkable()) // compound link
     {
+      QCString anchor;
       if (compound->definitionType()==Definition::TypeFile)
       {
         name=g_token->name;
@@ -1043,11 +1045,15 @@ static void handleLinkedWord(DocNode *parent,QList<DocNode> &children)
       {
         name=((GroupDef*)compound)->groupTitle();
       }
+      else if (compound->definitionType()==Definition::TypeClass)
+      {
+        anchor=((ClassDef*)compound)->anchor();
+      }
       children.append(new 
           DocLinkedWord(parent,name,
                         compound->getReference(),
                         compound->getOutputFileBase(),
-                        "",
+                        anchor,
                         compound->briefDescriptionAsTooltip()
                        )
                      );
@@ -1086,7 +1092,7 @@ static void handleLinkedWord(DocNode *parent,QList<DocNode> &children)
         DocLinkedWord(parent,name,
           cd->getReference(),
           cd->getOutputFileBase(),
-          "",
+          cd->anchor(),
           cd->briefDescriptionAsTooltip()
           ));
   }
@@ -1098,17 +1104,21 @@ static void handleLinkedWord(DocNode *parent,QList<DocNode> &children)
         DocLinkedWord(parent,name,
           cd->getReference(),
           cd->getOutputFileBase(),
-          "",
+          cd->anchor(),
           cd->briefDescriptionAsTooltip()
           ));
   }
   else // normal non-linkable word
   {
-    if (g_token->name.left(1)=='#' || g_token->name.left(2)=="::")
+    if (g_token->name.left(1)=="#" || g_token->name.left(2)=="::")
     {
       warn_doc_error(g_fileName,doctokenizerYYlineno,"warning: explicit link request to '%s' could not be resolved",qPrint(name));
+      children.append(new DocWord(parent,g_token->name));
     }
-    children.append(new DocWord(parent,name));
+    else
+    {
+      children.append(new DocWord(parent,name));
+    }
   }
 }
 
@@ -1178,6 +1188,9 @@ reparsetoken:
           break;
         case CMD_HASH:
           children.append(new DocSymbol(parent,DocSymbol::Hash));
+          break;
+        case CMD_DCOLON:
+          children.append(new DocSymbol(parent,DocSymbol::DoubleColon));
           break;
         case CMD_PERCENT:
           children.append(new DocSymbol(parent,DocSymbol::Percent));
@@ -1636,7 +1649,8 @@ DocLinkedWord::DocLinkedWord(DocNode *parent,const QCString &word,
       m_tooltip(tooltip)
 {
   m_parent = parent; 
-  //printf("new word %s url=%s\n",word.data(),g_searchUrl.data());
+  //printf("DocLinkedWord: new word %s url=%s tooltip='%s'\n",
+  //    word.data(),g_searchUrl.data(),tooltip.data());
   if (Doxygen::searchIndex && !g_searchUrl.isEmpty())
   {
     Doxygen::searchIndex->addWord(word,FALSE);
@@ -2538,6 +2552,10 @@ void DocDotFile::parse()
 
   bool ambig;
   FileDef *fd = findFileDef(Doxygen::dotFileNameDict,m_name,ambig);
+  if (fd==0 && m_name.right(4)!=".dot") // try with .dot extension as well
+  {
+    fd = findFileDef(Doxygen::dotFileNameDict,m_name+".dot",ambig);
+  }
   if (fd)
   {
     m_file = fd->absFilePath();
@@ -2618,6 +2636,10 @@ void DocMscFile::parse()
 
   bool ambig;
   FileDef *fd = findFileDef(Doxygen::mscFileNameDict,m_name,ambig);
+  if (fd==0 && m_name.right(4)!=".msc") // try with .msc extension as well
+  {
+    fd = findFileDef(Doxygen::mscFileNameDict,m_name+".msc",ambig);
+  }
   if (fd)
   {
     m_file = fd->absFilePath();
@@ -2631,7 +2653,7 @@ void DocMscFile::parse()
   }
   else
   {
-    warn_doc_error(g_fileName,doctokenizerYYlineno,"warning: included dot file %s is not found "
+    warn_doc_error(g_fileName,doctokenizerYYlineno,"warning: included msc file %s is not found "
            "in any of the paths specified via MSCFILE_DIRS!",qPrint(m_name));
   }
 
@@ -3018,6 +3040,7 @@ int DocIndexEntry::parse()
         case CMD_AMP:     m_entry+='&';  break;
         case CMD_DOLLAR:  m_entry+='$';  break;
         case CMD_HASH:    m_entry+='#';  break;
+        case CMD_DCOLON:  m_entry+="::"; break;
         case CMD_PERCENT: m_entry+='%';  break;
         case CMD_QUOTE:   m_entry+='"';  break;
         default:
@@ -4772,6 +4795,9 @@ int DocPara::handleCommand(const QCString &cmdName)
     case CMD_HASH:
       m_children.append(new DocSymbol(this,DocSymbol::Hash));
       break;
+    case CMD_DCOLON:
+      m_children.append(new DocSymbol(this,DocSymbol::DoubleColon));
+      break;
     case CMD_PERCENT:
       m_children.append(new DocSymbol(this,DocSymbol::Percent));
       break;
@@ -5404,7 +5430,7 @@ int DocPara::handleHtmlStartTag(const QCString &tagName,const HtmlAttribList &ta
       g_hasReturnCommand=TRUE;
       break;
     case XML_TERM:
-      m_children.append(new DocStyleChange(this,g_nodeStack.count(),DocStyleChange::Bold,TRUE));
+      //m_children.append(new DocStyleChange(this,g_nodeStack.count(),DocStyleChange::Bold,TRUE));
       if (insideTable(this))
       {
         retval=RetVal_TableCell;
@@ -5486,19 +5512,19 @@ int DocPara::handleHtmlStartTag(const QCString &tagName,const HtmlAttribList &ta
         QCString type;
         findAttribute(tagHtmlAttribs,"type",&type);
         DocHtmlList::Type listType = DocHtmlList::Unordered;
+        HtmlAttribList emptyList;
         if (type=="number")
         {
           listType=DocHtmlList::Ordered;
         }
         if (type=="table")
         {
-          DocHtmlTable *table = new DocHtmlTable(this,tagHtmlAttribs);
+          DocHtmlTable *table = new DocHtmlTable(this,emptyList);
           m_children.append(table);
           retval=table->parseXml();
         }
         else
         {
-          HtmlAttribList emptyList;
           DocHtmlList *list = new DocHtmlList(this,emptyList,listType);
           m_children.append(list);
           retval=list->parseXml();
@@ -5651,7 +5677,7 @@ int DocPara::handleHtmlEndTag(const QCString &tagName)
       break;
 
     case XML_TERM:
-      m_children.append(new DocStyleChange(this,g_nodeStack.count(),DocStyleChange::Bold,FALSE));
+      //m_children.append(new DocStyleChange(this,g_nodeStack.count(),DocStyleChange::Bold,FALSE));
       break;
     case XML_SUMMARY:
     case XML_REMARKS:
@@ -5662,6 +5688,7 @@ int DocPara::handleHtmlEndTag(const QCString &tagName)
     case XML_PARAM:
     case XML_TYPEPARAM:
     case XML_RETURNS:
+    case XML_SEE:
     case XML_SEEALSO:
     case XML_EXCEPTION:
       retval = RetVal_CloseXml;
@@ -6195,6 +6222,9 @@ void DocText::parse()
             break;
           case CMD_HASH:
             m_children.append(new DocSymbol(this,DocSymbol::Hash));
+            break;
+          case CMD_DCOLON:
+            m_children.append(new DocSymbol(this,DocSymbol::DoubleColon));
             break;
           case CMD_PERCENT:
             m_children.append(new DocSymbol(this,DocSymbol::Percent));

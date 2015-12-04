@@ -1,6 +1,6 @@
 /*****************************************************************************
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -1039,6 +1039,10 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
 <Comment>^{B}*"."{B}*/\n                { // explicit end autolist: e.g "  ."
   				          addOutput(yytext); 
 					}
+<Comment>^{B}*"-"			{ // start of autolist
+					  setOutput(OutputDoc);
+  				          addOutput(yytext); 
+  					}
 <Comment>("."+)[a-z_A-Z0-9\)]		{ // . at start or in the middle of a word, or ellipsis
   					  addOutput(yytext);
   					}
@@ -2381,7 +2385,8 @@ static bool handleInternal(const QCString &)
   }
   else
   {
-    //addOutput("\\internal "); 
+    // re-enabled for bug640828
+    addOutput("\\internal "); 
   }
   return FALSE;
 }
@@ -2661,7 +2666,7 @@ void openGroup(Entry *e,const char *,int)
   }
   else // start of a member group
   {
-    //printf("    membergroup id=%d\n",g_memberGroupId);
+    //printf("    membergroup id=%d %s\n",g_memberGroupId,g_memberGroupHeader.data());
     if (g_memberGroupId==DOX_NOGROUP) // no group started yet
     {
       static int curGroupId=0;

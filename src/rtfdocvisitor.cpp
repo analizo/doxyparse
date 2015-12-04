@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -110,6 +110,7 @@ void RTFDocVisitor::visit(DocSymbol *s)
     case DocSymbol::Amp:     m_t << "&"; break;
     case DocSymbol::Dollar:  m_t << "$"; break;
     case DocSymbol::Hash:    m_t << "#"; break;
+    case DocSymbol::DoubleColon:  m_t << "::"; break;
     case DocSymbol::Percent: m_t << "%"; break;
     case DocSymbol::Copy:    m_t << "(C)"; break;
     case DocSymbol::Tm:      m_t << "(TM)"; break;
@@ -749,6 +750,8 @@ void RTFDocVisitor::visitPre(DocSection *s)
   if (m_hide) return;
   DBG_RTF("{\\comment RTFDocVisitor::visitPre(DocSection)}\n");
   if (!m_lastIsPara) m_t << "\\par" << endl;
+  m_t << "{\\bkmkstart " << rtfFormatBmkStr(s->file()+"_"+s->anchor()) << "}" << endl;
+  m_t << "{\\bkmkend " << rtfFormatBmkStr(s->file()+"_"+s->anchor()) << "}" << endl;
   m_t << "{{" // start section
       << rtf_Style_Reset;
   QCString heading;
@@ -952,25 +955,25 @@ void RTFDocVisitor::visitPost(DocHtmlCell *)
 void RTFDocVisitor::visitPre(DocInternal *)
 {
   if (m_hide) return;
-  DBG_RTF("{\\comment RTFDocVisitor::visitPre(DocInternal)}\n");
-  m_t << "{"; // start desc
-  m_t << "{\\b "; // start bold
-  m_t << theTranslator->trForInternalUseOnly();
-  m_t << "}"; // end bold
-  m_t << "\\par" << endl;
-  incIndentLevel();
-  m_t << rtf_Style_Reset << getStyle("DescContinue");
-  m_lastIsPara=FALSE;
+  //DBG_RTF("{\\comment RTFDocVisitor::visitPre(DocInternal)}\n");
+  //m_t << "{"; // start desc
+  //m_t << "{\\b "; // start bold
+  //m_t << theTranslator->trForInternalUseOnly();
+  //m_t << "}"; // end bold
+  //m_t << "\\par" << endl;
+  //incIndentLevel();
+  //m_t << rtf_Style_Reset << getStyle("DescContinue");
+  //m_lastIsPara=FALSE;
 }
 
 void RTFDocVisitor::visitPost(DocInternal *) 
 {
   if (m_hide) return;
-  DBG_RTF("{\\comment RTFDocVisitor::visitPost(DocInternal)}\n");
-  m_t << "\\par";
-  decIndentLevel();
-  m_t << "}"; // end desc
-  m_lastIsPara=TRUE;
+  //DBG_RTF("{\\comment RTFDocVisitor::visitPost(DocInternal)}\n");
+  //m_t << "\\par";
+  //decIndentLevel();
+  //m_t << "}"; // end desc
+  //m_lastIsPara=TRUE;
 }
 
 void RTFDocVisitor::visitPre(DocHRef *href)
@@ -1083,7 +1086,7 @@ void RTFDocVisitor::visitPost(DocDotFile *)
 }
 void RTFDocVisitor::visitPre(DocMscFile *df)
 {
-  DBG_RTF("{\\comment RTFDocVisitor::visitPre(MscDotFile)}\n");
+  DBG_RTF("{\\comment RTFDocVisitor::visitPre(DocMscFile)}\n");
   writeMscFile(df->file());
 
   // hide caption since it is not supported at the moment
@@ -1093,7 +1096,7 @@ void RTFDocVisitor::visitPre(DocMscFile *df)
 
 void RTFDocVisitor::visitPost(DocMscFile *) 
 {
-  DBG_RTF("{\\comment RTFDocVisitor::visitPost(MscDotFile)}\n");
+  DBG_RTF("{\\comment RTFDocVisitor::visitPost(DocMscFile)}\n");
   popEnabled();
 }
 
@@ -1124,7 +1127,7 @@ void RTFDocVisitor::visitPost(DocRef *ref)
   if (m_hide) return;
   DBG_RTF("{\\comment RTFDocVisitor::visitPost(DocRef)}\n");
   if (!ref->file().isEmpty()) endLink(ref->ref());
-  m_t << " ";
+  //m_t << " ";
 }
 
 

@@ -2,7 +2,7 @@
 #
 # $Id$
 #
-# Copyright (C) 1997-2008 by Dimitri van Heesch.
+# Copyright (C) 1997-2011 by Dimitri van Heesch.
 # 
 # Permission to use, copy, modify, and distribute this software and its
 # documentation under the terms of the GNU General Public License is hereby 
@@ -17,7 +17,7 @@
 
 doxygen_version_major=1
 doxygen_version_minor=7
-doxygen_version_revision=2
+doxygen_version_revision=4
 
 #NOTE: Setting version_mmn to "NO" will omit mmn info from the package.
 doxygen_version_mmn=NO
@@ -611,7 +611,7 @@ EOF
        echo "	\$(MAKE) -C libmd5" >> $DST
        echo "	\$(MAKE) -C src" >> $DST
        if test $f_wizard = YES; then
-         echo "	\$(MAKE) -C addon/doxywizard" >> $DST
+         echo "	\$(MAKE) MAN1DIR=\$(MAN1DIR) -C addon/doxywizard" >> $DST
        fi
        if test $f_app = YES; then
          echo "	\$(MAKE) -C addon/doxyapp" >> $DST
@@ -622,7 +622,7 @@ EOF
        echo "" >> $DST
        echo "doxywizard_install:" >> $DST
        if test $f_wizard = YES; then
-         echo "	\$(MAKE) -C addon/doxywizard install" >> $DST
+         echo "	\$(MAKE) MAN1DIR=\$(MAN1DIR) -C addon/doxywizard install" >> $DST
        fi
        echo "" >> $DST
      fi

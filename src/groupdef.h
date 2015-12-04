@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -121,6 +121,7 @@ class GroupDef : public Definition
     void writeNestedGroups(OutputList &ol,const QCString &title);
     void writeDirs(OutputList &ol,const QCString &title);
     void writeClasses(OutputList &ol,const QCString &title);
+    void writeInlineClasses(OutputList &ol);
     void writePageDocumentation(OutputList &ol);
     void writeDetailedDescription(OutputList &ol,const QCString &title);
     void writeBriefDescription(OutputList &ol);

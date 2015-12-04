@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -164,7 +164,17 @@ static void writeMapArea(FTextStream &t,ClassDef *cd,QCString relPath,
     }
     t << "href=\"";
     t << externalRef(relPath,ref,TRUE);
-    t << cd->getOutputFileBase() << Doxygen::htmlFileExtension << "\" ";
+    t << cd->getOutputFileBase() << Doxygen::htmlFileExtension;
+    if (!cd->anchor().isEmpty())
+    {
+      t << "#" << cd->anchor();
+    }
+    t << "\" ";
+    QCString tooltip = cd->briefDescriptionAsTooltip();
+    if (!tooltip.isEmpty())
+    {
+      t << "title=\"" << tooltip << "\" ";
+    }
     t << "alt=\"" << convertToXML(cd->displayName()); 
     t << "\" shape=\"rect\" coords=\"" << x << "," << y << ",";
     t << (x+w) << "," << (y+h) << "\"/>" << endl;

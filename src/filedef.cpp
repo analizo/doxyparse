@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -61,7 +61,7 @@ class DevNullCodeDocInterface : public CodeOutputInterface
 //---------------------------------------------------------------------------
 
 /*! create a new file definition, where \a p is the file path, 
-    \a nm the file name, and \a ref is an HTML anchor name if the
+    \a nm the file name, and \a lref is an HTML anchor name if the
     file was read from a tag file or 0 otherwise
 */
 FileDef::FileDef(const char *p,const char *nm,
@@ -171,7 +171,7 @@ void FileDef::writeDetailedDescription(OutputList &ol,const QCString &title)
     ol.writeRuler();
     ol.pushGeneratorState();
     ol.disableAllBut(OutputGenerator::Html);
-      ol.writeAnchor(0,"_details"); 
+      ol.writeAnchor(0,"details"); 
     ol.popGeneratorState();
     ol.startGroupHeader();
     ol.parseText(title);
@@ -235,7 +235,7 @@ void FileDef::writeBriefDescription(OutputList &ol)
        )
     {
       ol.disableAllBut(OutputGenerator::Html);
-      ol.startTextLink(0,"_details");
+      ol.startTextLink(0,"details");
       ol.parseText(theTranslator->trMore());
       ol.endTextLink();
     }
@@ -431,6 +431,7 @@ void FileDef::writeMemberGroups(OutputList &ol)
   /* write user defined member groups */
   if (memberGroupSDict)
   {
+    memberGroupSDict->sort();
     MemberGroupSDict::Iterator mgli(*memberGroupSDict);
     MemberGroup *mg;
     for (;(mg=mgli.current());++mgli)
@@ -496,6 +497,7 @@ void FileDef::writeSummaryLinks(OutputList &ol)
 */
 void FileDef::writeDocumentation(OutputList &ol)
 {
+  static bool generateTreeView = Config_getBool("GENERATE_TREEVIEW");
   //funcList->countDecMembers();
   
   //QCString fn = name();
@@ -516,9 +518,12 @@ void FileDef::writeDocumentation(OutputList &ol)
 
   if (Config_getBool("SHOW_DIRECTORIES") && getDirDef())
   {
-    startFile(ol,getOutputFileBase(),name(),pageTitle,HLI_FileVisible,TRUE);
-    getDirDef()->writeNavigationPath(ol);
-    ol.endQuickIndices();
+    startFile(ol,getOutputFileBase(),name(),pageTitle,HLI_FileVisible,!generateTreeView);
+    if (!generateTreeView)
+    {
+      getDirDef()->writeNavigationPath(ol);
+      ol.endQuickIndices();
+    }
     QCString pageTitleShort=theTranslator->trFileReference(name());
     startTitle(ol,getOutputFileBase(),this);
     ol.pushGeneratorState();
@@ -533,7 +538,11 @@ void FileDef::writeDocumentation(OutputList &ol)
   }
   else
   {
-    startFile(ol,getOutputFileBase(),name(),pageTitle,HLI_FileVisible);
+    startFile(ol,getOutputFileBase(),name(),pageTitle,HLI_FileVisible,!generateTreeView);
+    if (!generateTreeView)
+    {
+      ol.endQuickIndices();
+    }
     startTitle(ol,getOutputFileBase(),this);
     ol.parseText(pageTitle);
     addGroupListToTitle(ol,this);
@@ -648,6 +657,7 @@ void FileDef::writeDocumentation(OutputList &ol)
       case LayoutDocEntry::NamespaceNestedNamespaces:
       case LayoutDocEntry::NamespaceClasses:
       case LayoutDocEntry::GroupClasses: 
+      case LayoutDocEntry::GroupInlineClasses: 
       case LayoutDocEntry::GroupNamespaces:
       case LayoutDocEntry::GroupDirs: 
       case LayoutDocEntry::GroupNestedGroups: 
@@ -671,7 +681,14 @@ void FileDef::writeDocumentation(OutputList &ol)
     Doxygen::tagFile << "  </compound>" << endl;
   }
 
-  endFile(ol);
+  ol.endContents();
+
+  if (generateTreeView)
+  {
+    writeNavigationPath(ol);
+  }
+
+  endFile(ol,TRUE);
 
   if (Config_getBool("SEPARATE_MEMBER_PAGES"))
   {
@@ -745,6 +762,7 @@ void FileDef::writeQuickMemberLinks(OutputList &ol,MemberDef *currentMd) const
 /*! Write a source listing of this file to the output */
 void FileDef::writeSource(OutputList &ol)
 {
+  static bool generateTreeView = Config_getBool("GENERATE_TREEVIEW");
   static bool filterSourceFiles = Config_getBool("FILTER_SOURCE_FILES");
   static bool latexSourceCode   = Config_getBool("LATEX_SOURCE_CODE");
   QCString title = docname;
@@ -759,16 +777,21 @@ void FileDef::writeSource(OutputList &ol)
 
   if (Config_getBool("SHOW_DIRECTORIES") && getDirDef())
   {
-    startFile(ol,getSourceFileBase(),0,pageTitle,HLI_FileVisible,TRUE);
-    getDirDef()->writeNavigationPath(ol);
-    ol.endQuickIndices();
+    startFile(ol,getSourceFileBase(),0,pageTitle,HLI_FileVisible,
+        !generateTreeView,getOutputFileBase());
+    if (!generateTreeView)
+    {
+      getDirDef()->writeNavigationPath(ol);
+      ol.endQuickIndices();
+    }
     startTitle(ol,getOutputFileBase());
     ol.parseText(name());
     endTitle(ol,getOutputFileBase(),title);
   }
   else
   {
-    startFile(ol,getSourceFileBase(),0,pageTitle,HLI_FileVisible,TRUE);
+    startFile(ol,getSourceFileBase(),0,pageTitle,HLI_FileVisible,
+        !generateTreeView,getOutputFileBase());
     startTitle(ol,getSourceFileBase());
     ol.parseText(title);
     endTitle(ol,getSourceFileBase(),0);
@@ -789,12 +812,20 @@ void FileDef::writeSource(OutputList &ol)
   pIntf->resetCodeParserState();
   ol.startCodeFragment();
   pIntf->parseCode(ol,0,
-            fileToString(absFilePath(),filterSourceFiles),
+            fileToString(absFilePath(),filterSourceFiles,TRUE),
             FALSE,0,this
            );
   ol.endCodeFragment();
   ol.endContents();
-  endFile(ol);
+  if (generateTreeView)
+  {
+    writeNavigationPath(ol);
+    endFile(ol,TRUE);
+  }
+  else
+  {
+    endFile(ol);
+  }
   ol.enableAll();
 }
 
@@ -806,7 +837,7 @@ void FileDef::parseSource()
   pIntf->resetCodeParserState();
   pIntf->parseCode(
             devNullIntf,0,
-            fileToString(absFilePath(),filterSourceFiles),
+            fileToString(absFilePath(),filterSourceFiles,TRUE),
             FALSE,0,this
            );
 }
@@ -1456,7 +1487,7 @@ bool FileDef::isDocumentationFile() const
 void FileDef::acquireFileVersion()
 {
   QCString vercmd = Config_getString("FILE_VERSION_FILTER");
-  if (!vercmd.isEmpty()) 
+  if (!vercmd.isEmpty() && filepath!="generated") 
   {
     msg("Version of %s : ",filepath.data());
     QCString cmd = vercmd+" \""+filepath+"\"";

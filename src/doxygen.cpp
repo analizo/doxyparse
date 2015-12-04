@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -485,22 +485,24 @@ static void addRelatedPage(EntryNav *rootNav)
   }
 }
 
-static void buildGroupListFiltered(EntryNav *rootNav,bool additional)
+static void buildGroupListFiltered(EntryNav *rootNav,bool additional, bool includeExternal)
 {
-  if (rootNav->section()==Entry::GROUPDOC_SEC && !rootNav->name().isEmpty())
+  if (rootNav->section()==Entry::GROUPDOC_SEC && !rootNav->name().isEmpty() && 
+        ((!includeExternal && rootNav->tagInfo()==0) ||
+         ( includeExternal && rootNav->tagInfo()!=0))
+     )
   {
-    //printf("Found group %s title=`%s type=%d'\n",
-    //    root->name.data(),root->type.data(),root->groupDocType);
-
     rootNav->loadEntry(g_storage);
     Entry *root = rootNav->entry();
-    
-    if ((root->groupDocType==Entry::GROUPDOC_NORMAL && !additional) ||
-        (root->groupDocType!=Entry::GROUPDOC_NORMAL && additional))
-    {
-      GroupDef *gd;
 
-      if ((gd=Doxygen::groupSDict->find(root->name)))
+    if ((root->groupDocType==Entry::GROUPDOC_NORMAL && !additional) ||
+        (root->groupDocType!=Entry::GROUPDOC_NORMAL &&  additional))
+    {
+      GroupDef *gd = Doxygen::groupSDict->find(root->name);
+      //printf("Processing group '%s': add=%d ext=%d gd=%p\n",
+      //    root->type.data(),additional,includeExternal,gd);
+
+      if (gd)
       {
         if ( !gd->hasGroupTitle() )
         {
@@ -546,17 +548,24 @@ static void buildGroupListFiltered(EntryNav *rootNav,bool additional)
     EntryNav *e;
     for (;(e=eli.current());++eli)
     {
-      buildGroupListFiltered(e,additional);
+      buildGroupListFiltered(e,additional,includeExternal);
     }
   }
 }
 
 static void buildGroupList(EntryNav *rootNav)
 {
+  // --- first process only local groups
   // first process the @defgroups blocks
-  buildGroupListFiltered(rootNav,FALSE);
+  buildGroupListFiltered(rootNav,FALSE,FALSE);
   // then process the @addtogroup, @weakgroup blocks
-  buildGroupListFiltered(rootNav,TRUE);
+  buildGroupListFiltered(rootNav,TRUE,FALSE);
+
+  // --- then also process external groups
+  // first process the @defgroups blocks
+  buildGroupListFiltered(rootNav,FALSE,TRUE);
+  // then process the @addtogroup, @weakgroup blocks
+  buildGroupListFiltered(rootNav,TRUE,TRUE);
 }
 
 static void findGroupScope(EntryNav *rootNav)
@@ -672,6 +681,7 @@ static void buildFileList(EntryNav *rootNav)
           if (!g->groupname.isEmpty() && (gd=Doxygen::groupSDict->find(g->groupname)))
           {
             gd->addFile(fd);
+            fd->makePartOfGroup(gd);
             //printf("File %s: in group %s\n",fd->name().data(),s->data());
           }
         }
@@ -1303,6 +1313,40 @@ static void resolveClassNestingRelations()
   }
 }
 
+void distributeClassGroupRelations()
+{
+  static bool inlineGroupedClasses = Config_getBool("INLINE_GROUPED_CLASSES");
+  if (!inlineGroupedClasses) return;
+  //printf("** distributeClassGroupRelations()\n");
+
+  ClassSDict::Iterator cli(*Doxygen::classSDict);
+  for (cli.toFirst();cli.current();++cli) cli.current()->visited=FALSE;
+
+  ClassDef *cd;
+  for (cli.toFirst();(cd=cli.current());++cli)
+  {
+    //printf("Checking %s\n",cd->name().data());
+    // distribute the group to nested classes as well
+    if (!cd->visited && cd->partOfGroups()!=0 && cd->getInnerClasses())
+    {
+      //printf("  Candidate for merging\n");
+      ClassSDict::Iterator ncli(*cd->getInnerClasses());
+      ClassDef *ncd;
+      GroupDef *gd = cd->partOfGroups()->at(0);
+      for (ncli.toFirst();(ncd=ncli.current());++ncli)
+      {
+        if (ncd->partOfGroups()==0)
+        {
+          //printf("  Adding %s to group '%s'\n",ncd->name().data(),
+          //    gd->groupTitle());
+          ncd->makePartOfGroup(gd);
+          gd->addClass(ncd);
+        }
+      }
+      cd->visited=TRUE; // only visit every class once
+    }
+  }
+}
 
 //----------------------------------------------------------------------
 // build a list of all namespaces mentioned in the documentation
@@ -2197,8 +2241,9 @@ static MemberDef *addVariableToFile(
  *  \returns -1 if this is not a function pointer variable or
  *           the index at which the brace of (...*name) was found.
  */
-static int findFunctionPtr(const QCString &type,int *pLength=0)
+static int findFunctionPtr(const QCString &type,int lang, int *pLength=0)
 {
+  if (lang == SrcLangExt_F90) return -1; // Fortran does not have function pointers
   static const QRegExp re("([^)]*[\\*\\^][^)]*)");
   int i=-1,l;
   if (!type.isEmpty() &&             // return type is non-empty
@@ -2381,7 +2426,7 @@ static void addVariable(EntryNav *rootNav,int isFuncPtr=-1)
     else
     {
       int i=isFuncPtr;
-      if (i==-1) i=findFunctionPtr(root->type); // for typedefs isFuncPtr is not yet set
+      if (i==-1) i=findFunctionPtr(root->type,root->lang); // for typedefs isFuncPtr is not yet set
       if (i!=-1) // function pointer
       {
         int ai = root->type.find('[',i);
@@ -2593,7 +2638,7 @@ static void buildVarList(EntryNav *rootNav)
        (rootNav->section()==Entry::VARIABLE_SEC    // it's a variable
        ) ||
        (rootNav->section()==Entry::FUNCTION_SEC && // or maybe a function pointer variable 
-        (isFuncPtr=findFunctionPtr(rootNav->type()))!=-1
+        (isFuncPtr=findFunctionPtr(rootNav->type(),rootNav->lang()))!=-1
        ) ||
        (rootNav->section()==Entry::FUNCTION_SEC && // class variable initialized by constructor
         isVarWithConstructor(rootNav)
@@ -3920,7 +3965,7 @@ static bool findTemplateInstanceRelation(Entry *root,
   //  int *tempArgIndex;
   //  for (;(tempArgIndex=qdi.current());++qdi)
   //  {
-  //    printf("(%s->%d) ",qdi.currentKey().data(),*tempArgIndex);
+  //    printf("(%s->%d) ",qdi.currentKey(),*tempArgIndex);
   //  }
   //}
   //printf("\n");
@@ -4692,7 +4737,7 @@ static void addListReferences()
   PageDef *pd=0;
   for (pdi.toFirst();(pd=pdi.current());++pdi)
   {
-    QCString name = pd->name();
+    QCString name = pd->getOutputFileBase();
     if (pd->getGroupDef())
     {
       name = pd->getGroupDef()->getOutputFileBase();
@@ -5650,24 +5695,51 @@ static void findMember(EntryNav *rootNav,
           if (count==0 && !(isFriend && funcType=="class"))
           {
             int candidates=0;
+            ClassDef *ccd = 0, *ecd = 0;
+            MemberDef *cmd = 0, *emd = 0;
             if (mn->count()>0)
             {
               //printf("Assume template class\n");
               for (mni.toFirst();(md=mni.current());++mni)
               {
-                ClassDef *cd=md->getClassDef();
-                //printf("cd->name()==%s className=%s\n",cd->name().data(),className.data());
-                if (cd!=0 && rightScopeMatch(cd->name(),className)) 
+                ccd=md->getClassDef();
+                cmd=md;
+                //printf("ccd->name()==%s className=%s\n",ccd->name().data(),className.data());
+                if (ccd!=0 && rightScopeMatch(ccd->name(),className)) 
                 {
                   LockingPtr<ArgumentList> templAl = md->templateArguments();
                   if (root->tArgLists && templAl!=0 &&
                       root->tArgLists->getLast()->count()<=templAl->count())
                   { 
-                    addMethodToClass(rootNav,cd,md->name(),isFriend);
+                    addMethodToClass(rootNav,ccd,md->name(),isFriend);
                     return;
+                  }
+                  if (md->argsString()==argListToString(root->argList,TRUE,FALSE))
+                  { // exact argument list match -> remember
+                    ecd = ccd;
+                    emd = cmd;
                   }
                   candidates++;
                 }
+              }
+            }
+            static bool strictProtoMatching = Config_getBool("STRICT_PROTO_MATCHING");
+            if (!strictProtoMatching)
+            {
+              if (candidates==1 && ccd && cmd)
+              {
+                // we didn't find an actual match on argument lists, but there is only 1 member with this
+                // name in the same scope, so that has to be the one. 
+                addMemberDocs(rootNav,cmd,funcDecl,0,overloaded,0);
+                return;
+              }
+              else if (candidates>1 && ecd && emd)
+              {
+                // we didn't find a unique match using type resolution, 
+                // but one of the matches has the exact same signature so
+                // we take that one.
+                addMemberDocs(rootNav,emd,funcDecl,0,overloaded,0);
+                return;
               }
             }
 
@@ -5730,7 +5802,7 @@ static void findMember(EntryNav *rootNav,
                 }
               }
             }
-            warn(root->fileName,root->startLine,warnMsg);
+            warn_simple(root->fileName,root->startLine,warnMsg);
           }
         }
         else if (cd) // member specialization
@@ -6164,7 +6236,7 @@ static void filterMemberDocumentation(EntryNav *rootNav)
   }
 
   if ( // detect func variable/typedef to func ptr
-      (i=findFunctionPtr(root->type,&l))!=-1 
+      (i=findFunctionPtr(root->type,root->lang,&l))!=-1 
      )
   {
     //printf("Fixing function pointer!\n");
@@ -7227,7 +7299,10 @@ static void addSourceReferences()
     MemberDef *md=0;
     for (mni.toFirst();(md=mni.current());++mni)
     {
-      //printf("class member %s\n",md->name().data());
+      //printf("class member %s: def=%s body=%d link?=%d\n",
+      //    md->name().data(),
+      //    md->getBodyDef()?md->getBodyDef()->name().data():"<none>",
+      //    md->getStartBodyLine(),md->isLinkableInProject());
       FileDef *fd=md->getBodyDef();
       if (fd && 
           md->getStartBodyLine()!=-1 &&
@@ -7323,7 +7398,7 @@ static void generateClassList(ClassSDict &classSDict)
     //printf("cd=%s getOuterScope=%p global=%p\n",cd->name().data(),cd->getOuterScope(),Doxygen::globalScope);
     if ((cd->getOuterScope()==0 || // <-- should not happen, but can if we read an old tag file
          cd->getOuterScope()==Doxygen::globalScope // only look at global classes
-        ) && !cd->isHidden()
+        ) && !cd->isHidden() && !cd->isEmbeddedInGroupDocs()
        ) 
     {
       // skip external references, anonymous compounds and 
@@ -8526,38 +8601,94 @@ static void readTagFile(Entry *root,const char *tl)
 }
 
 //----------------------------------------------------------------------------
+static void copyFile(const QCString &src,const QCString &dest)
+{
+  QFile sf(src);
+  if (sf.open(IO_ReadOnly))
+  {
+    QFileInfo fi(src);
+    QFile df(dest);
+    if (df.open(IO_WriteOnly))
+    {
+      char *buffer = new char[fi.size()];
+      sf.readBlock(buffer,fi.size());
+      df.writeBlock(buffer,fi.size());
+      df.flush();
+      delete[] buffer;
+    }
+    else
+    {
+      err("error: could not write to file %s\n",dest.data());
+    }
+  }
+  else
+  {
+    err("error: could not open user specified file %s\n",src.data());
+  }
+}
+
 static void copyStyleSheet()
 {
   QCString &htmlStyleSheet = Config_getString("HTML_STYLESHEET");
   if (!htmlStyleSheet.isEmpty())
   {
-    QFile cssf(htmlStyleSheet);
-    QFileInfo cssfi(htmlStyleSheet);
-    if (cssf.open(IO_ReadOnly))
+    QFileInfo fi(htmlStyleSheet);
+    if (!fi.exists())
     {
-      QCString destFileName = Config_getString("HTML_OUTPUT")+"/"+cssfi.fileName().data();
-      QFile df(destFileName);
-      if (df.open(IO_WriteOnly))
-      {
-        char *buffer = new char[cssf.size()];
-        cssf.readBlock(buffer,cssf.size());
-        df.writeBlock(buffer,cssf.size());
-        df.flush();
-        delete[] buffer;
-      }
-      else
-      {
-        err("error: could not write to style sheet %s\n",destFileName.data());
-      }
+      err("Style sheet '%s' specified by HTML_STYLESHEET does not exist!\n",htmlStyleSheet.data());
+      htmlStyleSheet.resize(0); // revert to the default
     }
     else
     {
-      err("error: could not open user specified style sheet %s\n",Config_getString("HTML_STYLESHEET").data());
-      htmlStyleSheet.resize(0); // revert to the default
+      QCString destFileName = Config_getString("HTML_OUTPUT")+"/"+fi.fileName().data();
+      copyFile(htmlStyleSheet,destFileName);
     }
   }
 }
 
+static void copyLogo()
+{
+  QCString &projectLogo = Config_getString("PROJECT_LOGO");
+  if (!projectLogo.isEmpty())
+  {
+    QFileInfo fi(projectLogo);
+    if (!fi.exists())
+    {
+      err("Project logo '%s' specified by PROJECT_LOGO does not exist!\n",projectLogo.data());
+      projectLogo.resize(0); // revert to the default
+    }
+    else
+    {
+      QCString destFileName = Config_getString("HTML_OUTPUT")+"/"+fi.fileName().data();
+      copyFile(projectLogo,destFileName);
+    }
+  }
+}
+
+static void copyExtraFiles()
+{
+  QStrList files = Config_getList("HTML_EXTRA_FILES");
+  uint i;
+  for (i=0; i<files.count(); ++i)
+  {
+    QCString fileName(files.at(i));
+    
+    if (!fileName.isEmpty())
+    {
+      QFileInfo fi(fileName);
+      if (!fi.exists()) 
+      {
+        err("Extra HTML file '%s' specified in HTML_EXTRA_FILES does not exist!\n", fileName.data());
+      }
+      else
+      {
+        QCString destFileName = Config_getString("HTML_OUTPUT")+"/"+fi.fileName().data();
+        Doxygen::indexList.addImageFile(fi.fileName().data());
+        copyFile(fileName, destFileName);
+      }
+    }
+  }
+}
 
 //! parse the list of input files
 static void parseFiles(Entry *root,EntryNav *rootNav)
@@ -9073,7 +9204,7 @@ void dumpConfigAsXML()
 
 static void usage(const char *name)
 {
-  msg("Doxygen version %s\nCopyright Dimitri van Heesch 1997-2010\n\n",versionString);
+  msg("Doxygen version %s\nCopyright Dimitri van Heesch 1997-2011\n\n",versionString);
   msg("You can use doxygen in a number of ways:\n\n");
   msg("1) Use doxygen to generate a template configuration file:\n");
   msg("    %s [-s] -g [configName]\n\n",name);
@@ -9090,7 +9221,7 @@ static void usage(const char *name)
   msg("5) Use doxygen to generate a template style sheet file for RTF, HTML or Latex.\n");
   msg("    RTF:   %s -w rtf styleSheetFile\n",name);
   msg("    HTML:  %s -w html headerFile footerFile styleSheetFile [configFile]\n",name);
-  msg("    LaTeX: %s -w latex headerFile styleSheetFile [configFile]\n\n",name);
+  msg("    LaTeX: %s -w latex headerFile footerFile styleSheetFile [configFile]\n\n",name);
   msg("6) Use doxygen to generate an rtf extensions file\n");
   msg("    RTF:   %s -e rtf extensionsFile\n\n",name);
   msg("If -s is specified the comments in the config file will be omitted.\n");
@@ -9332,9 +9463,10 @@ void readConfiguration(int argc, char **argv)
         }
         else if (stricmp(formatName,"html")==0)
         {
-          if (optind+4<argc)
+          if (optind+4<argc || QFileInfo("Doxyfile").exists())
           {
-            if (!Config::instance()->parse(argv[optind+4]))
+            QCString df = optind+4<argc ? argv[optind+4] : QCString("Doxyfile");
+            if (!Config::instance()->parse(df))
             {
               err("error opening or reading configuration file %s!\n",argv[optind+4]);
               cleanUpDoxygen();
@@ -9342,6 +9474,10 @@ void readConfiguration(int argc, char **argv)
             }
             Config::instance()->substituteEnvironmentVars();
             Config::instance()->convertStrToVal();
+            // avoid bootstrapping issues when the config file already
+            // refers to the files that we are supposed to parse.
+            Config_getString("HTML_HEADER")="";
+            Config_getString("HTML_FOOTER")="";
             Config::instance()->check();
           }
           else
@@ -9364,7 +9500,7 @@ void readConfiguration(int argc, char **argv)
           QFile f;
           if (openOutputFile(argv[optind+1],f))
           {
-            HtmlGenerator::writeHeaderFile(f);
+            HtmlGenerator::writeHeaderFile(f, argv[optind+3]);
           }
           f.close();
           if (openOutputFile(argv[optind+2],f))
@@ -9381,22 +9517,23 @@ void readConfiguration(int argc, char **argv)
         }
         else if (stricmp(formatName,"latex")==0)
         {
-          if (optind+3<argc) // use config file to get settings
+          if (optind+4<argc) // use config file to get settings
           {
-            if (!Config::instance()->parse(argv[optind+3]))
+            if (!Config::instance()->parse(argv[optind+4]))
             {
-              err("error opening or reading configuration file %s!\n",argv[optind+3]);
+              err("error opening or reading configuration file %s!\n",argv[optind+4]);
               exit(1);
             }
             Config::instance()->substituteEnvironmentVars();
             Config::instance()->convertStrToVal();
+            Config_getString("LATEX_HEADER")="";
             Config::instance()->check();
           }
           else // use default config
           {
             Config::instance()->init();
           }
-          if (optind+2>=argc)
+          if (optind+3>=argc)
           {
             err("error: option \"-w latex\" does not have enough arguments\n");
             cleanUpDoxygen();
@@ -9416,6 +9553,11 @@ void readConfiguration(int argc, char **argv)
           }
           f.close();
           if (openOutputFile(argv[optind+2],f))
+          {
+            LatexGenerator::writeFooterFile(f);
+          }
+          f.close();
+          if (openOutputFile(argv[optind+3],f))
           {
             LatexGenerator::writeStyleSheetFile(f);
           }
@@ -10090,6 +10232,7 @@ void parseInput()
   
   msg("Computing nesting relations for classes...\n");
   resolveClassNestingRelations();
+  distributeClassGroupRelations();
 
   // calling buildClassList may result in cached relations that
   // become invalid after resolveClassNestingRelations(), that's why
@@ -10312,6 +10455,8 @@ void generateOutput()
 #endif
     //if (Config_getBool("HTML_DYNAMIC_SECTIONS")) HtmlGenerator::generateSectionImages();
     copyStyleSheet();
+    copyLogo();
+    copyExtraFiles();
     if (!generateTreeView && Config_getBool("USE_INLINE_TREES"))
     {
       FTVHelp::generateTreeViewImages();
@@ -10393,6 +10538,7 @@ void generateOutput()
   // what categories we find in this function.
   if (Config_getBool("GENERATE_HTML") && searchEngine)
   {
+    msg("Generating search indices...\n");
     QCString searchDirName = Config_getString("HTML_OUTPUT")+"/search";
     QDir searchDir(searchDirName);
     if (!searchDir.exists() && !searchDir.mkdir(searchDirName))

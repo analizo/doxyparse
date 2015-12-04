@@ -1,7 +1,7 @@
 #
 # 
 #
-# Copyright (C) 1997-2010 by Dimitri van Heesch.
+# Copyright (C) 1997-2011 by Dimitri van Heesch.
 #
 # Permission to use, copy, modify, and distribute this software and its
 # documentation under the terms of the GNU General Public License is hereby 
@@ -84,7 +84,7 @@ sub GenerateDep {
 #$ GenerateDep("commentcnv.cpp","commentcnv.l");
 	$(LEX) -PcommentcnvYY -t commentcnv.l | $(INCBUFSIZE) >commentcnv.cpp
 
-#$GenerateDep("commentscan.cpp","commentscan.l");
+#$ GenerateDep("commentscan.cpp","commentscan.l");
 	$(LEX) -PcommentScanYY -t commentscan.l | $(INCBUFSIZE) >commentscan.cpp
 
 #$ GenerateDep("ce_lex.cpp","constexp.l","ce_parse.h");
@@ -96,6 +96,8 @@ sub GenerateDep {
 #$ GenerateDep("ce_parse.h","constexp.y");
 	$(YACC) -l -d -p cppExpYY constexp.y -o ce_parse.c 
 	-rm ce_parse.c	
+
+#$ GenerateDep("layout.cpp","layout_default.h");
 
 TO_C_CMD=sed -e "s/\\\\/\\\\\\\\/g" -e "s/\"/\\\\\"/g" -e "s/^/\"/g" -e "s/$$/\\\\n\"/g"
 
@@ -119,4 +121,25 @@ search_css.h: search.css
 
 doxygen_css.h: doxygen.css
 	cat doxygen.css | $(TO_C_CMD) >doxygen_css.h 
+
+navtree_js.h: navtree.js
+	cat navtree.js | $(TO_C_CMD) >navtree_js.h
+
+navindex_js.h: navindex.js
+	cat navindex.js | $(TO_C_CMD) >navindex_js.h
+
+resize_js.h: resize.js
+	cat resize.js | $(TO_C_CMD) >resize_js.h
+
+jquery_js.h: jquery.js
+	cat jquery.js | $(TO_C_CMD) >jquery_js.h
+
+jquery_ui_js.h: jquery_ui.js
+	cat jquery_ui.js | $(TO_C_CMD) >jquery_ui_js.h
+
+sizzle_js.h: sizzle.js
+	cat sizzle.js | $(TO_C_CMD) >sizzle_js.h
+
+navtree_css.h: navtree.css
+	cat navtree.css | $(TO_C_CMD) >navtree_css.h
 

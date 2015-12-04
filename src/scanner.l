@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2010 by Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -572,7 +572,7 @@ TSCOPE    {ID}("<"[a-z_A-Z0-9 \t\*\&,]*">")?
 CSSCOPENAME (({ID}?{BN}*"."{BN}*)*)((~{BN}*)?{ID})
 PRE       [pP][rR][eE]
 CODE      [cC][oO][dD][eE]
-CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^' \\\n]{1,4}"'"))
+CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
 PHPKW	  ("require"|"require_once"|"include"|"include_once"|"echo")[^a-zA-Z0-9_;]
 IDLATTR   ("["[^\]]*"]"){BN}*
 TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
@@ -587,6 +587,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 %x	ClassVar
 %x	CSConstraintName
 %x	CSConstraintType
+%x 	CSIndexer
 %x	ClassCategory
 %x	ClassTemplSpec
 %x      CliPropertyType
@@ -1660,7 +1661,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 <NSAliasArg>";"				{
   					  BEGIN( FindMembers );
   					}
-<PHPUse>({ID}{BN}*"\\"{BN}*)+{ID}	{
+<PHPUse>({ID}{BN}*"\\"{BN}*)*{ID}	{
   					  lineCount();
 					  aliasName=yytext;
                                           //current->fileName = yyFileName; 
@@ -1972,6 +1973,13 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					  { // javascript function
 					    current->type="function";
 					  }
+					  else if (insideCS && strcmp(yytext,"this")==0)
+					  {
+					    // C# indexer
+					    addType( current ) ;
+					    current->name="this";
+					    BEGIN(CSIndexer);
+					  }
 					  else
 					  {
 					    if (YY_START==FindMembers)
@@ -2046,6 +2054,10 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
                                             }
 					  }
 					}
+<CSIndexer>"["[^\n\]]*"]"		{
+					  current->name+=removeRedundantWhiteSpace(yytext);
+  					  BEGIN(FindMembers);
+  					}
 <FindMembers>[0-9]{ID}			{ // some number where we did not expect one
   					}
 <FindMembers>"."			{
@@ -2099,18 +2111,38 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
                                           yyLineNr = atoi(&yytext[1]);
 					  //printf("setting line number to %d\n",yyLineNr);
 					  lastPreLineCtrlContext = YY_START;
-  					  current->program+=yytext;
+					  if (YY_START==ReadBody || 
+					      YY_START==ReadNSBody ||
+					      YY_START==ReadBodyIntf)
+					  {
+  					    current->program+=yytext;
+					  }
   					  BEGIN( PreLineCtrl );
   					}
 <PreLineCtrl>"\""[^\n\"]*"\""		{
 				          yyFileName = stripQuotes(yytext);
-  					  current->program+=yytext;
+					  if (lastPreLineCtrlContext==ReadBody || 
+					      lastPreLineCtrlContext==ReadNSBody ||
+					      lastPreLineCtrlContext==ReadBodyIntf)
+					  {
+					    current->program+=yytext;
+					  }
   					}
 <PreLineCtrl>.				{
-  					  current->program+=yytext;
+					  if (lastPreLineCtrlContext==ReadBody || 
+					      lastPreLineCtrlContext==ReadNSBody ||
+					      lastPreLineCtrlContext==ReadBodyIntf)
+					  {
+  					    current->program+=yytext;
+					  }
                                         }
 <PreLineCtrl>\n				{
-  					  current->program+=yytext;
+					  if (lastPreLineCtrlContext==ReadBody || 
+					      lastPreLineCtrlContext==ReadNSBody ||
+					      lastPreLineCtrlContext==ReadBodyIntf)
+					  {
+  					    current->program+=yytext;
+					  }
                                           yyLineNr++;
   					  BEGIN( lastPreLineCtrlContext );
   					}
@@ -4069,9 +4101,15 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
   					}
 <OldStyleArgs>.	 			{ current->args += *yytext; }
 <FuncQual,FuncRound,FuncFunc>.		{ current->args += *yytext; }
+<FuncQual>{BN}*"try:"			|
 <FuncQual>{BN}*"try"{BN}+		{ /* try-function-block */ 
 					  insideTryBlock=TRUE;
 					  lineCount();
+  					  if (yytext[yyleng-1]==':')
+					  {
+					    unput(':');
+					    BEGIN( Function );
+					  }
 					}
 <FuncQual>{BN}*"throw"{BN}*"("		{ // C++ style throw clause
   					  current->exception = " throw (" ;
@@ -4733,19 +4771,27 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					  BEGIN( ClassVar );
 					}
 <ClassVar>":"				{ 
-  					  current->type.resize(0);
-					  if ((current->spec & Entry::Interface) || 
-					      (current->spec & Entry::Struct)    || 
-					      (current->spec & Entry::Ref)       || 
-					      (current->spec & Entry::Value)     || 
-					      insidePHP || insideCS || insideD || insideObjC
-					     )
-					    baseProt=Public;
+					  if (current->section == Entry::VARIABLE_SEC) // enum a b:2, see bug 313527
+					  {
+  					    BEGIN(BitFields);
+					    current->bitfields+=":";
+					  }
 					  else
-					    baseProt=Private;
-                                          baseVirt=Normal;
-					  baseName.resize(0);
-					  BEGIN( BasesProt ) ;
+					  {
+					    current->type.resize(0);
+					    if ((current->spec & Entry::Interface) || 
+						(current->spec & Entry::Struct)    || 
+						(current->spec & Entry::Ref)       || 
+						(current->spec & Entry::Value)     || 
+						insidePHP || insideCS || insideD || insideObjC
+					       )
+					      baseProt=Public;
+					    else
+					      baseProt=Private;
+					    baseVirt=Normal;
+					    baseName.resize(0);
+					    BEGIN( BasesProt ) ;
+					  }
 					}
 <ClassVar>[;=*&]			{
     					  unput(*yytext);
@@ -4841,7 +4887,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 <BasesProt>"private"{BN}+               { lineCount(); baseProt = Private; }
 <BasesProt>{BN}				{ lineCount(); }
 <BasesProt>.				{ unput(*yytext); BEGIN(Bases); }
-<Bases>("\\")?{BN}*({ID}{BN}*"\\"{BN}*)*{ID}	{ 
+<Bases>("\\")?({ID}"\\")*{ID}		{ // PHP namespace token, not sure if interspacing is allowed but it gives problems (see bug 640847)
                                           if (!insidePHP)
 					  {
 					    REJECT;
@@ -5545,6 +5591,15 @@ static void handleCommentBlock(const QCString &doc,bool brief)
   if (docBlockInBody && hideInBodyDocs) return;
   //printf("parseCommentBlock [%s] brief=%d\n",doc.data(),brief);
   int lineNr = brief ? current->briefLine : current->docLine;   // line of block start
+  
+  // fill in inbodyFile && inbodyLine the first time, see bug 633891
+  Entry *docEntry = docBlockInBody && previous ? previous : current;
+  if (docBlockInBody && docEntry && docEntry->inbodyLine==-1)
+  {
+    docEntry->inbodyFile = yyFileName;
+    docEntry->inbodyLine = lineNr;
+  }
+
   while (parseCommentBlock(
 	g_thisParser,
 	docBlockInBody && previous ? previous : current,

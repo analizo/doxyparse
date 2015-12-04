@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2010 by Parker Waechter & Dimitri van Heesch.
+ * Copyright (C) 1997-2011 by Parker Waechter & Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -88,8 +88,8 @@ class RTFGenerator : public OutputGenerator
     void endHtmlLink();
     void startTypewriter() { t << "{\\f2 "; }
     void endTypewriter()   { t << "}";      }
-    void startGroupHeader();
-    void endGroupHeader();
+    void startGroupHeader(int);
+    void endGroupHeader(int);
     //void writeListItem();
     void startItemListItem();
     void endItemListItem();
@@ -98,14 +98,18 @@ class RTFGenerator : public OutputGenerator
     void endMemberSections() {} 
     void startHeaderSection() {}
     void endHeaderSection() {}
-    void startMemberHeader(const char *) { startGroupHeader(); }
-    void endMemberHeader() { endGroupHeader(); }
+    void startMemberHeader(const char *) { startGroupHeader(FALSE); }
+    void endMemberHeader() { endGroupHeader(FALSE); }
     void startMemberSubtitle(); 
     void endMemberSubtitle(); 
     void startMemberDocList() {}
     void endMemberDocList() {}
     void startMemberList();
     void endMemberList();
+    void startInlineDescription();
+    void endInlineDescription();
+    void startInlineHeader();
+    void endInlineHeader();
     void startAnonTypeScope(int) {}
     void endAnonTypeScope(int) {}
     void startMemberItem(int);
@@ -131,7 +135,7 @@ class RTFGenerator : public OutputGenerator
     void startDescItem();
     void endDescItem();
     void lineBreak(const char *style=0);
-    void startMemberDoc(const char *,const char *,const char *,const char *);
+    void startMemberDoc(const char *,const char *,const char *,const char *,bool);
     void endMemberDoc(bool);
     void startDoxyAnchor(const char *,const char *,const char *,const char *,const char *);
     void endDoxyAnchor(const char *,const char *);
@@ -173,6 +177,8 @@ class RTFGenerator : public OutputGenerator
     void endPageRef(const char *,const char *);
     void startQuickIndices() {}
     void endQuickIndices() {}
+    void writeSplitBar(const char *) {}
+    void writeLogo() {}
     void writeQuickLinks(bool,HighlightedItem) {}
     void startContents() {}
     void endContents() {}
