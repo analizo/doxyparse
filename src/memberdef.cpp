@@ -1838,9 +1838,16 @@ void MemberDef::_getLabels(QStrList &sl,Definition *container) const
         if      (isNew())                 sl.append("new");
         if      (isOptional())            sl.append("optional");
         if      (isRequired())            sl.append("required");
+
+        if      (isNonAtomic())           sl.append("nonatomic");
+        else if (isObjCProperty())        sl.append("atomic");
+
+        // mutual exclusive Objective 2.0 property attributes
         if      (isAssign())              sl.append("assign");
         else if (isCopy())                sl.append("copy");
         else if (isRetain())              sl.append("retain");
+        else if (isWeak())                sl.append("weak");
+        else if (isStrong())              sl.append("strong");
 
         if (!isObjCMethod())
         {
@@ -2775,8 +2782,9 @@ void MemberDef::warnIfUndocumented()
   //       name().data(),prot);
   if ((!hasUserDocumentation() && !extractAll) &&
       !isFriendClass() && 
-      name().find('@')==-1 && d->name().find('@')==-1 &&
-      protectionLevelVisible(m_impl->prot)
+      name().find('@')==-1 && d && d->name().find('@')==-1 &&
+      protectionLevelVisible(m_impl->prot) &&
+      !isReference()
      )
   {
     warn_undoc(getDefFileName(),getDefLine(),"warning: Member %s%s (%s) of %s %s is not documented.",
@@ -3855,6 +3863,17 @@ bool MemberDef::isRetain() const
   return (m_impl->memSpec&Entry::Retain)!=0; 
 }
 
+bool MemberDef::isWeak() const
+{
+  makeResident();
+  return (m_impl->memSpec&Entry::Weak)!=0; 
+}
+
+bool MemberDef::isStrong() const
+{
+  makeResident();
+  return (m_impl->memSpec&Entry::Strong)!=0; 
+}
 
 bool MemberDef::isImplementation() const
 { 
@@ -4624,3 +4643,7 @@ int MemberDef::numberOfFlowKeyWords()
   return number_of_flowkw;
 }
 
+QCString MemberDef::displayName(bool) const 
+{ 
+  return Definition::name(); 
+}

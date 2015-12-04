@@ -195,6 +195,7 @@ static const char *umlEdgeStyleMap[] =
   "solid"          // usage
 };
 
+/** Helper struct holding the properties of a edge in a dot graph. */
 struct EdgeProperties
 {
   const char * const *edgeColorMap;
@@ -746,6 +747,7 @@ static bool checkDeliverables(const QCString &file1,
 
 //--------------------------------------------------------------------
 
+/** Class representing a list of DotNode objects. */
 class DotNodeList : public QList<DotNode>
 {
   public:
@@ -1082,7 +1084,7 @@ bool DotFilePatcher::run()
   if (isSVGFile && interactiveSVG && replacedHeader)
   {
     QCString orgName=m_patchFile.left(m_patchFile.length()-4)+"_org.svg";
-    t << substitute(svgZoomFooter,"$orgname",orgName);
+    t << substitute(svgZoomFooter,"$orgname",stripPath(orgName));
     fo.close();
     // keep original SVG file so we can refer to it, we do need to replace
     // dummy link by real ones
