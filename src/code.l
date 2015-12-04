@@ -428,11 +428,11 @@ static void setCurrentDoc(const QCString &anchor)
   {
     if (g_searchCtx)
     {
-      Doxygen::searchIndex->setCurrentDoc(g_searchCtx,g_searchCtx->anchor(),FALSE);
+      g_code->setCurrentDoc(g_searchCtx,g_searchCtx->anchor(),FALSE);
     }
     else
     {
-      Doxygen::searchIndex->setCurrentDoc(g_sourceFileDef,anchor,TRUE);
+      g_code->setCurrentDoc(g_sourceFileDef,anchor,TRUE);
     }
   }
 }
@@ -441,7 +441,7 @@ static void addToSearchIndex(const char *text)
 {
   if (Doxygen::searchIndex)
   {
-    Doxygen::searchIndex->addWord(text,FALSE);
+    g_code->addWord(text,FALSE);
   }
 }
 

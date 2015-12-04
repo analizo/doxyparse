@@ -2351,6 +2351,10 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
     if (title.at(0)=='@')
     {
       ldef = title = "anonymous enum";
+      if (!m_impl->enumBaseType.isEmpty())
+      {
+        ldef+=" : "+m_impl->enumBaseType;
+      }
     }
     else
     {
@@ -2898,6 +2902,10 @@ void MemberDef::writeMemberDocSimple(OutputList &ol, Definition *container)
 
   ol.startInlineMemberName();
   ol.docify(doxyName);
+  if (isVariable() && argsString() && !isObjCMethod()) 
+  {
+    linkifyText(TextGeneratorOLImpl(ol),getOuterScope(),getBodyDef(),this,argsString());
+  }
   if (!m_impl->bitfields.isEmpty()) // add bitfields
   {
     linkifyText(TextGeneratorOLImpl(ol),getOuterScope(),getBodyDef(),this,m_impl->bitfields.simplifyWhiteSpace());
@@ -3546,13 +3554,13 @@ void MemberDef::writeEnumDeclaration(OutputList &typeDecl,
       typeDecl.endBold();
     }
     typeDecl.writeChar(' ');
-    if (!m_impl->enumBaseType.isEmpty())
-    {
-      typeDecl.writeChar(':');
-      typeDecl.writeChar(' ');
-      typeDecl.docify(m_impl->enumBaseType);
-      typeDecl.writeChar(' ');
-    }
+  }
+  if (!m_impl->enumBaseType.isEmpty())
+  {
+    typeDecl.writeChar(':');
+    typeDecl.writeChar(' ');
+    typeDecl.docify(m_impl->enumBaseType);
+    typeDecl.writeChar(' ');
   }
 
   uint enumValuesPerLine = (uint)Config_getInt("ENUM_VALUES_PER_LINE");
@@ -4998,6 +5006,14 @@ void MemberDef::_addToSearchIndex()
     if (ln!=qn)
     {
       Doxygen::searchIndex->addWord(qn,TRUE);
+      if (getClassDef())
+      {
+        Doxygen::searchIndex->addWord(getClassDef()->displayName(),TRUE);
+      }
+      else if (getNamespaceDef())
+      {
+        Doxygen::searchIndex->addWord(getNamespaceDef()->displayName(),TRUE);
+      }
     }
   }
 }
