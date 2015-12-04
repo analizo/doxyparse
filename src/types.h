@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -208,6 +208,13 @@ enum MemberType
   MemberType_Event,
   MemberType_Interface,
   MemberType_Service,
+};
+
+enum FortranFormat
+{
+  FortranFormat_Unknown,
+  FortranFormat_Free,
+  FortranFormat_Fixed
 };
 
 #endif

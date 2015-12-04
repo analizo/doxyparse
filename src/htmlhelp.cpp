@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -35,6 +35,7 @@
 #include "groupdef.h"
 #include "memberdef.h"
 #include "filedef.h"
+#include "util.h"
 
 //----------------------------------------------------------------------------
 
@@ -54,9 +55,10 @@ class IndexFieldSDict : public SDict<IndexField>
   public:
     IndexFieldSDict() : SDict<IndexField>(17) {}
    ~IndexFieldSDict() {}
-    int compareItems(QCollection::Item item1, QCollection::Item item2)
+ private:
+    int compareValues(const IndexField *item1, const IndexField *item2) const
     {
-      return qstricmp(((IndexField *)item1)->name,((IndexField *)item2)->name);
+      return qstricmp(item1->name,item2->name);
     }
 };
 
@@ -493,9 +495,22 @@ void HtmlHelp::createProjectFile()
     //       the font-size one is not normally settable by the HTML Help Workshop
     //       utility but the way to set it is described here:
     //          http://support.microsoft.com/?scid=kb%3Ben-us%3B240062&x=17&y=18
-    t << "main=\"" << recode(Config_getString("PROJECT_NAME")) << "\",\"index.hhc\","
+    // NOTE: the 0x70387e number in addition to the above the Next and Prev button
+    //       are shown. They can only be shown in case of a binary toc.
+    //          dee http://www.mif2go.com/xhtml/htmlhelp_0016_943addingtabsandtoolbarbuttonstohtmlhelp.htm#Rz108x95873
+    //       Value has been taken from htmlhelp.h file of the HTML Help Workshop
+    if (Config_getBool("BINARY_TOC"))
+    {
+      t << "main=\"" << recode(Config_getString("PROJECT_NAME")) << "\",\"index.hhc\","
+         "\"index.hhk\",\"" << indexName << "\",\"" << 
+         indexName << "\",,,,,0x23520,,0x70387e,,,,,,,,0" << endl << endl;
+    }
+    else
+    {
+      t << "main=\"" << recode(Config_getString("PROJECT_NAME")) << "\",\"index.hhc\","
          "\"index.hhk\",\"" << indexName << "\",\"" << 
          indexName << "\",,,,,0x23520,,0x10387e,,,,,,,,0" << endl << endl;
+    }
     
     t << "[FILES]" << endl;
     char *s = indexFiles.first();
@@ -618,14 +633,17 @@ void HtmlHelp::addContentsItem(bool isDir,
                                Definition * /* def */)
 {
   // If we're using a binary toc then folders cannot have links. 
-  if(Config_getBool("BINARY_TOC") && isDir) 
-  {
-    file = 0;
-    anchor = 0;
-  }
+  // Tried this and I didn't see any problems, when not using
+  // the resetting of file and anchor the TOC works better
+  // (prev / next button)
+  //if(Config_getBool("BINARY_TOC") && isDir) 
+  //{
+    //file = 0;
+    //anchor = 0;
+  //}
   int i; for (i=0;i<dc;i++) cts << "  ";
   cts << "<LI><OBJECT type=\"text/sitemap\">";
-  cts << "<param name=\"Name\" value=\"" << recode(name) << "\">";
+  cts << "<param name=\"Name\" value=\"" << convertToHtml(recode(name),TRUE) << "\">";
   if (file)      // made file optional param - KPW
   {
     if (file && (file[0]=='!' || file[0]=='^')) // special markers for user defined URLs
@@ -691,6 +709,6 @@ void HtmlHelp::addIndexItem(Definition *context,MemberDef *md,
 
 void HtmlHelp::addImageFile(const char *fileName)
 {
-  imageFiles.append(fileName);
+  if (!imageFiles.contains(fileName)) imageFiles.append(fileName);
 }
 

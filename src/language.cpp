@@ -2,7 +2,7 @@
  *
  *
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby
@@ -155,16 +155,6 @@
 #define L_EQUAL(a) !qstricmp(langName,a)
 
 Translator *theTranslator=0;
-
-static const char obsoleteMsg[] =
-        "---------\n"
-        "ERROR: The selected language is no longer supported!\n"
-        "If you want doxygen to produce output in this language \n"
-        "you are kindly requested to help bringing the documentation \n"
-        "up to date. Please read the development section of the manual \n"
-        "for more information or contact Petr Prikryl (Prikryl@skil.cz).\n"
-        "Thanks in advance!\n"
-        "---------\n";
 
 bool setTranslator(const char *langName)
 {

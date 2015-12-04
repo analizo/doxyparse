@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -280,9 +280,9 @@ class HtmlGenerator : public OutputGenerator
     { t << "</table>" << endl; }
     void startDescTableTitle()
     //{ t << "<tr><td valign=\"top\"><em>"; }
-    { t << "<tr><td class=\"fieldname\"><em>"; }
+    { t << "<tr><td class=\"fieldname\">"; }
     void endDescTableTitle()
-    { t << "</em>&#160;</td>"; }
+    { t << "&#160;</td>"; }
     void startDescTableData()
     //{ t << "<td>" << endl; }
     { t << "<td class=\"fielddoc\">" << endl; }

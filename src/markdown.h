@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -22,7 +22,7 @@
 class Entry;
 
 /** processes string \a s and converts markdown into doxygen/html commands. */
-QCString processMarkdown(const QCString &fileName,Entry *e,const QCString &s);
+QCString processMarkdown(const QCString &fileName,const int lineNr,Entry *e,const QCString &s);
 QCString markdownFileNameToId(const QCString &fileName);
 
 class MarkdownFileParser : public ParserInterface

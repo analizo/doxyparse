@@ -1,7 +1,7 @@
 #
 # 
 #
-# Copyright (C) 1997-2013 by Dimitri van Heesch.
+# Copyright (C) 1997-2014 by Dimitri van Heesch.
 #
 # Permission to use, copy, modify, and distribute this software and its
 # documentation under the terms of the GNU General Public License is hereby 
@@ -17,11 +17,11 @@
 TEMPLATE     =	libdoxycfg.t
 CONFIG       =	console warn_on staticlib $extraopts
 HEADERS      =  config.h configoptions.h portable.h
-SOURCES      =	config.cpp configoptions.cpp portable.cpp portable_c.c
+SOURCES      =	../generated_src/doxygen/config.cpp ../generated_src/doxygen/configoptions.cpp portable.cpp portable_c.c
 win32:TMAKE_CXXFLAGS       += -DQT_NODLL
 win32-g++:TMAKE_CXXFLAGS   += -fno-exceptions -fno-rtti
-INCLUDEPATH                += ../qtools
-win32:INCLUDEPATH          += .
+DEPENDPATH                 += ../generated_src/doxygen
+INCLUDEPATH                += ../generated_src/doxygen . ../qtools
 DESTDIR                    =  ../lib
 TARGET                     =  doxycfg
-OBJECTS_DIR                =  ../objects
+OBJECTS_DIR                =  ../objects/doxygen

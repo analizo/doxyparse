@@ -154,12 +154,14 @@ static int 	     bracketCount = 0;
 
 // simplified way to know if this is fixed form
 // duplicate in fortranscanner.l
-static bool recognizeFixedForm(const char* contents)
+static bool recognizeFixedForm(const char* contents, FortranFormat format)
 {
   int column=0;
   bool skipLine=FALSE;
 
-  for (int i=0;;i++) 
+  if (format == FortranFormat_Fixed) return TRUE;
+  if (format == FortranFormat_Free)  return FALSE;
+  for (int i=0;;i++)
   {
     column++;
 
@@ -437,9 +439,11 @@ static bool getFortranDefs(const QCString &memberName, const QCString &moduleNam
   if (memberName.isEmpty()) return FALSE; /* empty name => nothing to link */
 
   // look in local variables
-  for (Scope *scope=scopeStack.last(); scope!=NULL; scope=scopeStack.prev())
+  QListIterator<Scope> it(scopeStack);
+  Scope *scope;
+  for (it.toLast();(scope=it.current());--it)
   {
-    if(scope->localVars.find(memberName))
+    if (scope->localVars.find(memberName))
       return FALSE;
   }
 
@@ -636,13 +640,13 @@ static void endScope()
 static void addUse(const QCString &moduleName) 
 {
   if (!scopeStack.isEmpty())
-    scopeStack.last()->useNames.append(moduleName);
+    scopeStack.getLast()->useNames.append(moduleName);
 }
 
 static void addLocalVar(const QCString &varName) 
 {
   if (!scopeStack.isEmpty())
-    scopeStack.last()->localVars.insert(varName, (void*)1);
+    scopeStack.getLast()->localVars.insert(varName, (void*)1);
 }
 
 //----------------------------------------------------------------------------
@@ -681,14 +685,14 @@ NUM_TYPE  (complex|integer|logical|real)
 LOG_OPER  (\.and\.|\.eq\.|\.eqv\.|\.ge\.|\.gt\.|\.le\.|\.lt\.|\.ne\.|\.neqv\.|\.or\.|\.not\.)
 KIND      {ARGS}
 CHAR      (CHARACTER{ARGS}?|CHARACTER{BS}"*"({BS}[0-9]+|{ARGS}))
-TYPE_SPEC (({NUM_TYPE}({BS}"*"{BS}[0-9]+)?)|({NUM_TYPE}{KIND})|DOUBLE{BS_}COMPLEX|DOUBLE{BS_}PRECISION|{CHAR})
+TYPE_SPEC (({NUM_TYPE}({BS}"*"{BS}[0-9]+)?)|({NUM_TYPE}{KIND})|DOUBLE{BS}COMPLEX|DOUBLE{BS}PRECISION|{CHAR})
 
 INTENT_SPEC intent{BS}"("{BS}(in|out|in{BS}out){BS}")"
 ATTR_SPEC (IMPLICIT|ALLOCATABLE|DIMENSION{ARGS}|EXTERNAL|{INTENT_SPEC}|INTRINSIC|OPTIONAL|PARAMETER|POINTER|PROTECTED|PRIVATE|PUBLIC|SAVE|TARGET|RECURSIVE|PURE|IMPURE|ELEMENTAL)
 ACCESS_SPEC (PROTECTED|PRIVATE|PUBLIC)
 /* Assume that attribute statements are almost the same as attributes. */
 ATTR_STMT {ATTR_SPEC}|DIMENSION
-FLOW  (DO|SELECT|CASE|WHERE|IF|THEN|ELSE|WHILE|FORALL|ELSEWHERE|ELSEIF|RETURN|CONTINUE|EXIT)
+FLOW  (DO|SELECT|CASE|SELECTCASE|WHERE|IF|THEN|ELSE|WHILE|FORALL|ELSEWHERE|ELSEIF|RETURN|CONTINUE|EXIT)
 COMMANDS  (FORMAT|CONTAINS|MODULE{BS_}PROCEDURE|WRITE|READ|ALLOCATE|ALLOCATED|ASSOCIATED|DEALLOCATE|SIZE|INQUIRE|OPEN|CLOSE|DATA|COMMON)
 IGNORE (CALL)
 PREFIX    (RECURSIVE{BS_}|IMPURE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,3}(RECURSIVE|IMPURE|PURE|ELEMENTAL)?
@@ -1106,7 +1110,7 @@ void parseFortranCode(CodeOutputInterface &od,const char *className,const QCStri
                   bool exBlock, const char *exName,FileDef *fd,
 		  int startLine,int endLine,bool inlineFragment,
 		  MemberDef *memberDef,bool,Definition *searchCtx,
-                  bool collectXRefs)
+                  bool collectXRefs, FortranFormat format)
 {
   //printf("***parseCode() exBlock=%d exName=%s fd=%p\n",exBlock,exName,fd);
 
@@ -1120,7 +1124,7 @@ void parseFortranCode(CodeOutputInterface &od,const char *className,const QCStri
   g_code = &od;
   g_inputString   = s;
   g_inputPosition = 0;
-  g_isFixedForm = recognizeFixedForm((const char*)s);
+  g_isFixedForm = recognizeFixedForm((const char*)s,format);
   g_currentFontClass = 0;
   g_needsTermination = FALSE;
   g_searchCtx = searchCtx;

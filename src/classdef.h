@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -168,6 +168,9 @@ class ClassDef : public Definition
     /** the class is visible in a class diagram, or class hierarchy */
     bool isVisibleInHierarchy();
     
+    /** show this class in the declaration section of its parent? */
+    bool visibleInParentsDeclList() const;
+
     /** Returns the template arguments of this class 
      *  Will return 0 if not applicable.
      */
@@ -243,7 +246,7 @@ class ClassDef : public Definition
     void getTemplateParameterLists(QList<ArgumentList> &lists) const;
 
     QCString qualifiedNameWithTemplateParameters(
-        QList<ArgumentList> *actualParams=0) const;
+        QList<ArgumentList> *actualParams=0,int *actualParamIndex=0) const;
 
     /** Returns TRUE if there is at least one pure virtual member in this
      *  class.
@@ -310,13 +313,12 @@ class ClassDef : public Definition
     QCString generatedFromFiles() const;
     const FileList &usedFiles() const;
 
-    QCString includeStatement() const;
-
     const ArgumentList *typeConstraints() const;
     const ExampleSDict *exampleList() const;
     bool hasExamples() const;
     QCString getMemberListFileName() const;
     bool subGrouping() const;
+
 
     //-----------------------------------------------------------------------------------
     // --- setters ----
@@ -432,6 +434,8 @@ class ClassDef : public Definition
                                  QPtrDict<void> *visitedClasses);
     void getTitleForMemberListType(MemberListType type,
                QCString &title,QCString &subtitle);
+    QCString includeStatement() const;
+
     
     ClassDefImpl *m_impl;
 
@@ -528,11 +532,11 @@ class BaseClassList : public QList<BaseClassDef>
 {
   public:
    ~BaseClassList() {}
-    int compareItems(QCollection::Item item1,QCollection::Item item2)
+    int compareValues(const BaseClassDef *item1,const BaseClassDef *item2) const
     {
-      ClassDef *c1=((BaseClassDef *)item1)->classDef;
-      ClassDef *c2=((BaseClassDef *)item2)->classDef;
-      if (c1==0 || c2==0) 
+      const ClassDef *c1=item1->classDef;
+      const ClassDef *c2=item2->classDef;
+      if (c1==0 || c2==0)
         return FALSE;
       else
         return qstricmp(c1->name(),c2->name());

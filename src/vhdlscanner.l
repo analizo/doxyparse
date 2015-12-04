@@ -543,7 +543,7 @@ BR                         [ \t\n\r]
 .	{ /* unknown characters */ }
 									
 
-<*>{BR}*"--!"[^{}\n]*[^\n]*\n/{B}*"--!" { // multi line comment
+<*>{B}*"--!"[^{}\n]*[^\n]*\n/{B}*"--!" { // multi line comment
   if (iDocLine==-1) iDocLine=yyLineNr;
   QCString qc(vhdlscannerYYtext);
   int len=qc.contains('\n')+yyLineNr-1;
@@ -988,7 +988,7 @@ static bool  checkMultiComment(QCString& qcs,int line)
   qcs.stripPrefix("--!");
   while (!pTemp->isEmpty())
   {
-    Entry *e=(Entry*)pTemp->first();
+    Entry *e=(Entry*)pTemp->getFirst();
     e->briefLine=line;
     e->brief+=qcs;
     iDocLine=-1;

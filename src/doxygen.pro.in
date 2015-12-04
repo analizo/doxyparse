@@ -1,7 +1,7 @@
 #
 # 
 #
-# Copyright (C) 1997-2013 by Dimitri van Heesch.
+# Copyright (C) 1997-2014 by Dimitri van Heesch.
 #
 # Permission to use, copy, modify, and distribute this software and its
 # documentation under the terms of the GNU General Public License is hereby 
@@ -28,6 +28,7 @@ win32-borland:TMAKE_LFLAGS += -L..\lib -L$(BCB)\lib\psdk
 win32:TMAKE_CXXFLAGS       += -DQT_NODLL
 win32-g++:LIBS             = -L../lib -ldoxygen -ldoxycfg -lqtools -lmd5 -liconv -lpthread %%SQLITE3_LIBS%% %%LIBCLANG_LIBS%% -Wl,--as-needed -lole32
 win32-g++:TMAKE_CXXFLAGS   += -fno-exceptions -fno-rtti
+DEPENDPATH                 += ../generated_src/doxygen
 INCLUDEPATH                += ../qtools ../libmd5 .
 DESTDIR                    =  ../bin
 TARGET                     =  doxygen
@@ -35,5 +36,5 @@ unix:TARGETDEPS            =  ../lib/libdoxygen.a ../lib/libdoxycfg.a
 win32:TARGETDEPS           =  ..\lib\doxygen.lib ..\lib\doxycfg.lib
 win32-g++:TARGETDEPS       =  ../lib/libdoxygen.a ../lib/libdoxycfg.a
 win32-mingw:TARGETDEPS     =  ../lib/libdoxygen.a ../lib/libdoxycfg.a
-OBJECTS_DIR                =  ../objects
+OBJECTS_DIR                =  ../objects/doxygen
 

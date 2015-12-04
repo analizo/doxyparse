@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -19,9 +19,11 @@
 #define MESSAGE_H
 
 #include <stdio.h>
+#include <stdarg.h>
 
 extern void msg(const char *fmt, ...);
 extern void warn(const char *file,int line,const char *fmt, ...);
+extern void va_warn(const char *file,int line,const char *fmt, va_list args);
 extern void warn_simple(const char *file,int line,const char *text);
 extern void warn_undoc(const char *file,int line,const char *fmt, ...);
 extern void warn_doc_error(const char *file,int line,const char *fmt, ...);

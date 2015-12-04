@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -783,10 +783,11 @@ class DotNodeList : public QList<DotNode>
   public:
     DotNodeList() : QList<DotNode>() {}
    ~DotNodeList() {}
-   int compareItems(QCollection::Item item1,QCollection::Item item2)
-   {
-     return qstricmp(((DotNode *)item1)->m_label,((DotNode *)item2)->m_label);
-   }
+  private:
+    int compareValues(const DotNode *n1,const DotNode *n2) const
+    {
+      return qstricmp(n1->m_label,n2->m_label);
+    }
 };
 
 //--------------------------------------------------------------------
@@ -1101,7 +1102,7 @@ bool DotFilePatcher::run()
       }
       else // error invalid map id!
       {
-        err("Found invalid bounding FIG id in file %s!\n",mapId,m_patchFile.data());
+        err("Found invalid bounding FIG %d in file %s!\n",mapId,m_patchFile.data());
         t << line;
       }
     }
@@ -1223,7 +1224,7 @@ DotManager *DotManager::instance()
   return m_theInstance;
 }
 
-DotManager::DotManager() : m_dotMaps(1007)
+DotManager::DotManager() : m_dotMaps(1009)
 {
   m_dotRuns.setAutoDelete(TRUE);
   m_dotMaps.setAutoDelete(TRUE);
@@ -2461,8 +2462,12 @@ void DotGfxHierarchyTable::addClassList(ClassSDict *cl)
   for (cli.toLast();(cd=cli.current());--cli)
   {
     //printf("Trying %s subClasses=%d\n",cd->name().data(),cd->subClasses()->count());
-    if (cd->getLanguage()==SrcLangExt_VHDL  && !(VhdlDocGen::VhdlClasses)cd->protection()==VhdlDocGen::ENTITYCLASS)
-      continue; 
+    if (cd->getLanguage()==SrcLangExt_VHDL &&
+        (VhdlDocGen::VhdlClasses)cd->protection()!=VhdlDocGen::ENTITYCLASS
+       )
+    {
+      continue;
+    }
     if (!hasVisibleRoot(cd->baseClasses()) &&
         cd->isVisibleInHierarchy()
        ) // root node in the forest

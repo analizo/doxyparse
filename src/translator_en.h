@@ -2,7 +2,7 @@
  *
  *
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby
@@ -530,7 +530,7 @@ class TranslatorEnglish : public Translator
 
     /*! this text is generated when the \\sa command is used. */
     virtual QCString trSeeAlso()
-    { return "See Also"; }
+    { return "See also"; }
 
     /*! this text is generated when the \\param command is used. */
     virtual QCString trParameters()

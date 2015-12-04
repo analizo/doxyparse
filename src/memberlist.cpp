@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -55,11 +55,9 @@ MemberList::~MemberList()
   delete memberGroupList;
 }
 
-int MemberList::compareItems(QCollection::Item item1, QCollection::Item item2)
+int MemberList::compareValues(const MemberDef *c1, const MemberDef *c2) const
 {
   static bool sortConstructorsFirst = Config_getBool("SORT_MEMBERS_CTORS_1ST");
-  MemberDef *c1=(MemberDef *)item1;
-  MemberDef *c2=(MemberDef *)item2;
   if (sortConstructorsFirst) {
     int ord1 = c1->isConstructor() ? 2 : (c1->isDestructor() ? 1 : 0);
     int ord2 = c2->isConstructor() ? 2 : (c2->isDestructor() ? 1 : 0);
@@ -381,9 +379,18 @@ void MemberList::writePlainDeclarations(OutputList &ol,
               }
               ol.startMemberDeclaration();
               ol.startMemberItem(md->anchor(),0,inheritId);
+              bool detailsLinkable = md->isDetailedSectionLinkable();
+              if (!detailsLinkable)
+              {
+                ol.startDoxyAnchor(md->getOutputFileBase(),0,md->anchor(),md->name(),QCString());
+              }
               ol.writeString("enum ");
               ol.insertMemberAlign();
               md->writeEnumDeclaration(ol,cd,nd,fd,gd,compoundType);
+              if (!detailsLinkable)
+              {
+                ol.endDoxyAnchor(md->getOutputFileBase(),md->anchor());
+              }
               ol.endMemberItem();
               if (!md->briefDescription().isEmpty() && Config_getBool("BRIEF_MEMBER_DESC"))
               {
@@ -696,52 +703,53 @@ void MemberList::writeDocumentationPage(OutputList &ol,
   MemberDef *md;
   for ( ; (md=mli.current()) ; ++mli)
   {
-    QCString diskName=md->getOutputFileBase();
-    QCString title=md->qualifiedName();
-    startFile(ol,diskName,md->name(),title,HLI_None,!generateTreeView,
-              container->getOutputFileBase());
-    if (!generateTreeView)
+    if (md->isDetailedSectionLinkable())
     {
-      container->writeNavigationPath(ol);
-      ol.endQuickIndices();
+      QCString diskName=md->getOutputFileBase();
+      QCString title=md->qualifiedName();
+      startFile(ol,diskName,md->name(),title,HLI_None,!generateTreeView,diskName);
+      if (!generateTreeView)
+      {
+        container->writeNavigationPath(ol);
+        ol.endQuickIndices();
+      }
+      ol.startContents();
+
+      if (generateTreeView)
+      {
+        md->writeDocumentation(this,ol,scopeName,container,m_inGroup);
+        ol.endContents();
+        endFileWithNavPath(container,ol);
+      }
+      else
+      {
+        ol.writeString("<table cellspacing=\"0\" cellpadding=\"0\" border=\"0\">\n"
+            "  <tr>\n"
+            "   <td valign=\"top\">\n");
+
+        container->writeQuickMemberLinks(ol,md);
+
+        ol.writeString("   </td>\n");
+        ol.writeString("   <td valign=\"top\" class=\"mempage\">\n");
+
+        md->writeDocumentation(this,ol,scopeName,container,m_inGroup);
+
+        ol.writeString("    </td>\n");
+        ol.writeString("  </tr>\n");
+        ol.writeString("</table>\n");
+
+        endFile(ol);
+      }
     }
-    ol.startContents();
-
-
-    if (generateTreeView)
+    if (memberGroupList)
     {
-      md->writeDocumentation(this,ol,scopeName,container,m_inGroup);
-      ol.endContents();
-      endFileWithNavPath(container,ol);
-    }
-    else
-    {
-      ol.writeString("<table cellspacing=\"0\" cellpadding=\"0\" border=\"0\">\n"
-          "  <tr>\n"
-          "   <td valign=\"top\">\n");
-
-      container->writeQuickMemberLinks(ol,md);
-
-      ol.writeString("   </td>\n");
-      ol.writeString("   <td valign=\"top\" class=\"mempage\">\n");
-
-      md->writeDocumentation(this,ol,scopeName,container,m_inGroup);
-
-      ol.writeString("    </td>\n");
-      ol.writeString("  </tr>\n");
-      ol.writeString("</table>\n");
-
-      endFile(ol);
-    }
-  }
-  if (memberGroupList)
-  {
-    //printf("MemberList::writeDocumentation()  --  member groups\n");
-    MemberGroupListIterator mgli(*memberGroupList);
-    MemberGroup *mg;
-    for (;(mg=mgli.current());++mgli)
-    {
-      mg->writeDocumentationPage(ol,scopeName,container);
+      //printf("MemberList::writeDocumentation()  --  member groups\n");
+      MemberGroupListIterator mgli(*memberGroupList);
+      MemberGroup *mg;
+      for (;(mg=mgli.current());++mgli)
+      {
+        mg->writeDocumentationPage(ol,scopeName,container);
+      }
     }
   }
 }
@@ -938,15 +946,9 @@ QCString MemberList::listTypeAsString(MemberListType type)
 
 //--------------------------------------------------------------------------
 
-int MemberSDict::compareItems(QCollection::Item item1, QCollection::Item item2)
+int MemberSDict::compareValues(const MemberDef *c1, const MemberDef *c2) const
 {
-  // NOTE: this function can be triggered from unmarshalMemberSDict
-  // so it may not result in called to MemberDef::makeResident().
-  // As a result, the data returned by MemberDef::name() and 
-  // MemberDef::getDefLine() will always be kept in memory.
-  MemberDef *c1=(MemberDef *)item1;
-  MemberDef *c2=(MemberDef *)item2;
-  //printf("MemberSDict::compareItems(%s,%s)\n",c1->name().data(),c2->name().data());
+  //printf("MemberSDict::compareValues(%s,%s)\n",c1->name().data(),c2->name().data());
   int cmp = qstricmp(c1->name(),c2->name());
   if (cmp)
   {

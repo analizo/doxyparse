@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -72,7 +72,7 @@ void DocSets::initialize()
         "DOCSET_RESOURCES=$(DOCSET_CONTENTS)/Resources\n"
         "DOCSET_DOCUMENTS=$(DOCSET_RESOURCES)/Documents\n"
         "DESTDIR=~/Library/Developer/Shared/Documentation/DocSets\n"
-        "XCODE_INSTALL=$(shell xcode-select -print-path)\n"
+        "XCODE_INSTALL=\"$(shell xcode-select -print-path)\"\n"
         "\n"
         "all: docset\n"
         "\n"

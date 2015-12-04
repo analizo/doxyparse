@@ -1,7 +1,7 @@
 #
 # 
 #
-# Copyright (C) 1997-2013 by Dimitri van Heesch.
+# Copyright (C) 1997-2014 by Dimitri van Heesch.
 # 
 # Permission to use, copy, modify, and distribute this software and its
 # documentation under the terms of the GNU General Public License is hereby 
@@ -29,11 +29,6 @@ distclean: Makefile.doxywizard
 	$(MAKE) -f Makefile.doxywizard distclean 
 	$(RM) Makefile.doxywizard
 
-realclean: Makefile.doxywizard
-	$(RM) configdoc.cpp
-	$(RM) config_doxyw.cpp
-	$(MAKE) distclean
-	
 install:
 	$(INSTTOOL) -d $(INSTALL)/bin	
 	$(INSTTOOL) -m 755 ../../bin/doxywizard $(INSTALL)/bin	

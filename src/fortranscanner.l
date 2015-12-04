@@ -187,7 +187,7 @@ static InterfaceType     ifType = IF_NONE;
 static bool              functionLine = FALSE;
 
 static char              stringStartSymbol; // single or double quote
-static bool 		 parsingPrototype = FALSE; // see parsePrototype()
+static bool              parsingPrototype = FALSE; // see parsePrototype()
 
 //! Accumulated modifiers of current statement, eg variable declaration.
 static SymbolModifiers currentModifiers;
@@ -255,7 +255,7 @@ NUM_TYPE  (complex|integer|logical|real)
 LOG_OPER  (\.and\.|\.eq\.|\.eqv\.|\.ge\.|\.gt\.|\.le\.|\.lt\.|\.ne\.|\.neqv\.|\.or\.|\.not\.)
 KIND      {ARGS}
 CHAR      (CHARACTER{ARGS}?|CHARACTER{BS}"*"({BS}[0-9]+|{ARGS}))
-TYPE_SPEC (({NUM_TYPE}({BS}"*"{BS}[0-9]+)?)|({NUM_TYPE}{KIND})|DOUBLE{BS_}COMPLEX|DOUBLE{BS_}PRECISION|{CHAR}|TYPE{ARGS}|CLASS{ARGS}|PROCEDURE{ARGS}?)
+TYPE_SPEC (({NUM_TYPE}({BS}"*"{BS}[0-9]+)?)|({NUM_TYPE}{KIND})|DOUBLE{BS}COMPLEX|DOUBLE{BS}PRECISION|{CHAR}|TYPE{ARGS}|CLASS{ARGS}|PROCEDURE{ARGS}?)
 
 INTENT_SPEC intent{BS}"("{BS}(in|out|in{BS}out){BS}")"
 ATTR_SPEC (ALLOCATABLE|DIMENSION{ARGS}|EXTERNAL|{INTENT_SPEC}|INTRINSIC|OPTIONAL|PARAMETER|POINTER|PROTECTED|PRIVATE|PUBLIC|SAVE|TARGET|NOPASS|PASS{ARGS}?|DEFERRED|NON_OVERRIDABLE)
@@ -567,7 +567,7 @@ SCOPENAME ({ID}{BS}"::"{BS})*
 
  /*------- type definition  -------------------------------------------------------------------------------*/
 
-<Start,ModuleBody>^{BS}type/[^a-z0-9]    {
+<Start,ModuleBody>^{BS}type/[^a-z0-9_]   {
                                           if(YY_START == Start)
                                           {
                                             addModule(NULL); 
@@ -1313,10 +1313,13 @@ void truncatePrepass(int index)
 
 // simplified way to know if this is fixed form
 // duplicate in fortrancode.l
-static bool recognizeFixedForm(const char* contents)
+static bool recognizeFixedForm(const char* contents, FortranFormat format)
 {
   int column=0;
   bool skipLine=FALSE;
+
+  if (format == FortranFormat_Fixed) return TRUE;
+  if (format == FortranFormat_Free)  return FALSE;
 
   for(int i=0;;i++) {
     column++;
@@ -2126,7 +2129,7 @@ static void handleCommentBlock(const QCString &doc,bool brief)
   int lineNr = brief ? current->briefLine : current->docLine;
   while (parseCommentBlock(
 	g_thisParser,
-	docBlockInBody ? subrCurrent.first() : current,
+	docBlockInBody ? subrCurrent.getFirst() : current,
 	doc,        // text
 	yyFileName, // file
 	lineNr,
@@ -2153,7 +2156,7 @@ static void subrHandleCommentBlock(const QCString &doc,bool brief)
 {
   QCString loc_doc;
   Entry *tmp_entry = current; 
-  current = subrCurrent.first(); // temporarily switch to the entry of the subroutine / function
+  current = subrCurrent.getFirst(); // temporarily switch to the entry of the subroutine / function
 
   // Still in the specification section so no inbodyDocs yet, but parameter documentation
   current->inbodyDocs = "";
@@ -2243,7 +2246,7 @@ level--;
 #endif
 
 
-static void parseMain(const char *fileName,const char *fileBuf,Entry *rt)
+static void parseMain(const char *fileName,const char *fileBuf,Entry *rt, FortranFormat format)
 {
   char *tmpBuf = NULL;
   initParser();
@@ -2263,7 +2266,7 @@ static void parseMain(const char *fileName,const char *fileBuf,Entry *rt)
   inputFile.setName(fileName);
   if (inputFile.open(IO_ReadOnly))
   {
-    isFixedForm = recognizeFixedForm(fileBuf);
+    isFixedForm = recognizeFixedForm(fileBuf,format);
 
     if (isFixedForm) 
     {
@@ -2342,7 +2345,7 @@ void FortranLanguageScanner::parseInput(const char *fileName,
 
   printlex(yy_flex_debug, TRUE, __FILE__, fileName);
 
-  ::parseMain(fileName,fileBuf,root);
+  ::parseMain(fileName,fileBuf,root,m_format);
 
   printlex(yy_flex_debug, FALSE, __FILE__, fileName);
 }
@@ -2365,7 +2368,7 @@ void FortranLanguageScanner::parseCode(CodeOutputInterface & codeOutIntf,
 {
   ::parseFortranCode(codeOutIntf,scopeName,input,isExampleBlock,exampleName,
                      fileDef,startLine,endLine,inlineFragment,memberDef,
-                     showLineNumbers,searchCtx,collectXRefs);
+                     showLineNumbers,searchCtx,collectXRefs,m_format);
 }
 
 bool FortranLanguageScanner::needsPreprocessing(const QCString &extension)

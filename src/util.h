@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -26,6 +26,7 @@
 #include <ctype.h>
 #include "types.h"
 #include "sortdict.h"
+#include "docparser.h"
 
 //--------------------------------------------------------------------
 
@@ -95,12 +96,6 @@ class LetterToIndexMap : public SIntDict<T>
 {
   public:
     LetterToIndexMap() { SIntDict<T>::setAutoDelete(TRUE); }
-    int compareItems(QCollection::Item item1, QCollection::Item item2)
-    {
-      T *l1=(T *)item1;
-      T *l2=(T *)item2;
-      return (int)l1->letter()-(int)l2->letter();
-    }
     void append(uint letter,typename T::ElementType *elem)
     {
       T *l = SIntDict<T>::find((int)letter);
@@ -110,6 +105,11 @@ class LetterToIndexMap : public SIntDict<T>
         SIntDict<T>::inSort((int)letter,l);
       }
       l->append(elem);
+    }
+  private:
+    int compareValues(const T *l1, const T *l2) const
+    {
+      return (int)l1->letter()-(int)l2->letter();
     }
 };
 
@@ -413,6 +413,7 @@ QCString externalLinkTarget();
 QCString externalRef(const QCString &relPath,const QCString &ref,bool href);
 int nextUtf8CharPosition(const QCString &utf8Str,int len,int startPos);
 const char *writeUtf8Char(FTextStream &t,const char *s);
+
 
 /** Data associated with a HSV colored image. */
 struct ColoredImgDataItem

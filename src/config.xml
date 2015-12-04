@@ -6,7 +6,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -247,7 +247,7 @@ Go to the <a href="commands.html">next</a> section or return to the
       </docs>
     </option>
 
-    <option type='string' id='PROJECT_LOGO' format='file' defval=''>
+    <option type='string' id='PROJECT_LOGO' format='image' defval=''>
       <docs>
 <![CDATA[
  With the \c PROJECT_LOGO tag one can specify an logo or icon that is 
@@ -276,6 +276,16 @@ Go to the <a href="commands.html">next</a> section or return to the
  Enabling this option can be useful when feeding doxygen a huge amount of source
  files, where putting all generated files in the same directory would otherwise
  causes performance problems for the file system. 
+]]>
+      </docs>
+    </option>
+    <option type='bool' id='ALLOW_UNICODE_NAMES' defval='0'>
+      <docs>
+<![CDATA[
+ If the \c ALLOW_UNICODE_NAMES tag is set to \c YES,
+ doxygen will allow non-ASCII characters to appear in the names of generated files. 
+ If set to \c NO, non-ASCII characters will be escaped, for example _xE3_x81_x84 
+ will be used for Unicode U+3044.
 ]]>
       </docs>
     </option>
@@ -578,7 +588,10 @@ Go to the <a href="commands.html">next</a> section or return to the
  Doxygen has a built-in mapping, but you can override or extend it using this tag.
  The format is <code>ext=language</code>, where \c ext is a file extension, and language is one of
  the parsers supported by doxygen: IDL, Java, Javascript, C#, C, C++, D, PHP,
- Objective-C, Python, Fortran, VHDL. 
+ Objective-C, Python, Fortran (fixed format Fortran: FortranFixed,
+ free formatted Fortran: FortranFree, unknown formatted Fortran: Fortran. In
+ the later case the parser tries to guess whether the code is fixed or free
+ formatted code, this is the default for Fortran type files), VHDL. 
 
  For instance to make doxygen treat
  <code>.inc</code> files as Fortran files (default is PHP), and <code>.f</code> files as C (default is Fortran),
@@ -1553,7 +1566,7 @@ to disable this feature.
       <docs>
 <![CDATA[
   If the \c CLANG_ASSISTED_PARSING tag is set to \c YES, then doxygen will use the 
-  <a href="http://clang.llvm.org/">clang parser</a> for more acurate parsing 
+  <a href="http://clang.llvm.org/">clang parser</a> for more accurate parsing 
   at the cost of reduced performance. This can be particularly helpful with 
   template rich C++ code for which doxygen's built-in parser lacks the 
   necessary type information.
@@ -2016,7 +2029,8 @@ The \c DOCSET_PUBLISHER_NAME tag identifies the documentation publisher.
 <![CDATA[
  The \c BINARY_TOC flag
  controls whether a binary table of contents is generated (\c YES) or a
- normal table of contents (\c NO) in the `.chm` file.
+ normal table of contents (\c NO) in the `.chm` file. Furthermore it enables
+ the `Previous` and `Next` buttons.
 ]]>
       </docs>
     </option>
@@ -2328,7 +2342,7 @@ MATHJAX_CODEFILE = disableRenderer.js
 When the \c SERVER_BASED_SEARCH tag is enabled the search engine will be 
 implemented using a web server instead of a web client using Javascript. 
 
-There are two flavours of web server based searching depending on the 
+There are two flavors of web server based searching depending on the 
 \ref cfg_external_search "EXTERNAL_SEARCH" setting. When disabled, 
 doxygen will generate a PHP script for searching and an index file used 
 by the script. When \ref cfg_external_search "EXTERNAL_SEARCH" is 
@@ -2679,6 +2693,15 @@ EXTRA_PACKAGES=times
 ]]>
       </docs>
     </option>
+    <option type='string' id='MAN_SUBDIR' format='string' defval='' depends='GENERATE_MAN'>
+      <docs>
+<![CDATA[
+ The \c MAN_SUBDIR tag determines the name of the directory created within \c MAN_OUTPUT
+ in which the man pages are placed. If defaults to man followed by \c MAN_EXTENSION
+ with the initial . removed.
+]]>
+      </docs>
+    </option>
     <option type='bool' id='MAN_LINKS' defval='0' depends='GENERATE_MAN'>
       <docs>
 <![CDATA[
@@ -2706,24 +2729,6 @@ EXTRA_PACKAGES=times
  The \c XML_OUTPUT tag is used to specify where the XML pages will be put. 
  If a relative path is entered the value of \ref cfg_output_directory "OUTPUT_DIRECTORY" will be 
  put in front of it.
-]]>
-      </docs>
-    </option>
-    <option type='string' id='XML_SCHEMA' format='string' defval='' depends='GENERATE_XML'>
-      <docs>
-<![CDATA[
- The \c XML_SCHEMA tag can be used to specify a XML schema,
- which can be used by a validating XML parser to check the
- syntax of the XML files.
-]]>
-      </docs>
-    </option>
-    <option type='string' id='XML_DTD' format='string' defval='' depends='GENERATE_XML'>
-      <docs>
-<![CDATA[
- The \c XML_DTD tag can be used to specify a XML DTD,
- which can be used by a validating XML parser to check the
- syntax of the XML files.
 ]]>
       </docs>
     </option>
@@ -2921,7 +2926,7 @@ put in front of it.
       <docs>
 <![CDATA[
  If the \c SKIP_FUNCTION_MACROS tag is set to \c YES then 
- doxygen's preprocessor will remove all refrences to function-like macros that are alone 
+ doxygen's preprocessor will remove all references to function-like macros that are alone 
  on a line, have an all uppercase name, and do not end with a semicolon. 
  Such function macros are typically 
  used for boiler-plate code, and will confuse the parser if not removed. 
@@ -2949,7 +2954,7 @@ where `loc1` and `loc2` can be relative or absolute paths or URLs.
  See the section \ref external for more information about the use of tag files.
 
  \note
-  Each tag file must have an unique name 
+  Each tag file must have a unique name 
   (where the name does \e NOT include the path).
   If a tag file is not located in the directory in which doxygen 
   is run, you must also specify the path to the tagfile here.
@@ -3362,5 +3367,7 @@ remove the intermediate dot files that are used to generate the various graphs.
     <option type='obsolete' id='SHOW_DIRECTORIES'/>
     <option type='obsolete' id='HTML_ALIGN_MEMBERS'/>
     <option type='obsolete' id='SYMBOL_CACHE_SIZE'/>
+    <option type='obsolete' id='XML_SCHEMA'/>
+    <option type='obsolete' id='XML_DTD'/>
   </group>
 </doxygenconfig>

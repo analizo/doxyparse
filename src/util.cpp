@@ -1,8 +1,7 @@
 /*****************************************************************************
- *
  * 
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -61,6 +60,7 @@
 #include "filename.h"
 #include "membergroup.h"
 #include "dirdef.h"
+#include "htmlentity.h"
 
 #define ENABLE_TRACINGSUPPORT 0
 
@@ -2143,11 +2143,12 @@ QCString argListToString(ArgumentList *al,bool useCanonicalType,bool showDefVals
 {
   QCString result;
   if (al==0) return result;
-  Argument *a=al->first();
+  ArgumentListIterator ali(*al);
+  Argument *a=ali.current();
   result+="(";
   while (a)
   {
-    QCString type1 = useCanonicalType && !a->canType.isEmpty() ? 
+    QCString type1 = useCanonicalType && !a->canType.isEmpty() ?
       a->canType : a->type;
     QCString type2;
     int i=type1.find(")("); // hack to deal with function pointers
@@ -2172,8 +2173,9 @@ QCString argListToString(ArgumentList *al,bool useCanonicalType,bool showDefVals
     {
       result+="="+a->defval;
     }
-    a = al->next();
-    if (a) result+=", "; 
+    ++ali;
+    a = ali.current();
+    if (a) result+=", ";
   }
   result+=")";
   if (al->constSpecifier) result+=" const";
@@ -2188,7 +2190,8 @@ QCString tempArgListToString(ArgumentList *al)
   QCString result;
   if (al==0) return result;
   result="<";
-  Argument *a=al->first();
+  ArgumentListIterator ali(*al);
+  Argument *a=ali.current();
   while (a)
   {
     if (!a->name.isEmpty()) // add template argument name
@@ -2216,7 +2219,8 @@ QCString tempArgListToString(ArgumentList *al)
         result+=a->type;
       }
     }
-    a=al->next();
+    ++ali;
+    a=ali.current();
     if (a) result+=", ";
   }
   result+=">";
@@ -2486,13 +2490,13 @@ int minClassDistance(const ClassDef *cd,const ClassDef *bcd,int level)
   int m=maxInheritanceDepth; 
   if (cd->baseClasses())
   {
-    BaseClassDef *bcdi = cd->baseClasses()->first();
-    while (bcdi)
+    BaseClassListIterator bcli(*cd->baseClasses());
+    BaseClassDef *bcdi;
+    for (;(bcdi=bcli.current());++bcli)
     {
       int mc=minClassDistance(bcdi->classDef,bcd,level+1);
       if (mc<m) m=mc;
       if (m<0) break;
-      bcdi = cd->baseClasses()->next();
     }
   }
   return m;
@@ -2516,13 +2520,13 @@ Protection classInheritedProtectionLevel(ClassDef *cd,ClassDef *bcd,Protection p
   }
   else if (cd->baseClasses())
   {
-    BaseClassDef *bcdi = cd->baseClasses()->first();
-    while (bcdi && prot!=Private)
+    BaseClassListIterator bcli(*cd->baseClasses());
+    BaseClassDef *bcdi;
+    for (;(bcdi=bcli.current()) && prot!=Private;++bcli)
     {
       Protection baseProt = classInheritedProtectionLevel(bcdi->classDef,bcd,bcdi->prot,level+1);
       if (baseProt==Private)   prot=Private;
       else if (baseProt==Protected) prot=Protected;
-      bcdi = cd->baseClasses()->next();
     }
   }
 exit:
@@ -4285,10 +4289,10 @@ bool getDefs(const QCString &scName,
       //printf("found %d members\n",members.count());
       if (members.count()!=1 && args && !qstrcmp(args,"()"))
       {
-        // no exact match found, but if args="()" an arbitrary 
+        // no exact match found, but if args="()" an arbitrary
         // member will do
-        md=mn->last();
-        while (md /* && md->isLinkable()*/)
+        MemberListIterator mni(*mn);
+        for (mni.toLast();(md=mni.current());--mni)
         {
           //printf("Found member `%s'\n",md->name().data());
           //printf("member is linkable md->name()=`%s'\n",md->name().data());
@@ -4302,7 +4306,6 @@ bool getDefs(const QCString &scName,
           {
             members.append(md);
           }
-          md=mn->prev();
         }
       }
       //printf("found %d candidate members\n",members.count());
@@ -4311,23 +4314,22 @@ bool getDefs(const QCString &scName,
         if (currentFile)
         {
           //printf("multiple results; pick one from file:%s\n", currentFile->name().data());
-          md = members.first();
-          while (md) 
+          QListIterator<MemberDef> mit(members);
+          for (mit.toFirst();(md=mit.current());++mit)
           {
             if (md->getFileDef() && md->getFileDef()->name() == currentFile->name()) 
             {
               break; // found match in the current file
             }
-            md=members.next();
           }
           if (!md) // member not in the current file
           {
-            md=members.last();
+            md=members.getLast();
           }
-        } 
-        else 
+        }
+        else
         {
-          md=members.last();
+          md=members.getLast();
         }
       }
       if (md && (md->getEnumScope()==0 || !md->getEnumScope()->isStrong())) 
@@ -5142,6 +5144,7 @@ bool hasVisibleRoot(BaseClassList *bcl)
 QCString escapeCharsInString(const char *name,bool allowDots,bool allowUnderscore)
 {
   static bool caseSenseNames = Config_getBool("CASE_SENSE_NAMES");
+  static bool allowUnicodeNames = Config_getBool("ALLOW_UNICODE_NAMES");
   static GrowBuf growBuf;
   growBuf.clear();
   char c;
@@ -5177,15 +5180,57 @@ QCString escapeCharsInString(const char *name,bool allowDots,bool allowUnderscor
       default: 
                 if (c<0)
                 {
-                  static char map[] = "0123456789ABCDEF";
                   char ids[5];
-                  unsigned char id = (unsigned char)c;
-                  ids[0]='_';
-                  ids[1]='x';
-                  ids[2]=map[id>>4];
-                  ids[3]=map[id&0xF];
-                  ids[4]=0;
-                  growBuf.addStr(ids);
+                  const unsigned char uc = (unsigned char)c;
+                  bool doEscape = TRUE;
+                  if (allowUnicodeNames && uc <= 0xf7)
+                  {
+                    const char* pt = p;
+                    ids[ 0 ] = c;
+                    int l = 0;
+                    if ((uc&0xE0)==0xC0)
+                    {
+                      l=2; // 11xx.xxxx: >=2 byte character
+                    }
+                    if ((uc&0xF0)==0xE0)
+                    {
+                      l=3; // 111x.xxxx: >=3 byte character
+                    }
+                    if ((uc&0xF8)==0xF0)
+                    {
+                      l=4; // 1111.xxxx: >=4 byte character
+                    }
+                    doEscape = l==0;
+                    for (int m=1; m<l && !doEscape; ++m)
+                    {
+                      unsigned char ct = (unsigned char)*pt;
+                      if (ct==0 || (ct&0xC0)!=0x80) // invalid unicode character
+                      {
+                        doEscape=TRUE;
+                      }
+                      else
+                      {
+                        ids[ m ] = *pt++;
+                      }
+                    }
+                    if ( !doEscape ) // got a valid unicode character
+                    {
+                      ids[ l ] = 0;
+                      growBuf.addStr( ids );
+                      p += l - 1;
+                    }
+                  }
+                  if (doEscape) // not a valid unicode char or escaping needed
+                  {
+                    static char map[] = "0123456789ABCDEF";
+                    unsigned char id = (unsigned char)c;
+                    ids[0]='_';
+                    ids[1]='x';
+                    ids[2]=map[id>>4];
+                    ids[3]=map[id&0xF];
+                    ids[4]=0;
+                    growBuf.addStr(ids);
+                  }
                 }
                 else if (caseSenseNames || !isupper(c))
                 {
@@ -5632,146 +5677,8 @@ QCString convertToJSString(const char *s)
 
 QCString convertCharEntitiesToUTF8(const QCString &s)
 {
-  static QDict<char> entityMap(127);
-  static bool init=TRUE;
   QCString result;
-  static QRegExp entityPat("&[a-zA-Z]+;");
-
-  if (init)
-  {
-    entityMap.insert("copy",       "\xC2\xA9");
-    entityMap.insert("tm",         "\xE2\x84\xA2");
-    entityMap.insert("trade",      "\xE2\x84\xA2");
-    entityMap.insert("reg",        "\xC2\xAE");
-    entityMap.insert("lsquo",      "\xE2\x80\x98");
-    entityMap.insert("rsquo",      "\xE2\x80\x99");
-    entityMap.insert("ldquo",      "\xE2\x80\x9C");
-    entityMap.insert("rdquo",      "\xE2\x80\x9D");
-    entityMap.insert("ndash",      "\xE2\x80\x93");
-    entityMap.insert("mdash",      "\xE2\x80\x94");
-    entityMap.insert("Auml",       "\xC3\x84");
-    entityMap.insert("Euml",       "\xC3\x8B");
-    entityMap.insert("Iuml",       "\xC3\x8F");
-    entityMap.insert("Ouml",       "\xC3\x96");
-    entityMap.insert("Uuml",       "\xC3\x9C");
-    entityMap.insert("Yuml",       "\xC5\xB8");
-    entityMap.insert("auml",       "\xC3\xA4");
-    entityMap.insert("euml",       "\xC3\xAB");
-    entityMap.insert("iuml",       "\xC3\xAF");
-    entityMap.insert("ouml",       "\xC3\xB6");
-    entityMap.insert("uuml",       "\xC3\xBC");
-    entityMap.insert("yuml",       "\xC3\xBF");
-    entityMap.insert("Aacute",     "\xC3\x81");
-    entityMap.insert("Eacute",     "\xC3\x89");
-    entityMap.insert("Iacute",     "\xC3\x8D");
-    entityMap.insert("Oacute",     "\xC3\x93");
-    entityMap.insert("Uacute",     "\xC3\x9A");
-    entityMap.insert("aacute",     "\xC3\xA1");
-    entityMap.insert("eacute",     "\xC3\xA9");
-    entityMap.insert("iacute",     "\xC3\xAD");
-    entityMap.insert("oacute",     "\xC3\xB3");
-    entityMap.insert("uacute",     "\xC3\xBA");
-    entityMap.insert("Agrave",     "\xC3\x80");
-    entityMap.insert("Egrave",     "\xC3\x88");
-    entityMap.insert("Igrave",     "\xC3\x8C");
-    entityMap.insert("Ograve",     "\xC3\x92");
-    entityMap.insert("Ugrave",     "\xC3\x99");
-    entityMap.insert("agrave",     "\xC3\xA0");
-    entityMap.insert("egrave",     "\xC3\xA8");
-    entityMap.insert("igrave",     "\xC3\xAC");
-    entityMap.insert("ograve",     "\xC3\xB2");
-    entityMap.insert("ugrave",     "\xC3\xB9");
-    entityMap.insert("Acirc",      "\xC3\x82");
-    entityMap.insert("Ecirc",      "\xC3\x8A");
-    entityMap.insert("Icirc",      "\xC3\x8E");
-    entityMap.insert("Ocirc",      "\xC3\x94");
-    entityMap.insert("Ucirc",      "\xC3\x9B");
-    entityMap.insert("acirc",      "\xC3\xA2");
-    entityMap.insert("ecirc",      "\xC3\xAA");
-    entityMap.insert("icirc",      "\xC3\xAE");
-    entityMap.insert("ocirc",      "\xC3\xB4");
-    entityMap.insert("ucirc",      "\xC3\xBB");
-    entityMap.insert("Atilde",     "\xC3\x83");
-    entityMap.insert("Ntilde",     "\xC3\x91");
-    entityMap.insert("Otilde",     "\xC3\x95");
-    entityMap.insert("atilde",     "\xC3\xA3");
-    entityMap.insert("ntilde",     "\xC3\xB1");
-    entityMap.insert("otilde",     "\xC3\xB5");
-    entityMap.insert("szlig",      "\xC3\x9F");
-    entityMap.insert("Ccedil",     "\xC3\x87");
-    entityMap.insert("ccedil",     "\xC3\xA7");
-    entityMap.insert("Aring",      "\xC3\x85");
-    entityMap.insert("aring",      "\xC3\xA5");
-    entityMap.insert("nbsp",       "\xC2\xA0");
-    entityMap.insert("Gamma",      "\xCE\x93");
-    entityMap.insert("Delta",      "\xCE\x94");
-    entityMap.insert("Theta",      "\xCE\x98");
-    entityMap.insert("Lambda",     "\xCE\x9B");
-    entityMap.insert("Xi",         "\xCE\x9E");
-    entityMap.insert("Pi",         "\xCE\xA0");
-    entityMap.insert("Sigma",      "\xCE\xA3");
-    entityMap.insert("Upsilon",    "\xCE\xA5");
-    entityMap.insert("Phi",        "\xCE\xA6");
-    entityMap.insert("Psi",        "\xCE\xA8");
-    entityMap.insert("Omega",      "\xCE\xA9");
-    entityMap.insert("alpha",      "\xCE\xB1");
-    entityMap.insert("beta",       "\xCE\xB2");
-    entityMap.insert("gamma",      "\xCE\xB3");
-    entityMap.insert("delta",      "\xCE\xB4");
-    entityMap.insert("epsilon",    "\xCE\xB5");
-    entityMap.insert("zeta",       "\xCE\xB6");
-    entityMap.insert("eta",        "\xCE\xB8");
-    entityMap.insert("theta",      "\xCE\xB8");
-    entityMap.insert("iota",       "\xCE\xB9");
-    entityMap.insert("kappa",      "\xCE\xBA");
-    entityMap.insert("lambda",     "\xCE\xBB");
-    entityMap.insert("mu",         "\xCE\xBC");
-    entityMap.insert("nu",         "\xCE\xBD");
-    entityMap.insert("xi",         "\xCE\xBE");
-    entityMap.insert("pi",         "\xCF\x80");
-    entityMap.insert("rho",        "\xCF\x81");
-    entityMap.insert("sigma",      "\xCF\x83");
-    entityMap.insert("tau",        "\xCF\x84");
-    entityMap.insert("upsilon",    "\xCF\x85");
-    entityMap.insert("phi",        "\xCF\x86");
-    entityMap.insert("chi",        "\xCF\x87");
-    entityMap.insert("psi",        "\xCF\x88");
-    entityMap.insert("omega",      "\xCF\x89");
-    entityMap.insert("sigmaf",     "\xCF\x82");
-    entityMap.insert("sect",       "\xC2\xA7");
-    entityMap.insert("deg",        "\xC2\xB0");
-    entityMap.insert("prime",      "\xE2\x80\xB2");
-    entityMap.insert("Prime",      "\xE2\x80\xB2");
-    entityMap.insert("infin",      "\xE2\x88\x9E");
-    entityMap.insert("empty",      "\xE2\x88\x85");
-    entityMap.insert("plusmn",     "\xC2\xB1");
-    entityMap.insert("times",      "\xC3\x97");
-    entityMap.insert("minus",      "\xE2\x88\x92");
-    entityMap.insert("sdot",       "\xE2\x8B\x85");
-    entityMap.insert("part",       "\xE2\x88\x82");
-    entityMap.insert("nabla",      "\xE2\x88\x87");
-    entityMap.insert("radic",      "\xE2\x88\x9A");
-    entityMap.insert("perp",       "\xE2\x8A\xA5");
-    entityMap.insert("sum",        "\xE2\x88\x91");
-    entityMap.insert("int",        "\xE2\x88\xAB");
-    entityMap.insert("prod",       "\xE2\x88\x8F");
-    entityMap.insert("sim",        "\xE2\x88\xBC");
-    entityMap.insert("asymp",      "\xE2\x89\x88");
-    entityMap.insert("ne",         "\xE2\x89\xA0");
-    entityMap.insert("equiv",      "\xE2\x89\xA1");
-    entityMap.insert("prop",       "\xE2\x88\x9D");
-    entityMap.insert("le",         "\xE2\x89\xA4");
-    entityMap.insert("ge",         "\xE2\x89\xA5");
-    entityMap.insert("larr",       "\xE2\x86\x90");
-    entityMap.insert("rarr",       "\xE2\x86\x92");
-    entityMap.insert("isin",       "\xE2\x88\x88");
-    entityMap.insert("notin",      "\xE2\x88\x89");
-    entityMap.insert("lceil",      "\xE2\x8C\x88");
-    entityMap.insert("rceil",      "\xE2\x8C\x89");
-    entityMap.insert("lfloor",     "\xE2\x8C\x8A");
-    entityMap.insert("rfloor",     "\xE2\x8C\x8B");
-    init=FALSE;
-  }
+  static QRegExp entityPat("&[a-zA-Z]+[0-9]*;");
 
   if (s.length()==0) return result;
   static GrowBuf growBuf;
@@ -5779,13 +5686,14 @@ QCString convertCharEntitiesToUTF8(const QCString &s)
   int p,i=0,l;
   while ((p=entityPat.match(s,i,&l))!=-1)
   {
-    if (p>i) 
+    if (p>i)
     {
       growBuf.addStr(s.mid(i,p-i));
     }
-    QCString entity = s.mid(p+1,l-2);
-    char *code = entityMap.find(entity);
-    if (code)
+    QCString entity = s.mid(p,l);
+    DocSymbol::SymType symType = HtmlEntityMapper::instance()->name2sym(entity);
+    const char *code=0;
+    if (symType!=DocSymbol::Sym_Unknown && (code=HtmlEntityMapper::instance()->utf8(symType)))
     {
       growBuf.addStr(code);
     }
@@ -5829,8 +5737,9 @@ void addMembersToMemberGroup(MemberList *ml,
       MemberList *fmdl=md->enumFieldList();
       if (fmdl!=0)
       {
-        MemberDef *fmd=fmdl->first();
-        while (fmd)
+        MemberListIterator fmli(*fmdl);
+        MemberDef *fmd;
+        for (fmli.toFirst();(fmd=fmli.current());++fmli)
         {
           int groupId=fmd->getMemberGroupId();
           if (groupId!=-1)
@@ -5861,7 +5770,6 @@ void addMembersToMemberGroup(MemberList *ml,
               fmd->setMemberGroup(mg);
             }
           }
-          fmd=fmdl->next();
         }
       }
     }
@@ -6059,15 +5967,16 @@ QCString substituteTemplateArgumentsInString(
     result += name.mid(p,i-p);
     QCString n = name.mid(i,l);
     ArgumentListIterator formAli(*formalArgs);
+    ArgumentListIterator actAli(*actualArgs);
     Argument *formArg;
-    Argument *actArg=actualArgs->first();
+    Argument *actArg;
 
     // if n is a template argument, then we substitute it
     // for its template instance argument.
     bool found=FALSE;
     for (formAli.toFirst();
-        (formArg=formAli.current()) && !found;
-        ++formAli,actArg=actualArgs->next()
+        (formArg=formAli.current()) && !found && (actArg=actAli.current());
+        ++formAli,++actAli
         )
     {
       if (formArg->type.left(6)=="class " && formArg->name.isEmpty())
@@ -6371,14 +6280,29 @@ PageDef *addRelatedPage(const char *name,const QCString &ptitle,
       {
         file=pd->getOutputFileBase();
       }
-      SectionInfo *si=new SectionInfo(
-          file,pd->name(),pd->title(),SectionInfo::Page,0,pd->getReference());
-      //printf("si->label=`%s' si->definition=%s si->fileName=`%s'\n",
-      //      si->label.data(),si->definition?si->definition->name().data():"<none>",
-      //      si->fileName.data());
-      //printf("  SectionInfo: sec=%p sec->fileName=%s\n",si,si->fileName.data());
-      //printf("Adding section key=%s si->fileName=%s\n",pageName.data(),si->fileName.data());
-      Doxygen::sectionDict->append(pd->name(),si);
+      SectionInfo *si = Doxygen::sectionDict->find(pd->name());
+      if (si)
+      {
+        if (si->lineNr != -1)
+        {
+          warn(file,-1,"multiple use of section label '%s', (first occurrence: %s, line %d)",pd->name().data(),si->fileName.data(),si->lineNr);
+        }
+        else
+        {
+          warn(file,-1,"multiple use of section label '%s', (first occurrence: %s)",pd->name().data(),si->fileName.data());
+        }
+      }
+      else
+      {
+        si=new SectionInfo(
+            file,-1,pd->name(),pd->title(),SectionInfo::Page,0,pd->getReference());
+        //printf("si->label=`%s' si->definition=%s si->fileName=`%s'\n",
+        //      si->label.data(),si->definition?si->definition->name().data():"<none>",
+        //      si->fileName.data());
+        //printf("  SectionInfo: sec=%p sec->fileName=%s\n",si,si->fileName.data());
+        //printf("Adding section key=%s si->fileName=%s\n",pageName.data(),si->fileName.data());
+        Doxygen::sectionDict->append(pd->name(),si);
+      }
     }
   }
   return pd;
@@ -6481,9 +6405,9 @@ void filterLatexString(FTextStream &t,const char *str,
         case '^':  t << "$^\\wedge$";    break;
         case '&':  t << "\\&";           break;
         case '*':  t << "$\\ast$";       break;
-        case '_':  if (!insideTabbing) t << "\\-";  
+        case '_':  if (!insideTabbing) t << "\\+";  
                    t << "\\_"; 
-                   if (!insideTabbing) t << "\\-";  
+                   if (!insideTabbing) t << "\\+";  
                    break;
         case '{':  t << "\\{";           break;
         case '}':  t << "\\}";           break;
@@ -6504,14 +6428,9 @@ void filterLatexString(FTextStream &t,const char *str,
                    break;
         case '-':  t << "-\\/";
                    break;
-        case '\\': if (*p=='<') 
-                   { t << "$<$"; p++; }
-                   else if (*p=='>')
-                   { t << "$>$"; p++; } 
-                   else  
-                   { t << "\\textbackslash{}"; }
+        case '\\': t << "\\textbackslash{}";
                    break;           
-        case '"':  { t << "\\char`\\\"{}"; }
+        case '"':  t << "\\char`\\\"{}";
                    break;
 
         default:   
@@ -6520,7 +6439,7 @@ void filterLatexString(FTextStream &t,const char *str,
                        ((c>='A' && c<='Z' && pc!=' ' && pc!='\0') || (c==':' && pc!=':') || (pc=='.' && isId(c)))
                       )
                    {
-                     t << "\\-";
+                     t << "\\+";
                    }
                    t << (char)c;
       }
@@ -6720,23 +6639,25 @@ static struct Lang2ExtMap
 } 
 g_lang2extMap[] =
 {
-//  language       parser     parser option
-  { "idl",         "c",       SrcLangExt_IDL      },
-  { "java",        "c",       SrcLangExt_Java     },
-  { "javascript",  "c",       SrcLangExt_JS       },
-  { "csharp",      "c",       SrcLangExt_CSharp   },
-  { "d",           "c",       SrcLangExt_D        },
-  { "php",         "c",       SrcLangExt_PHP      },
-  { "objective-c", "c",       SrcLangExt_ObjC     },
-  { "c",           "c",       SrcLangExt_Cpp      },
-  { "c++",         "c",       SrcLangExt_Cpp      },
-  { "python",      "python",  SrcLangExt_Python   },
-  { "fortran",     "fortran", SrcLangExt_Fortran  },
-  { "vhdl",        "vhdl",    SrcLangExt_VHDL     },
-  { "dbusxml",     "dbusxml", SrcLangExt_XML      },
-  { "tcl",         "tcl",     SrcLangExt_Tcl      },
-  { "md",          "md",      SrcLangExt_Markdown },
-  { 0,             0,        (SrcLangExt)0        }
+//  language       parser           parser option
+  { "idl",         "c",             SrcLangExt_IDL      },
+  { "java",        "c",             SrcLangExt_Java     },
+  { "javascript",  "c",             SrcLangExt_JS       },
+  { "csharp",      "c",             SrcLangExt_CSharp   },
+  { "d",           "c",             SrcLangExt_D        },
+  { "php",         "c",             SrcLangExt_PHP      },
+  { "objective-c", "c",             SrcLangExt_ObjC     },
+  { "c",           "c",             SrcLangExt_Cpp      },
+  { "c++",         "c",             SrcLangExt_Cpp      },
+  { "python",      "python",        SrcLangExt_Python   },
+  { "fortran",     "fortran",       SrcLangExt_Fortran  },
+  { "fortranfree", "fortranfree",   SrcLangExt_Fortran  },
+  { "fortranfixed", "fortranfixed", SrcLangExt_Fortran  },
+  { "vhdl",        "vhdl",          SrcLangExt_VHDL     },
+  { "dbusxml",     "dbusxml",       SrcLangExt_XML      },
+  { "tcl",         "tcl",           SrcLangExt_Tcl      },
+  { "md",          "md",            SrcLangExt_Markdown },
+  { 0,             0,              (SrcLangExt)0        }
 };
 
 bool updateLanguageMapping(const QCString &extension,const QCString &language)
@@ -6919,14 +6840,25 @@ const char *writeUtf8Char(FTextStream &t,const char *s)
   t << c;
   if (c<0) // multibyte character
   {
-    t << *s++;
-    if (((uchar)c&0xE0)==0xE0)
+    if (((uchar)c&0xE0)==0xC0)
+    {
+      t << *s++; // 11xx.xxxx: >=2 byte character
+    }
+    if (((uchar)c&0xF0)==0xE0)
     {
       t << *s++; // 111x.xxxx: >=3 byte character
     }
-    if (((uchar)c&0xF0)==0xF0)
+    if (((uchar)c&0xF8)==0xF0)
     {
-      t << *s++; // 1111.xxxx: 4 byte character
+      t << *s++; // 1111.xxxx: >=4 byte character
+    }
+    if (((uchar)c&0xFC)==0xF8)
+    {
+      t << *s++; // 1111.1xxx: >=5 byte character
+    }
+    if (((uchar)c&0xFE)==0xFC)
+    {
+      t << *s++; // 1111.1xxx: 6 byte character
     }
   }
   return s;
@@ -6939,14 +6871,25 @@ int nextUtf8CharPosition(const QCString &utf8Str,int len,int startPos)
   char c = utf8Str[startPos];
   if (c<0) // multibyte utf-8 character
   {
-    bytes++;   // 1xxx.xxxx: >=2 byte character
-    if (((uchar)c&0xE0)==0xE0)
+    if (((uchar)c&0xE0)==0xC0)
+    {
+      bytes++; // 11xx.xxxx: >=2 byte character
+    }
+    if (((uchar)c&0xF0)==0xE0)
     {
       bytes++; // 111x.xxxx: >=3 byte character
     }
-    if (((uchar)c&0xF0)==0xF0)
+    if (((uchar)c&0xF8)==0xF0)
     {
-      bytes++; // 1111.xxxx: 4 byte character
+      bytes++; // 1111.xxxx: >=4 byte character
+    }
+    if (((uchar)c&0xFC)==0xF8)
+    {
+      bytes++; // 1111.1xxx: >=5 byte character
+    }
+    if (((uchar)c&0xFE)==0xFC)
+    {
+      bytes++; // 1111.1xxx: 6 byte character
     }
   }
   else if (c=='&') // skip over character entities
@@ -7517,9 +7460,14 @@ bool patternMatch(const QFileInfo &fi,const QStrList *patList)
   { 
     QStrListIterator it(*patList);
     QCString pattern;
+
+    QCString fn = fi.fileName().data();
+    QCString fp = fi.filePath().data();
+    QCString afp= fi.absFilePath().data();
+
     for (it.toFirst();(pattern=it.current());++it)
     {
-      if (!pattern.isEmpty() && !found)
+      if (!pattern.isEmpty())
       {
         int i=pattern.find('=');
         if (i!=-1) pattern=pattern.left(i); // strip of the extension specific filter name
@@ -7529,9 +7477,10 @@ bool patternMatch(const QFileInfo &fi,const QStrList *patList)
 #else                // unix
         QRegExp re(pattern,TRUE,TRUE);  // case sensitive match
 #endif
-        found = found || re.match(fi.fileName().data())!=-1 || 
-                         re.match(fi.filePath().data())!=-1 ||
-                         re.match(fi.absFilePath().data())!=-1;
+        found = re.match(fn)!=-1 ||
+                re.match(fp)!=-1 ||
+                re.match(afp)!=-1;
+        if (found) break;
         //printf("Matching `%s' against pattern `%s' found=%d\n",
         //    fi->fileName().data(),pattern.data(),found);
       }
@@ -8025,7 +7974,7 @@ bool namespaceHasVisibleChild(NamespaceDef *nd,bool includeClasses)
     NamespaceDef *cnd;
     for (cnli.toFirst();(cnd=cnli.current());++cnli)
     {
-      if (cnd->isLinkable() && cnd->localName().find('@')==-1)
+      if (cnd->isLinkableInProject() && cnd->localName().find('@')==-1)
       {
         return TRUE;
       }
@@ -8271,3 +8220,4 @@ void convertProtectionLevel(
   //printf("convertProtectionLevel(type=%d prot=%d): %d,%d\n",
   //    inListType,inProt,*outListType1,*outListType2);
 }
+

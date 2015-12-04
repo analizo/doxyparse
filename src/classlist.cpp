@@ -2,7 +2,7 @@
  *
  *
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby
@@ -33,30 +33,25 @@ ClassList::~ClassList()
 {
 }
 
-static int compItems(void *item1,void *item2)
+static int compItems(const ClassDef *c1,const ClassDef *c2)
 {
-  ClassDef *c1=(ClassDef *)item1;
-  ClassDef *c2=(ClassDef *)item2;
   static bool b = Config_getBool("SORT_BY_SCOPE_NAME");
-  //printf("compItems: %d %s<->%s\n",b,c1->name().data(),c2->name().data());
   if (b)
   {
-     return qstricmp(c1->name(),
-                    c2->name());
+     return qstricmp(c1->name(), c2->name());
   }
   else
   {
-     return qstricmp(c1->className(),
-                    c2->className());
+     return qstricmp(c1->className(), c2->className());
   }
 }
 
-int ClassList::compareItems(QCollection::Item item1, QCollection::Item item2)
+int ClassList::compareValues(const ClassDef *item1, const ClassDef *item2) const
 {
   return compItems(item1,item2);
 }
 
-int ClassSDict::compareItems(QCollection::Item item1, QCollection::Item item2)
+int ClassSDict::compareValues(const ClassDef *item1, const ClassDef *item2) const
 {
   return compItems(item1,item2);
 }

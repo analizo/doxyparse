@@ -5,7 +5,7 @@ change the language.doc, make the changes here and inside maintainers.txt.
 /******************************************************************************
  * %(editnote)s
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby
@@ -98,7 +98,7 @@ Just follow the following steps:
      <ul>
      <li>  Enter them directly if your keyboard supports that. Recall that
            the text is expected to be saved using the UTF-8 encoding. Doxygen
-           will translate the characters to proper \f$\mbox{\LaTeX}\f$ and
+           will translate the characters to proper \LaTeX and
            leaves the HTML and man output in UTF-8.
      <li>  Use HTML codes like \c \&auml; for an \c a with an \c umlaut (i.e. \c &auml;).
            See the HTML specification for the codes.

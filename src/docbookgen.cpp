@@ -2,7 +2,7 @@
 *
 * 
 *
-* Copyright (C) 1997-2012 by Dimitri van Heesch.
+* Copyright (C) 1997-2014 by Dimitri van Heesch.
 *
 * Permission to use, copy, modify, and distribute this software and its
 * documentation under the terms of the GNU General Public License is hereby
@@ -53,18 +53,6 @@
 //#define Docbook_DB(x) printf x
 // debug inside output
 //#define Docbook_DB(x) QCString __t;__t.sprintf x;m_t << __t
-
-//------------------
-
-static const char index_xsd[] =
-#include "index.xsd.h"
-;
-
-//------------------
-//
-static const char compound_xsd[] =
-#include "compound.xsd.h"
-;
 
 //------------------
 

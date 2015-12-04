@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -184,8 +184,8 @@ class ParserManager
      */
     ParserInterface *getParser(const char *extension)
     {
-      if (extension==0) return m_defaultParser;
       QCString ext = QCString(extension).lower();
+      if (ext.isEmpty()) ext=".no_extension";
       ParserInterface *intf = m_extensions.find(ext);
       if (intf==0 && ext.length()>4)
       {

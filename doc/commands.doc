@@ -2,7 +2,7 @@
  *
  *
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby
@@ -117,6 +117,7 @@ documentation:
 \refitem cmdinternal \\internal
 \refitem cmdinvariant \\invariant
 \refitem cmdinterface \\interface
+\refitem cmdlatexinclude \\latexinclude
 \refitem cmdlatexonly \\latexonly
 \refitem cmdli \\li
 \refitem cmdline \\line
@@ -208,6 +209,8 @@ documentation:
 \refitem cmdchardot \\\.
 \refitem cmddcolon \::
 \refitem cmdpipe \\|
+\refitem cmdndash \\\--
+\refitem cmdmdash \\\---
 \endsecreflist
 
 The following subsections provide a list of all commands that are recognized by
@@ -290,7 +293,7 @@ Structural indicators
   \addindex \\category
   For Objective-C only: Indicates that a comment block contains documentation
   for a class category with name \<name\>. The arguments are
-  equal to the \\class command.
+  equal to the \ref cmdclass "\\class" command.
 
   \sa section \ref cmdclass "\\class".
 
@@ -629,7 +632,7 @@ Structural indicators
 
   If the \c \\mainpage command is placed in a comment block the
   block is used to customize the index page (in HTML) or
-  the first chapter (in \f$\mbox{\LaTeX}\f$).
+  the first chapter (in \LaTeX).
 
   The title argument is optional and replaces the default title that
   doxygen normally generates. If you do not want any title you can
@@ -760,7 +763,7 @@ Structural indicators
   Indicates that a comment block contains a piece of documentation that is
   not directly related to one specific class, file or member.
   The HTML generator creates a page containing the documentation. The
-  \f$\mbox{\LaTeX}\f$ generator
+  \LaTeX generator
   starts a new section in the chapter 'Page documentation'.
 
   \par Example:
@@ -929,7 +932,7 @@ Structural indicators
 <hr>
 \section cmdrelated \\related <name>
 
-  \addindex related
+  \addindex \\related
   Equivalent to \ref cmdrelates "\\relates"
 
 <hr>
@@ -946,7 +949,7 @@ Structural indicators
 <hr>
 \section cmdrelatedalso \\relatedalso <name>
 
-  \addindex relatedalso
+  \addindex \\relatedalso
   Equivalent to \ref cmdrelatesalso "\\relatesalso"
 
 <hr>
@@ -1496,13 +1499,13 @@ void setPosition(double x,double y,double z,double t)
  *  Rest of the comment block continues.
  */
 \endverbatim
-  Note that the \\parblock command may also appear directly after
-  \\param's first argument.
+  Note that the \c \\parblock command may also appear directly after
+  \ref cmdparam "\\param"'s first argument.
 
 <hr>
 \section cmdendparblock \\endparblock
   \addindex \\endparblock
-  This ends a block of paragraphs started with \\ref cmdparblock "\\parblock".
+  This ends a block of paragraphs started with \ref cmdparblock "\\parblock".
 
 <hr>
 \section cmdtparam \\tparam <template-parameter-name> { description }
@@ -1612,7 +1615,7 @@ void setPosition(double x,double y,double z,double t)
   may be selected by including a parenthesized list of argument types after
   the method name.
 
-  Synonymous to \\see.
+  Synonymous to \ref cmdsee "\\see".
 
   \sa section \ref autolink "autolink" for information on how to create links
       to objects.
@@ -1633,7 +1636,7 @@ void setPosition(double x,double y,double z,double t)
 \section cmdsince \\since { text }
 
   \addindex \\since
-  This tag can be used to specify since when (version or time) an
+  This command can be used to specify since when (version or time) an
   entity is available. The paragraph that follows \c \\since does not have any
   special internal structure. All visual enhancement commands may be
   used inside the paragraph. The \c \\since description ends when a blank
@@ -1656,7 +1659,7 @@ void setPosition(double x,double y,double z,double t)
   Synonymous \ref cmdexception "\\exception".
 
   \par Note:
-  the tag \c \\throws is a synonym for this tag.
+  the command \ref cmdthrows "\\throws" is a synonym for this command.
 
   \sa section \ref cmdexception "\\exception"
 
@@ -1774,7 +1777,7 @@ Commands to create links
 \section cmdaddindex \\addindex (text)
 
   \addindex \\addindex
-  This command adds (text) to the \f$\mbox{\LaTeX}\f$ index.
+  This command adds (text) to the \LaTeX index.
 
 <hr>
 \section cmdanchor \\anchor <word>
@@ -1796,7 +1799,7 @@ Commands to create links
   Adds a bibliographic reference in the text and in the list of bibliographic
   references. The \<label\> must be a valid BibTeX label that can be found 
   in one of the .bib files listed in \ref cfg_cite_bib_files "CITE_BIB_FILES".  
-  For the LaTeX output the formatting of the reference in the text can be 
+  For the \LaTeX output the formatting of the reference in the text can be 
   configured with \ref cfg_latex_bib_style "LATEX_BIB_STYLE". For other
   output formats a fixed representation is used. Note that using this
   command requires the \c bibtex tool to be present in the search path.
@@ -1834,7 +1837,7 @@ Commands to create links
   the section. For a section or subsection the title of the section will be
   used as the text of the link. For an anchor the optional text between quotes
   will be used or \<name\> if no text is specified.
-  For \f$\mbox{\LaTeX}\f$ documentation the reference command will
+  For \LaTeX documentation the reference command will
   generate a section number for sections or the text followed by a
   page number if \<name\> refers to an anchor.
 
@@ -2060,7 +2063,7 @@ Commands for displaying examples
   \ref cmddontinclude "\\dontinclude" command in combination with
   the \ref cmdline "\\line", \ref cmdskip "\\skip",
   \ref cmdskipline "\\skipline",
-  and \\until commands.
+  and \ref cmduntil "\\until" commands.
 
   Alternatively, the \ref cmdsnippet "\\snippet" command can be used to
   include only a fragment of a source file. For this to work the
@@ -2217,6 +2220,19 @@ Commands for displaying examples
   This command includes the file \<file-name\> as is in the HTML documentation.
   The command is equivalent to pasting the file in the documentation and
   placing \ref cmdhtmlonly "\\htmlonly" and \ref cmdendhtmlonly "\\endhtmlonly"
+  commands around it.
+
+  Files or directories that doxygen should look for can be specified using the
+  \ref cfg_example_path "EXAMPLE_PATH" tag of doxygen's configuration file.
+
+<hr>
+
+\section cmdlatexinclude \\latexinclude <file-name>
+
+  \addindex \\latexinclude
+  This command includes the file \<file-name\> as is in the \LaTeX documentation.
+  The command is equivalent to pasting the file in the documentation and
+  placing \ref cmdlatexonly "\\latexonly" and \ref cmdendlatexonly "\\endlatexonly"
   commands around it.
 
   Files or directories that doxygen should look for can be specified using the
@@ -2392,12 +2408,14 @@ Commands for visual enhancements
 <hr>
 \section cmdcopybrief \\copybrief <link-object>
 
+  \addindex \\copybrief
 Works in a similar way as \ref cmdcopydoc "\\copydoc" but will
 only copy the brief description, not the detailed documentation.
 
 <hr>
 \section cmdcopydetails \\copydetails <link-object>
 
+  \addindex \\copydetails
 Works in a similar way as \ref cmdcopydoc "\\copydoc" but will
 only copy the detailed documentation, not the brief description.
 
@@ -2410,7 +2428,6 @@ only copy the detailed documentation, not the brief description.
   \ref cmdenddocbookonly "\\enddocbookonly" command.
 
   \sa section \ref cmdmanonly "\\manonly", 
-              \ref cmdxmlonly "\\xmlonly", 
               \ref cmdlatexonly "\\latexonly", 
               \ref cmdrtfonly "\\rtfonly", 
               \ref cmdxmlonly "\\xmlonly", and 
@@ -2425,7 +2442,7 @@ only copy the detailed documentation, not the brief description.
   Doxygen will pass the text on to dot and include the resulting
   image (and image map) into the output.
   The nodes of a graph can be made clickable by using the URL attribute.
-  By using the command \\ref inside the URL value you can conveniently
+  By using the command \ref cmdref "\\ref" inside the URL value you can conveniently
   link to an item inside doxygen. Here is an example:
 \code
 /*! class B */
@@ -2476,12 +2493,12 @@ Here is an example of the use of the \c \\msc command.
 class Sender
 {
   public:
-    /** Acknowledgement from server */
+    /** Acknowledgment from server */
     void Ack(bool ok);
 };
 
 /** Receiver class. Can be used to receive and execute commands.
- *  After execution of a command, the receiver will send an acknowledgement
+ *  After execution of a command, the receiver will send an acknowledgment
  *  \msc
  *    Receiver,Sender;
  *    Receiver<-Sender [label="Command()", URL="\ref Command()"];
@@ -2697,6 +2714,8 @@ class Receiver
 <hr>
 \section cmdfcurlyopen \\f{environment}{
 
+  \addindex \\f{
+
   Marks the start of a formula that is in a specific environment.
   \note The second \c { is optional and is only to help editors (such as \c Vim) to
   do proper syntax highlighting by making the number of opening and closing braces
@@ -2706,11 +2725,13 @@ class Receiver
 <hr>
 \section cmdfcurlyclose \\f}
 
+  \addindex \\f}
+
   Marks the end of a formula that is in a specific environment.
   \sa section \ref cmdfcurlyopen "\\f{" and section \ref formulas "formulas".
 
 <hr>
-\section cmdhtmlonly \\htmlonly
+\section cmdhtmlonly \\htmlonly ["[block]"]
 
   \addindex \\htmlonly
   Starts a block of text that will be verbatim included in the
@@ -2719,15 +2740,19 @@ class Receiver
 
   This command can be used to include HTML code that is too complex
   for doxygen (i.e. applets, java-scripts, and HTML tags that
-  require attributes). You can use the \ref cmdlatexonly "\\latexonly" and 
-  \ref cmdendlatexonly "\\endlatexonly"
-  pair to provide a proper \f$\mbox{\LaTeX}\f$ alternative.
+  require specific attributes).
+
+  Normally the contents between \ref cmdhtmlonly "\\htmlonly" and
+  \ref cmdendhtmlonly "\\endhtmlonly" is inserted as-is. When you
+  want to insert a HTML fragment that has block scope like a table or list
+  which should appear outside \<p\>..\</p\>, this can lead to invalid HTML.
+  You can use \\htmlonly[block] to make doxygen
+  end the current paragraph and restart it after \\endhtmlonly.
 
   \note environment variables (like \$(HOME) ) are resolved inside a
-    HTML-only block.
+  HTML-only block.
 
   \sa section \ref cmdmanonly "\\manonly", 
-              \ref cmdxmlonly "\\xmlonly", 
               \ref cmdlatexonly "\\latexonly", 
               \ref cmdrtfonly "\\rtfonly", 
               \ref cmdxmlonly "\\xmlonly", and 
@@ -2759,10 +2784,10 @@ class Receiver
 
   The fourth argument is also optional and can be used to specify the
   width or height of the image. This is only useful
-  for \f$\mbox{\LaTeX}\f$ output
+  for \LaTeX output
   (i.e. format=<code>latex</code>). The \c sizeindication can be
   either \c width or \c height. The size should be a valid
-  size specifier in \f$\mbox{\LaTeX}\f$ (for example <code>10cm</code> or
+  size specifier in \LaTeX (for example <code>10cm</code> or
   <code>6in</code> or a symbolic width like <code>\\textwidth</code>).
 
   Here is example of a comment block:
@@ -2782,7 +2807,7 @@ class Receiver
 \endverbatim
 
   \warning The image format for HTML is limited to what your
-           browser supports. For \f$\mbox{\LaTeX}\f$, the image format
+           browser supports. For \LaTeX, the image format
            must be Encapsulated PostScript (eps).
            <br><br>
            Doxygen does not check if the image is in the correct format.
@@ -2793,17 +2818,17 @@ class Receiver
 
   \addindex \\latexonly
   Starts a block of text that will be verbatim included in the
-  generated \f$\mbox{\LaTeX}\f$ documentation only. The block ends with a
+  generated \LaTeX documentation only. The block ends with a
   \ref cmdendlatexonly "\\endlatexonly" command.
 
-  This command can be used to include \f$\mbox{\LaTeX}\f$ code that is too
+  This command can be used to include \LaTeX code that is too
   complex for doxygen (i.e. images, formulas, special characters). You can
   use the \ref cmdhtmlonly "\\htmlonly" and \ref cmdendhtmlonly "\\endhtmlonly"
   pair to provide a proper HTML alternative.
 
   \b Note:
     environment variables (like \$(HOME) ) are resolved inside a
-    \f$\mbox{\LaTeX}\f$-only block.
+    \LaTeX-only block.
 
   \sa sections \ref cmdrtfonly "\\rtfonly",
                \ref cmdxmlonly "\\xmlonly",
@@ -2824,7 +2849,7 @@ class Receiver
   \ref cmdendhtmlonly "\\endhtmlonly" and
   \ref cmdlatexonly "\\latexonly" and
   \ref cmdendlatexonly "\\endlatexonly" pairs to provide proper
-  HTML and \f$\mbox{\LaTeX}\f$ alternatives.
+  HTML and \LaTeX alternatives.
 
   \sa sections \ref cmdhtmlonly "\\htmlonly",
                \ref cmdxmlonly "\\xmlonly",
@@ -2979,7 +3004,7 @@ class Receiver
 \section cmdamp \\\&
 
   \addindex \\\&
-  This command writes the \c \& character to output.
+  This command writes the \c \& character to the output.
   This character has to be escaped because it has a special meaning in HTML.
 
 <hr>
@@ -3032,7 +3057,7 @@ class Receiver
 \section cmdchardot \\.
 
   \addindex \\\.
-  This command writes a dot (\c .) to the output. This can be useful to 
+  This command writes a dot (`.`) to the output. This can be useful to 
   prevent ending a brief description when JAVADOC_AUTOBRIEF is enabled
   or to prevent starting a numbered list when the dot follows a number at
   the start of a line.
@@ -3040,7 +3065,7 @@ class Receiver
 <hr>
 \section cmddcolon \\::
 
-  \addindex \\\::
+  \addindex \\::
   This command writes a double colon (\c \::) to the output. This
   character sequence has to be escaped in some cases, because it is used
   to reference to documented entities.
@@ -3052,6 +3077,20 @@ class Receiver
   This command writes a pipe symbol (\|) to the output. This
   character has to be escaped in some cases, because it is used
   for Markdown tables.
+
+<hr>
+\section cmdndash \\--
+
+  \addindex \\\--
+  This command writes two dashes (\--) to the output. This allows
+  writing two consecutive dashes to the output instead of one n-dash character (--).
+
+<hr>
+\section cmdmdash \\---
+
+  \addindex \\\---
+  This command writes three dashes (\---) to the output. This allows
+  writing three consecutuve dashes to the output instead of one m-dash character (---).
 
 <hr>
 \htmlonly <center> \endhtmlonly

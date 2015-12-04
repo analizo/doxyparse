@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby
@@ -167,7 +167,8 @@ static void createSVG()
     QRegExp ep("[\\s]");
     QCString vlargs="-Tsvg \""+ov+"\" "+dir ;
 
-    if (portable_system("dot",vlargs)!=0)
+    QCString dotExe   = Config_getString("DOT_PATH")+"dot";
+    if (portable_system(dotExe,vlargs)!=0)
     {
       err("could not create dot file");
     }
@@ -2221,7 +2222,7 @@ void VhdlDocGen::writeVHDLDeclaration(MemberDef* mdef,OutputList &ol,
   }
 
   bool htmlOn = ol.isEnabled(OutputGenerator::Html);
-  if (htmlOn && /*Config_getBool("HTML_ALIGN_MEMBERS") &&*/ !ltype.isEmpty())
+  if (htmlOn && !ltype.isEmpty())
   {
     ol.disable(OutputGenerator::Html);
   }
@@ -2772,7 +2773,6 @@ static void writeUCFLink(const MemberDef* mdef,OutputList &ol)
 
 bool VhdlDocGen::findConstraintFile(LayoutNavEntry *lne)
 {
-  FileName *fn=Doxygen::inputNameList->first();
   //LayoutNavEntry *cc = LayoutDocManager::instance().rootNavEntry()->find(LayoutNavEntry::Files);
 
   LayoutNavEntry *kk = lne->parent();//   find(LayoutNavEntry::Files);
@@ -2788,17 +2788,22 @@ bool VhdlDocGen::findConstraintFile(LayoutNavEntry *lne)
     kk->addChild(oo); 
   }
 
-  while (fn)
+  FileNameListIterator fnli(*Doxygen::inputNameList); 
+  FileName *fn;
+  for (fnli.toFirst();(fn=fnli.current());++fnli)
   {
-    FileDef *fd=fn->first();
-    if (fd->name().contains(".ucf") || fd->name().contains(".qsf"))
+    FileNameIterator fni(*fn);
+    FileDef *fd;
+    for (;(fd=fni.current());++fni)
     {
-      file = convertNameToFile(fd->name().data(),FALSE,FALSE);
-      LayoutNavEntry *ucf=new LayoutNavEntry(lne,LayoutNavEntry::MainPage,TRUE,file,co,"");
-      kk->addChild(ucf);
-      break;
+      if (fd->name().contains(".ucf") || fd->name().contains(".qsf"))
+      {
+        file = convertNameToFile(fd->name().data(),FALSE,FALSE);
+        LayoutNavEntry *ucf=new LayoutNavEntry(lne,LayoutNavEntry::MainPage,TRUE,file,co,"");
+        kk->addChild(ucf);
+        break;
+      }
     }
-    fn=Doxygen::inputNameList->next();
   }
   return  FALSE;
 }
@@ -3880,8 +3885,9 @@ void FlowChart::createSVG()
   ov+="/flow_design.dot";
 
   QCString vlargs="-Tsvg "+ov+dir ;
+  QCString dotExe   = Config_getString("DOT_PATH")+"dot";
 
-  if (portable_system("dot",vlargs)!=0)
+  if (portable_system(dotExe,vlargs)!=0)
   {
     err("could not create dot file");
   }

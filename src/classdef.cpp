@@ -2,7 +2,7 @@
  *
  *
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby
@@ -897,8 +897,9 @@ static void writeTemplateSpec(OutputList &ol,Definition *d,
     for (spi.toFirst();(al=spi.current());++spi)
     {
       ol.docify("template<");
-      Argument *a=al->first();
-      while (a)
+      QListIterator<Argument> ali(*al);
+      Argument *a;
+      while ((a=ali.current()))
       {
         ol.docify(a->type);
         if (!a->name.isEmpty())
@@ -911,7 +912,8 @@ static void writeTemplateSpec(OutputList &ol,Definition *d,
           ol.docify(" = ");
           ol.docify(a->defval);
         }
-        a=al->next();
+        ++ali;
+        a=ali.current();
         if (a) ol.docify(", ");
       }
       ol.docify(">");
@@ -1084,8 +1086,9 @@ void ClassDef::showUsedFiles(OutputList &ol)
   ol.parseText(generatedFromFiles());
 
   bool first=TRUE;
-  FileDef *fd = m_impl->files.first();
-  while (fd)
+  QListIterator<FileDef> li(m_impl->files);
+  FileDef *fd;
+  for (;(fd=li.current());++li)
   {
     if (first)
     {
@@ -1139,8 +1142,6 @@ void ClassDef::showUsedFiles(OutputList &ol)
     ol.popGeneratorState();
 
     ol.endItemListItem();
-
-    fd=m_impl->files.next();
   }
   if (!first) ol.endItemList();
 
@@ -1153,22 +1154,20 @@ int ClassDef::countInheritanceNodes()
   BaseClassDef *ibcd;
   if (m_impl->inheritedBy)
   {
-    ibcd=m_impl->inheritedBy->first();
-    while (ibcd)
+    BaseClassListIterator it(*m_impl->inheritedBy);
+    for (;(ibcd=it.current());++it)
     {
       ClassDef *icd=ibcd->classDef;
       if ( icd->isVisibleInHierarchy()) count++;
-      ibcd=m_impl->inheritedBy->next();
     }
   }
   if (m_impl->inherits)
   {
-    ibcd=m_impl->inherits->first();
-    while (ibcd)
+    BaseClassListIterator it(*m_impl->inherits);
+    for (;(ibcd=it.current());++it)
     {
       ClassDef *icd=ibcd->classDef;
       if ( icd->isVisibleInHierarchy()) count++;
-      ibcd=m_impl->inherits->next();
     }
   }
   return count;
@@ -1767,20 +1766,24 @@ void ClassDef::writeMoreLink(OutputList &ol,const QCString &anchor)
   }
 }
 
+bool ClassDef::visibleInParentsDeclList() const
+{
+  static bool extractPrivate      = Config_getBool("EXTRACT_PRIVATE");
+  static bool hideUndocClasses = Config_getBool("HIDE_UNDOC_CLASSES");
+  static bool extractLocalClasses = Config_getBool("EXTRACT_LOCAL_CLASSES");
+  bool linkable = isLinkable();
+  return (name().find('@')==-1 && !isExtension() &&
+          (protection()!=::Private || extractPrivate) &&
+          (linkable || (!hideUndocClasses && (!isLocal() || extractLocalClasses)))
+         );
+}
 
 void ClassDef::writeDeclarationLink(OutputList &ol,bool &found,const char *header,bool localNames)
 {
   //static bool fortranOpt = Config_getBool("OPTIMIZE_FOR_FORTRAN");
   //static bool vhdlOpt    = Config_getBool("OPTIMIZE_OUTPUT_VHDL");
-  static bool hideUndocClasses = Config_getBool("HIDE_UNDOC_CLASSES");
-  static bool extractLocalClasses = Config_getBool("EXTRACT_LOCAL_CLASSES");
-  bool isLink = isLinkable();
   SrcLangExt lang = getLanguage();
-  if (isLink ||
-      (!hideUndocClasses &&
-       (!isLocal() || extractLocalClasses)
-      )
-     )
+  if (visibleInParentsDeclList())
   {
     if (!found) // first class
     {
@@ -1820,7 +1823,7 @@ void ClassDef::writeDeclarationLink(OutputList &ol,bool &found,const char *heade
       ol.writeString(" ");
       ol.insertMemberAlign();
     }
-    if (isLink)
+    if (isLinkable())
     {
       ol.writeObjectLink(getReference(),
           getOutputFileBase(),
@@ -2100,7 +2103,8 @@ void ClassDef::writeMemberPages(OutputList &ol)
   MemberList *ml;
   for (mli.toFirst();(ml=mli.current());++mli)
   {
-    if (ml->listType()&MemberListType_detailedLists)
+    ml->countDocMembers();
+    if (ml->numDocMembers()>0 && (ml->listType()&MemberListType_detailedLists))
     {
       ml->writeDocumentationPage(ol,displayName(),this);
     }
@@ -2127,7 +2131,7 @@ void ClassDef::writeQuickMemberLinks(OutputList &ol,MemberDef *currentMd) const
       for (mnii.toFirst();(mi=mnii.current());++mnii)
       {
         MemberDef *md=mi->memberDef;
-        if (md->getClassDef()==this && md->isLinkable())
+        if (md->getClassDef()==this && md->isLinkable() && !md->isEnumValue())
         {
           ol.writeString("          <tr><td class=\"navtab\">");
           if (md->isLinkableInProject())
@@ -2224,8 +2228,9 @@ void ClassDef::writeMemberList(OutputList &ol)
   MemberNameInfo *mni;
   for (mnii.toFirst();(mni=mnii.current());++mnii)
   {
-    MemberInfo *mi=mni->first();
-    while (mi)
+    MemberNameInfoIterator it(*mni);
+    MemberInfo *mi;
+    for (;(mi=it.current());++it)
     {
       MemberDef *md=mi->memberDef;
       ClassDef  *cd=md->getClassDef();
@@ -2421,7 +2426,6 @@ void ClassDef::writeMemberList(OutputList &ol)
           ol.writeString("</tr>\n");
         }
       }
-      mi=mni->next();
     }
   }
   //ol.endItemList();
@@ -3407,10 +3411,11 @@ QCString ClassDef::compoundTypeString() const
 
 QCString ClassDef::getOutputFileBase() const
 {
-  if (!Doxygen::generatingXmlOutput)
+  static bool inlineGroupedClasses = Config_getBool("INLINE_GROUPED_CLASSES");
+  static bool inlineSimpleClasses = Config_getBool("INLINE_SIMPLE_STRUCTS");
+  static bool separateMemberPages = Config_getBool("SEPARATE_MEMBER_PAGES");
+  if (!Doxygen::generatingXmlOutput && !separateMemberPages)
   {
-    static bool inlineGroupedClasses = Config_getBool("INLINE_GROUPED_CLASSES");
-    static bool inlineSimpleClasses = Config_getBool("INLINE_SIMPLE_STRUCTS");
     Definition *scope=0;
     if (inlineGroupedClasses && partOfGroups()!=0)
     {
@@ -3728,7 +3733,7 @@ void ClassDef::getTemplateParameterLists(QList<ArgumentList> &lists) const
 }
 
 QCString ClassDef::qualifiedNameWithTemplateParameters(
-    QList<ArgumentList> *actualParams) const
+    QList<ArgumentList> *actualParams,int *actualParamIndex) const
 {
   //static bool optimizeOutputJava = Config_getBool("OPTIMIZE_OUTPUT_JAVA");
   static bool hideScopeNames = Config_getBool("HIDE_SCOPE_NAMES");
@@ -3740,7 +3745,7 @@ QCString ClassDef::qualifiedNameWithTemplateParameters(
     if (d->definitionType()==Definition::TypeClass)
     {
       ClassDef *cd=(ClassDef *)d;
-      scName = cd->qualifiedNameWithTemplateParameters(actualParams);
+      scName = cd->qualifiedNameWithTemplateParameters(actualParams,actualParamIndex);
     }
     else if (!hideScopeNames)
     {
@@ -3765,13 +3770,14 @@ QCString ClassDef::qualifiedNameWithTemplateParameters(
   ArgumentList *al=0;
   if (templateArguments())
   {
-    if (actualParams && (al=actualParams->current()))
+    if (actualParams && *actualParamIndex<(int)actualParams->count())
     {
+      al = actualParams->at(*actualParamIndex);
       if (!isSpecialization)
       {
         scName+=tempArgListToString(al);
       }
-      actualParams->next();
+      (*actualParamIndex)++;
     }
     else
     {
@@ -3893,14 +3899,14 @@ MemberList *ClassDef::createMemberList(MemberListType lt)
 
 MemberList *ClassDef::getMemberList(MemberListType lt)
 {
-  MemberList *ml = m_impl->memberLists.first();
-  while (ml)
+  QListIterator<MemberList> mli(m_impl->memberLists);
+  MemberList *ml;
+  for (;(ml=mli.current());++mli)
   {
     if (ml->listType()==lt)
     {
       return ml;
     }
-    ml = m_impl->memberLists.next();
   }
   return 0;
 }
@@ -3919,11 +3925,15 @@ void ClassDef::addMemberToList(MemberListType lt,MemberDef *md,bool isBrief)
 
 void ClassDef::sortMemberLists()
 {
-  MemberList *ml = m_impl->memberLists.first();
-  while (ml)
+  QListIterator<MemberList> mli(m_impl->memberLists);
+  MemberList *ml;
+  for (;(ml=mli.current());++mli)
   {
     if (ml->needsSorting()) { ml->sort(); ml->setNeedsSorting(FALSE); }
-    ml = m_impl->memberLists.next();
+  }
+  if (m_impl->innerClasses)
+  {
+    m_impl->innerClasses->sort();
   }
 }
 
@@ -3947,6 +3957,17 @@ int ClassDef::countMemberDeclarations(MemberListType lt,ClassDef *inheritedFrom,
       ml2->countDecMembers();
       count+=ml2->numDecMembers();
       //printf("-> ml2=%d\n",ml2->numDecMembers());
+    }
+    // also include grouped members that have their own section in the class (see bug 722759)
+    if (inheritedFrom && m_impl->memberGroupSDict)
+    {
+      MemberGroupSDict::Iterator mgli(*m_impl->memberGroupSDict);
+      MemberGroup *mg;
+      for (;(mg=mgli.current());++mgli)
+      {
+        count+=mg->countGroupedInheritedMembers(lt);
+        if (lt2!=1) count+=mg->countGroupedInheritedMembers((MemberListType)lt2);
+      }
     }
     static bool inlineInheritedMembers = Config_getBool("INLINE_INHERITED_MEMB");
     if (!inlineInheritedMembers) // show inherited members as separate lists
@@ -4437,11 +4458,11 @@ MemberDef *ClassDef::isSmartPointer() const
 void ClassDef::reclassifyMember(MemberDef *md,MemberType t)
 {
   md->setMemberType(t);
-  MemberList *ml = m_impl->memberLists.first();
-  while (ml)
+  QListIterator<MemberList> mli(m_impl->memberLists);
+  MemberList *ml;
+  for (;(ml=mli.current());++mli)
   {
     ml->remove(md);
-    ml = m_impl->memberLists.next();
   }
   insertMember(md);
 }
@@ -4526,11 +4547,11 @@ void ClassDef::setTagLessReference(ClassDef *cd)
 
 void ClassDef::removeMemberFromLists(MemberDef *md)
 {
-  MemberList *ml = m_impl->memberLists.first();
-  while (ml)
+  QListIterator<MemberList> mli(m_impl->memberLists);
+  MemberList *ml;
+  for (;(ml=mli.current());++mli)
   {
     ml->remove(md);
-    ml = m_impl->memberLists.next();
   }
 }
 

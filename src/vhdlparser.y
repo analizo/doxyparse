@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -2364,7 +2364,7 @@ static void addConfigureNode(const char* a,const char*b, bool,bool isLeaf,bool i
 
   if(!configL.isEmpty())
   {
-    VhdlConfNode* vc=configL.last();
+    VhdlConfNode* vc=configL.getLast();
     level=vc->level;
     if (levelCounter==0)
       pushLabel(forL,ent);

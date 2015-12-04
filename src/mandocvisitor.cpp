@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -29,6 +29,7 @@
 #include "message.h"
 #include "parserintf.h"
 #include "filedef.h"
+#include "htmlentity.h"
 
 ManDocVisitor::ManDocVisitor(FTextStream &t,CodeOutputInterface &ci,
                              const char *langExt) 
@@ -75,42 +76,15 @@ void ManDocVisitor::visit(DocWhiteSpace *w)
 void ManDocVisitor::visit(DocSymbol *s)
 {
   if (m_hide) return;
-  switch(s->symbol())
+  const char *res = HtmlEntityMapper::instance()->man(s->symbol());
+  if (res)
   {
-    case DocSymbol::BSlash:  m_t << "\\\\"; break;
-    case DocSymbol::At:      m_t << "@"; break;
-    case DocSymbol::Less:    m_t << "<"; break;
-    case DocSymbol::Greater: m_t << ">"; break;
-    case DocSymbol::Amp:     m_t << "&"; break;
-    case DocSymbol::Dollar:  m_t << "$"; break;
-    case DocSymbol::Hash:    m_t << "#"; break;
-    case DocSymbol::DoubleColon: m_t << "::"; break;
-    case DocSymbol::Percent: m_t << "%"; break;
-    case DocSymbol::Pipe:    m_t << "|"; break;
-    case DocSymbol::Copy:    m_t << "(C)"; break;
-    case DocSymbol::Tm:      m_t << "(TM)"; break;
-    case DocSymbol::Reg:     m_t << "(R)"; break;
-    case DocSymbol::Apos:    m_t << "'"; break;
-    case DocSymbol::Quot:    m_t << "\""; break;
-    case DocSymbol::Lsquo:   m_t << "`"; break;
-    case DocSymbol::Rsquo:   m_t << "'"; break;
-    case DocSymbol::Ldquo:   m_t << "``"; break;
-    case DocSymbol::Rdquo:   m_t << "''"; break;
-    case DocSymbol::Ndash:   m_t << "--"; break;
-    case DocSymbol::Mdash:   m_t << "---"; break;
-    case DocSymbol::Uml:     m_t << s->letter() << "\\*(4"; break;
-    case DocSymbol::Acute:   m_t << s->letter() << "\\*(`"; break;
-    case DocSymbol::Grave:   m_t << s->letter() << "\\*:"; break;
-    case DocSymbol::Circ:    m_t << s->letter() << "\\*^"; break;
-    case DocSymbol::Slash:   m_t << s->letter(); break; /* todo: implement this */
-    case DocSymbol::Tilde:   m_t << s->letter() << "\\*~"; break;
-    case DocSymbol::Szlig:   m_t << "s\\*:"; break;
-    case DocSymbol::Cedil:   m_t << s->letter() << "\\*,"; break;
-    case DocSymbol::Ring:    m_t << s->letter() << "\\*o"; break;
-    case DocSymbol::Nbsp:    m_t << " "; break;
-    default:
-         // unsupport symbol for man page :-(
-         break;
+    m_t << res;
+  }
+  else
+  {
+    // no error or warning to be supplied
+    // err("man: non supported HTML-entity found: &%s;\n",get_symbol_item(s->symbol()));
   }
   m_firstCol=FALSE;
 }
@@ -287,6 +261,8 @@ void ManDocVisitor::visit(DocInclude *inc)
     case DocInclude::DontInclude: 
       break;
     case DocInclude::HtmlInclude: 
+      break;
+    case DocInclude::LatexInclude:
       break;
     case DocInclude::VerbInclude: 
       if (!m_firstCol) m_t << endl;

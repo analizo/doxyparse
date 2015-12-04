@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -632,16 +632,14 @@ class SearchIndexList : public SDict< SearchDefinitionList >
       }
       l->append(d);
     }
-    int compareItems(QCollection::Item item1, QCollection::Item item2)
-    {
-      QList<Definition> *md1=(QList<Definition> *)item1;
-      QList<Definition> *md2=(QList<Definition> *)item2;
-      QCString n1 = md1->first()->localName();
-      QCString n2 = md2->first()->localName();
-      return qstricmp(n1.data(),n2.data());
-    }
     uint letter() const { return m_letter; }
   private:
+    int compareValues(const SearchDefinitionList *md1, const SearchDefinitionList *md2) const
+    {
+      QCString n1 = md1->getFirst()->localName();
+      QCString n2 = md2->getFirst()->localName();
+      return qstricmp(n1.data(),n2.data());
+    }
     uint m_letter;
 };
 
@@ -1029,7 +1027,7 @@ void writeJavascriptSearchIndex()
             " \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">" << endl;
           t << "<html><head><title></title>" << endl;
           t << "<meta http-equiv=\"Content-Type\" content=\"text/xhtml;charset=UTF-8\"/>" << endl;
-          t << "<meta name=\"generator\" content=\"Doxygen " << versionString << "\">" << endl;
+          t << "<meta name=\"generator\" content=\"Doxygen " << versionString << "\"/>" << endl;
           t << "<link rel=\"stylesheet\" type=\"text/css\" href=\"search.css\"/>" << endl;
           t << "<script type=\"text/javascript\" src=\"" << baseName << ".js\"></script>" << endl;
           t << "<script type=\"text/javascript\" src=\"search.js\"></script>" << endl;
@@ -1077,7 +1075,7 @@ void writeJavascriptSearchIndex()
         int itemCount=0;
         for (li.toFirst();(dl=li.current());++li)
         {
-          Definition *d = dl->first();
+          Definition *d = dl->getFirst();
           QCString id = d->localName();
 
           if (!firstEntry)

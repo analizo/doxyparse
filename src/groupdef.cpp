@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -581,6 +581,7 @@ void GroupDef::writeDetailedDescription(OutputList &ol,const QCString &title)
       // ol.newParagraph(); // FIXME:PARA
       ol.enableAll();
       ol.disableAllBut(OutputGenerator::Man);
+      ol.enable(OutputGenerator::Latex);
       ol.writeString("\n\n");
       ol.popGeneratorState();
     }
@@ -659,8 +660,9 @@ void GroupDef::writeFiles(OutputList &ol,const QCString &title)
     ol.parseText(title);
     ol.endMemberHeader();
     ol.startMemberList();
-    FileDef *fd=fileList->first();
-    while (fd)
+    QListIterator<FileDef> it(*fileList);
+    FileDef *fd;
+    for (;(fd=it.current());++it)
     {
       ol.startMemberDeclaration();
       ol.startMemberItem(fd->getOutputFileBase(),0);
@@ -679,7 +681,6 @@ void GroupDef::writeFiles(OutputList &ol,const QCString &title)
         ol.endMemberDescription();
       }
       ol.endMemberDeclaration(0,0);
-      fd=fileList->next();
     }
     ol.endMemberList();
   }
@@ -697,11 +698,11 @@ void GroupDef::writeNestedGroups(OutputList &ol,const QCString &title)
   int count=0;
   if (groupList->count()>0)
   {
-    GroupDef *gd=groupList->first();
-    while (gd)
+    QListIterator<GroupDef> it(*groupList);
+    GroupDef *gd;
+    for (;(gd=it.current());++it)
     {
       if (gd->isVisible()) count++;
-      gd=groupList->next();
     }
   }
   if (count>0)
@@ -714,8 +715,9 @@ void GroupDef::writeNestedGroups(OutputList &ol,const QCString &title)
     {
       groupList->sort();
     }
-    GroupDef *gd=groupList->first();
-    while (gd)
+    QListIterator<GroupDef> it(*groupList);
+    GroupDef *gd;
+    for (;(gd=it.current());++it)
     {
       if (gd->isVisible())
       {
@@ -738,7 +740,6 @@ void GroupDef::writeNestedGroups(OutputList &ol,const QCString &title)
         }
         ol.endMemberDeclaration(0,0);
       }
-      gd=groupList->next();
     }
     ol.endMemberList();
   }
@@ -753,8 +754,9 @@ void GroupDef::writeDirs(OutputList &ol,const QCString &title)
     ol.parseText(title);
     ol.endMemberHeader();
     ol.startMemberList();
-    DirDef *dd=dirList->first();
-    while (dd)
+    QListIterator<DirDef> it(*dirList);
+    DirDef *dd;
+    for (;(dd=it.current());++it)
     {
       ol.startMemberDeclaration();
       ol.startMemberItem(dd->getOutputFileBase(),0);
@@ -773,7 +775,6 @@ void GroupDef::writeDirs(OutputList &ol,const QCString &title)
         ol.endMemberDescription();
       }
       ol.endMemberDeclaration(0,0);
-      dd=dirList->next();
     }
 
     ol.endMemberList();
@@ -1133,7 +1134,7 @@ void GroupDef::writeQuickMemberLinks(OutputList &ol,MemberDef *currentMd) const
   MemberDef *md;
   for (mli.toFirst();(md=mli.current());++mli)
   {
-    if (md->getGroupDef()==this && md->isLinkable())
+    if (md->getGroupDef()==this && md->isLinkable() && !md->isEnumValue())
     {
       ol.writeString("          <tr><td class=\"navtab\">");
       if (md->isLinkableInProject())
@@ -1436,26 +1437,24 @@ void GroupDef::addMemberToList(MemberListType lt,MemberDef *md)
 
 void GroupDef::sortMemberLists()
 {
-  MemberList *ml = m_memberLists.first();
-  while (ml)
+  QListIterator<MemberList> mli(m_memberLists);
+  MemberList *ml;
+  for (;(ml=mli.current());++mli)
   {
     if (ml->needsSorting()) { ml->sort(); ml->setNeedsSorting(FALSE); }
-    ml = m_memberLists.next();
   }
 }
 
-
 MemberList *GroupDef::getMemberList(MemberListType lt) const
 {
-  GroupDef *that = (GroupDef*)this;
-  MemberList *ml = that->m_memberLists.first();
-  while (ml)
+  QListIterator<MemberList> mli(m_memberLists);
+  MemberList *ml;
+  for (;(ml=mli.current());++mli)
   {
     if (ml->listType()==lt)
     {
       return ml;
     }
-    ml = that->m_memberLists.next();
   }
   return 0;
 }

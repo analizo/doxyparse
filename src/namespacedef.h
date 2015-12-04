@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -68,9 +68,11 @@ class NamespaceDef : public Definition
 
     bool isConstantGroup() const { return CONSTANT_GROUP == m_type; }
     bool isModule()        const { return MODULE == m_type; }
+    bool isLibrary() const { return LIBRARY == m_type; }
 
     bool isLinkableInProject() const;
     bool isLinkable() const;
+    bool hasDetailedDescription() const;
     void addMembersToMemberGroup();
     void distributeMemberGroupDocumentation();
     void findSectionsInDocumentation();
@@ -94,6 +96,7 @@ class NamespaceDef : public Definition
     NamespaceSDict *getNamespaceSDict() const { return namespaceSDict; }
 
     QCString title() const;
+    QCString compoundTypeString() const;
 
     bool visited;
 
@@ -130,20 +133,18 @@ class NamespaceDef : public Definition
     ClassSDict           *classSDict;
     NamespaceSDict       *namespaceSDict;
     bool                  m_subGrouping;
-    enum { NAMESPACE, MODULE, CONSTANT_GROUP } m_type;
+    enum { NAMESPACE, MODULE, CONSTANT_GROUP, LIBRARY } m_type;
     bool m_isPublished;
 };
 
 /** A list of NamespaceDef objects. */
 class NamespaceList : public QList<NamespaceDef>
-{ 
+{
   public:
    ~NamespaceList() {}
-    int compareItems(QCollection::Item item1,QCollection::Item item2)
+    int compareValues(const NamespaceDef *nd1,const NamespaceDef *nd2) const
     {
-      return qstricmp(((NamespaceDef *)item1)->name(),
-                    ((NamespaceDef *)item2)->name()
-                   );
+      return qstricmp(nd1->name(), nd2->name());
     }
 };
 
@@ -169,15 +170,14 @@ class NamespaceSDict : public SDict<NamespaceDef>
   public:
     NamespaceSDict(int size=17) : SDict<NamespaceDef>(size) {}
    ~NamespaceSDict() {}
-    int compareItems(QCollection::Item item1,QCollection::Item item2)
-    {
-      return qstricmp(((NamespaceDef *)item1)->name(),
-                    ((NamespaceDef *)item2)->name()
-                   );
-    }
     void writeDeclaration(OutputList &ol,const char *title,
             bool isConstantGroup=false, bool localName=FALSE);
     bool declVisible() const;
+  private:
+    int compareValues(const NamespaceDef *item1,const NamespaceDef *item2) const
+    {
+      return qstricmp(item1->name(),item2->name());
+    }
 };
 
 

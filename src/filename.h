@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -24,16 +24,16 @@
 
 /** Class representing all files with a certain base name */
 class FileName : public FileList
-{ 
+{
   public:
     FileName(const char *fn,const char *name);
    ~FileName();
     const char *fileName() const { return name; }
     const char *fullName() const { return fName; }
     void generateDiskNames();
-    int compareItems(QCollection::Item item1,QCollection::Item item2);
 
   private:
+    int compareValues(const FileDef *item1,const FileDef *item2) const;
     QCString name;
     QCString fName;
 };
@@ -52,7 +52,8 @@ class FileNameList : public QList<FileName>
     FileNameList();
    ~FileNameList();
     void generateDiskNames();
-    int compareItems(QCollection::Item item1,QCollection::Item item2);
+  private:
+    int compareValues(const FileName *item1,const FileName *item2) const;
 };
 
 /** Iterator for FileName objects in a FileNameList. */

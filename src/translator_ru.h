@@ -2,7 +2,7 @@
  *
  *
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby
@@ -532,7 +532,7 @@ class TranslatorRussian : public Translator
      * related classes
      */
     virtual QCString trRelatedFunctionDocumentation()
-    { return "Документация по друзьям класса и функциям, отноносящимся"
+    { return "Документация по друзьям класса и функциям, относящимся"
         " к классу"; }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1678,7 +1678,7 @@ class TranslatorRussian : public Translator
         case ClassDef::Union:      result+="объединению"; break;
         case ClassDef::Interface:  result+="интерфейсу"; break;
         case ClassDef::Protocol:   result+="протоколу"; break;
-        case ClassDef::Category:   result+="кетегории"; break;
+        case ClassDef::Category:   result+="категории"; break;
         case ClassDef::Exception:  result+="исключению"; break;
         default: break;
       }
@@ -1954,7 +1954,7 @@ class TranslatorRussian : public Translator
     {
       // single is true implies a single file
       QCString result=(QCString)"Документация для этого сервиса "
-                                "сгенерированна из следующего файл";
+                                "сгенерирована из следующего файл";
       if (single) result+="а:"; else result+="ов:";
       return result;
     }
@@ -1963,7 +1963,7 @@ class TranslatorRussian : public Translator
     {
       // single is true implies a single file
       QCString result=(QCString)"Документация по этому одиночке "
-                                "сгенерированна из следующего файл";
+                                "сгенерирована из следующего файл";
       if (single) result+="а:"; else result+="ов:";
       return result;
     }

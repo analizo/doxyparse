@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -65,6 +65,7 @@ class SectionDict;
 struct MemberGroupInfo;
 
 typedef QList<QCString>    StringList;
+typedef QListIterator<QCString>    StringListIterator;
 //typedef QDict<FileDef>     FileDict;
 //typedef QDict<GroupDef>    GroupDict;
 

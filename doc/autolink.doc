@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -23,7 +23,7 @@
   Although doxygen also has a command to start such a section (See section
   \ref cmdsa "\\sa"), it does allow you to put these kind of links anywhere in the
   documentation. 
-  For \f$\mbox{\LaTeX}\f$ documentation a reference to the page number
+  For \LaTeX documentation a reference to the page number
   is written instead of a link. Furthermore, the index at the end of the 
   document can be used to quickly find the documentation of a member, class, 
   namespace or file.

@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -170,12 +170,19 @@ void FileDef::findSectionsInDocumentation()
   }
 }
 
+bool FileDef::hasDetailedDescription() const
+{
+  static bool repeatBrief = Config_getBool("REPEAT_BRIEF");
+  static bool sourceBrowser = Config_getBool("SOURCE_BROWSER");
+  return ((!briefDescription().isEmpty() && repeatBrief) || 
+          !documentation().stripWhiteSpace().isEmpty() || // avail empty section
+          (sourceBrowser && getStartBodyLine()!=-1 && getBodyDef())
+         );
+}
+
 void FileDef::writeDetailedDescription(OutputList &ol,const QCString &title)
 {
-  if ((!briefDescription().isEmpty() && Config_getBool("REPEAT_BRIEF")) || 
-      !documentation().stripWhiteSpace().isEmpty() || // avail empty section
-      (Config_getBool("SOURCE_BROWSER") && getStartBodyLine()!=-1 && getBodyDef())
-     )
+  if (hasDetailedDescription())
   {
     ol.pushGeneratorState();
       ol.disable(OutputGenerator::Html);
@@ -203,6 +210,7 @@ void FileDef::writeDetailedDescription(OutputList &ol,const QCString &title)
         // ol.newParagraph(); // FIXME:PARA
         ol.enableAll();
         ol.disableAllBut(OutputGenerator::Man);
+        ol.enable(OutputGenerator::Latex);
         ol.writeString("\n\n");
       ol.popGeneratorState();
     }
@@ -379,7 +387,7 @@ void FileDef::writeIncludedByGraph(OutputList &ol)
     {
        warn_uncond("Included by graph for '%s' not generated, too many nodes. Consider increasing DOT_GRAPH_MAX_NODES.\n",name().data());
     }
-    if (!incDepGraph.isTrivial())
+    else if (!incDepGraph.isTrivial())
     {
       ol.startTextBlock(); 
       ol.disable(OutputGenerator::Man);
@@ -772,7 +780,7 @@ void FileDef::writeQuickMemberLinks(OutputList &ol,MemberDef *currentMd) const
     MemberDef *md;
     for (mli.toFirst();(md=mli.current());++mli)
     {
-      if (md->getFileDef()==this && md->getNamespaceDef()==0 && md->isLinkable())
+      if (md->getFileDef()==this && md->getNamespaceDef()==0 && md->isLinkable() && !md->isEnumValue())
       {
         ol.writeString("          <tr><td class=\"navtab\">");
         if (md->isLinkableInProject())
@@ -830,9 +838,9 @@ void FileDef::writeSource(OutputList &ol,bool sameTu,QStrList &filesInSameTu)
       getDirDef()->writeNavigationPath(ol);
       ol.endQuickIndices();
     }
-    startTitle(ol,getOutputFileBase());
+    startTitle(ol,getSourceFileBase());
     ol.parseText(name());
-    endTitle(ol,getOutputFileBase(),title);
+    endTitle(ol,getSourceFileBase(),title);
   }
   else
   {
@@ -1402,7 +1410,7 @@ static Directory *findDirNode(Directory *root,const QCString &name)
           // add new branch to the root
           if (!root->children().isEmpty())
           {
-            root->children().last()->setLast(FALSE); 
+            root->children().getLast()->setLast(FALSE); 
           }
           root->addChild(base);
           return newBranch;
@@ -1422,7 +1430,7 @@ static Directory *findDirNode(Directory *root,const QCString &name)
     Directory *newBranch = new Directory(root,baseName);
     if (!root->children().isEmpty())
     {
-      root->children().last()->setLast(FALSE); 
+      root->children().getLast()->setLast(FALSE); 
     }
     root->addChild(newBranch);
     return newBranch;
@@ -1437,7 +1445,7 @@ static void mergeFileDef(Directory *root,FileDef *fd)
   Directory *dirNode = findDirNode(root,filePath);
   if (!dirNode->children().isEmpty())
   {
-    dirNode->children().last()->setLast(FALSE); 
+    dirNode->children().getLast()->setLast(FALSE); 
   }
   DirEntry *e=new DirEntry(dirNode,fd);
   dirNode->addChild(e);
@@ -1715,25 +1723,24 @@ void FileDef::addMemberToList(MemberListType lt,MemberDef *md)
 
 void FileDef::sortMemberLists()
 {
-  MemberList *ml = m_memberLists.first();
-  while (ml)
+  QListIterator<MemberList> mli(m_memberLists);
+  MemberList *ml;
+  for (;(ml=mli.current());++mli)
   {
     if (ml->needsSorting()) { ml->sort(); ml->setNeedsSorting(FALSE); }
-    ml = m_memberLists.next();
   }
 }
 
 MemberList *FileDef::getMemberList(MemberListType lt) const
 {
-  FileDef *that = (FileDef*)this;
-  MemberList *ml = that->m_memberLists.first();
-  while (ml)
+  QListIterator<MemberList> mli(m_memberLists);
+  MemberList *ml;
+  for (;(ml=mli.current());++mli)
   {
     if (ml->listType()==lt)
     {
       return ml;
     }
-    ml = that->m_memberLists.next();
   }
   return 0;
 }
@@ -1800,3 +1807,7 @@ QCString FileDef::title() const
   return theTranslator->trFileReference(name());
 }
 
+QCString FileDef::fileVersion() const
+{
+  return m_fileVersion;
+}

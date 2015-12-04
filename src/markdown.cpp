@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -48,6 +48,7 @@
 #include "commentcnv.h"
 #include "config.h"
 #include "section.h"
+#include "message.h"
 
 //-----------
 
@@ -90,6 +91,7 @@ static QDict<LinkRef> g_linkRefs(257);
 static action_t       g_actions[256];
 static Entry         *g_current;
 static QCString       g_fileName;
+static int            g_lineNr;
 
 // In case a markdown page starts with a level1 header, that header is used
 // as a title of the page, in effect making it a level0 header, so the
@@ -1002,6 +1004,16 @@ static int processSpecialCommand(GrowBuf &out, const char *data, int offset, int
     if (c=='[' || c==']' || c=='*' || c=='+' || c=='-' ||
         c=='!' || c=='(' || c==')' || c=='.' || c=='`' || c=='_') 
     {
+      if (c=='-' && size>3 && data[2]=='-' && data[3]=='-') // \---
+      {
+        out.addStr(&data[1],3);
+        return 4;
+      }
+      else if (c=='-' && size>2 && data[2]=='-') // \--
+      {
+        out.addStr(&data[1],2);
+        return 3;
+      }
       out.addStr(&data[1],1);
       return 2;
     }
@@ -1133,8 +1145,8 @@ static int isLinkRef(const char *data,int size,
   while (i<size && data[i]==' ') i++;
   if (i<size && data[i]=='\n')
   {
-    i++;
     eol=i;
+    i++;
     while (i<size && data[i]==' ') i++;
   }
   if (i>=size) 
@@ -1152,6 +1164,7 @@ static int isLinkRef(const char *data,int size,
     int titleStart=i;
     // search for end of the line
     while (i<size && data[i]!='\n') i++;
+    eol = i;
 
     // search back to matching character
     int end=i-1;
@@ -1166,8 +1179,7 @@ static int isLinkRef(const char *data,int size,
   //printf("end of isLinkRef: i=%d size=%d data[i]='%c' eol=%d\n",
   //    i,size,data[i],eol);
   if      (i>=size)       return i;    // end of buffer while ref id was found
-  else if (data[i]=='\n') return i+1;  // end of line while ref id was found
-  else if (eol)           return eol;  // no optional title found
+  else if (eol)           return eol;  // end of line while ref id was found
   return 0;                            // invalid link ref
 }
 
@@ -1467,7 +1479,7 @@ int findTableColumns(const char *data,int size,int &start,int &end,int &columns)
   eol=i+1;
   i--;
   while (i>0 && data[i]==' ') i--;
-  if (i>0 && data[i]=='|') i--,n++; // trailing | does not count
+  if (i>0 && data[i-1]!='\\' && data[i]=='|') i--,n++; // trailing or escaped | does not count
   end = i;
 
   // count columns between start and end
@@ -1690,12 +1702,27 @@ void writeOneLineHeaderOrRuler(GrowBuf &out,const char *data,int size)
       out.addStr(" ");
       out.addStr(header);
       out.addStr("\n");
-      SectionInfo *si = new SectionInfo(g_fileName,id,header,type,level);
-      if (g_current)
+      SectionInfo *si = Doxygen::sectionDict->find(header);
+      if (si)
       {
-        g_current->anchors->append(si);
+        if (si->lineNr != -1)
+        {
+          warn(g_fileName,g_lineNr,"multiple use of section label '%s', (first occurrence: %s, line %d)",header.data(),si->fileName.data(),si->lineNr);
+        }
+        else
+        {
+          warn(g_fileName,g_lineNr,"multiple use of section label '%s', (first occurrence: %s)",header.data(),si->fileName.data());
+        }
       }
-      Doxygen::sectionDict->append(header,si);
+      else
+      {
+        si = new SectionInfo(g_fileName,g_lineNr,id,header,type,level);
+        if (g_current)
+        {
+          g_current->anchors->append(si);
+        }
+        Doxygen::sectionDict->append(header,si);
+      }
     }
     else
     {
@@ -1725,7 +1752,7 @@ static int writeBlockQuote(GrowBuf &out,const char *data,int size)
   {
     // find end of this line
     end=i+1;
-    while (end<size && data[end-1]!='\n') end++;
+    while (end<=size && data[end-1]!='\n') end++;
     int j=i;
     int level=0;
     int indent=i;
@@ -1753,7 +1780,7 @@ static int writeBlockQuote(GrowBuf &out,const char *data,int size)
     {
       for (l=level;l<curLevel;l++)
       {
-        out.addStr("\n</blockquote>\n");
+        out.addStr("</blockquote>\n");
       }
     }
     curLevel=level;
@@ -1766,7 +1793,7 @@ static int writeBlockQuote(GrowBuf &out,const char *data,int size)
   // end of comment within blockquote => add end markers
   for (l=0;l<curLevel;l++)
   {
-    out.addStr("\n</blockquote>\n");
+    out.addStr("</blockquote>\n");
   }
   return i;
 }
@@ -1781,7 +1808,7 @@ static int writeCodeBlock(GrowBuf &out,const char *data,int size,int refIndent)
   {
     // find end of this line
     end=i+1;
-    while (end<size && data[end-1]!='\n') end++;
+    while (end<=size && data[end-1]!='\n') end++;
     int j=i;
     int indent=0;
     while (j<end && data[j]==' ') j++,indent++;
@@ -1828,7 +1855,7 @@ static void findEndOfLine(GrowBuf &out,const char *data,int size,
   // find end of the line
   int nb=0;
   end=i+1;
-  while (end<size && data[end-1]!='\n')
+  while (end<=size && data[end-1]!='\n')
   {
     // while looking for the end of the line we might encounter a block
     // that needs to be passed unprocessed.
@@ -1892,12 +1919,12 @@ static void findEndOfLine(GrowBuf &out,const char *data,int size,
     }
     else if (nb==0 && data[end-1]=='`') 
     {
-      while (end<size && data[end-1]=='`') end++,nb++;
+      while (end<=size && data[end-1]=='`') end++,nb++;
     }
     else if (nb>0 && data[end-1]=='`')
     {
       int enb=0;
-      while (end<size && data[end-1]=='`') end++,enb++;
+      while (end<=size && data[end-1]=='`') end++,enb++;
       if (enb==nb) nb=0;
     }
     else
@@ -1908,12 +1935,29 @@ static void findEndOfLine(GrowBuf &out,const char *data,int size,
   //printf("findEndOfLine pi=%d i=%d end=%d {%s}\n",pi,i,end,QCString(data+i).left(end-i).data());
 }
 
+static void writeFencedCodeBlock(GrowBuf &out,const char *data,const char *lng,
+                int blockStart,int blockEnd)
+{
+  QCString lang = lng;
+  if (!lang.isEmpty() && lang.at(0)=='.') lang=lang.mid(1);
+  out.addStr("@code");
+  if (!lang.isEmpty())
+  {
+    out.addStr("{"+lang+"}");
+  }
+  out.addStr(data+blockStart,blockEnd-blockStart);
+  out.addStr("\n");
+  out.addStr("@endcode");
+}
+
 static QCString processQuotations(const QCString &s,int refIndent)
 {
   GrowBuf out;
   const char *data = s.data();
   int size = s.length();
   int i=0,end=0,pi=-1;
+  int blockStart,blockEnd,blockOffset;
+  QCString lang;
   while (i<size)
   {
     findEndOfLine(out,data,size,pi,i,end);
@@ -1921,7 +1965,15 @@ static QCString processQuotations(const QCString &s,int refIndent)
 
     if (pi!=-1)
     {
-      if (isBlockQuote(data+pi,i-pi,refIndent))
+      if (isFencedCodeBlock(data+pi,size-pi,refIndent,lang,blockStart,blockEnd,blockOffset))
+      {
+        writeFencedCodeBlock(out,data+pi,lang,blockStart,blockEnd);
+        i=pi+blockOffset;
+        pi=-1;
+        end=i+1;
+        continue;
+      }
+      else if (isBlockQuote(data+pi,i-pi,refIndent))
       {
         i = pi+writeBlockQuote(out,data+pi,size-pi);
         pi=-1;
@@ -1968,7 +2020,7 @@ static QCString processBlocks(const QCString &s,int indent)
   // get indent for the first line
   end = i+1;
   int sp=0;
-  while (end<size && data[end-1]!='\n') 
+  while (end<=size && data[end-1]!='\n') 
   {
     if (data[end-1]==' ') sp++;
     end++;
@@ -2020,13 +2072,28 @@ static QCString processBlocks(const QCString &s,int indent)
             out.addStr(" ");
             out.addStr(header);
             out.addStr("\n\n");
-            SectionInfo *si = new SectionInfo(g_fileName,id,header,
-                level==1 ? SectionInfo::Section : SectionInfo::Subsection,level);
-            if (g_current)
+            SectionInfo *si = Doxygen::sectionDict->find(header);
+            if (si)
             {
-              g_current->anchors->append(si);
+              if (si->lineNr != -1)
+              {
+                warn(g_fileName,g_lineNr,"multiple use of section label '%s', (first occurrence: %s, line %d)",header.data(),si->fileName.data(),si->lineNr);
+              }
+              else
+              {
+                warn(g_fileName,g_lineNr,"multiple use of section label '%s', (first occurrence: %s)",header.data(),si->fileName.data());
+              }
             }
-            Doxygen::sectionDict->append(header,si);
+            else
+            {
+              si = new SectionInfo(g_fileName,g_lineNr,id,header,
+                      level==1 ? SectionInfo::Section : SectionInfo::Subsection,level);
+              if (g_current)
+              {
+                g_current->anchors->append(si);
+              }
+              Doxygen::sectionDict->append(header,si);
+            }
           }
           else
           {
@@ -2057,15 +2124,7 @@ static QCString processBlocks(const QCString &s,int indent)
       {
         //printf("Found FencedCodeBlock lang='%s' start=%d end=%d code={%s}\n",
         //       lang.data(),blockStart,blockEnd,QCString(data+pi+blockStart).left(blockEnd-blockStart).data());
-        if (!lang.isEmpty() && lang.at(0)=='.') lang=lang.mid(1);
-        out.addStr("@code");
-        if (!lang.isEmpty())
-        {
-          out.addStr("{"+lang+"}");
-        }
-        out.addStr(data+pi+blockStart,blockEnd-blockStart);       
-        out.addStr("\n");
-        out.addStr("@endcode");
+        writeFencedCodeBlock(out,data+pi,lang,blockStart,blockEnd);
         i=pi+blockOffset;
         pi=-1;
         end=i+1;
@@ -2101,7 +2160,7 @@ static QCString processBlocks(const QCString &s,int indent)
     {
       //printf("found link ref: id='%s' link='%s' title='%s'\n",
       //    id.data(),link.data(),title.data());
-      g_linkRefs.insert(id,new LinkRef(link,title));
+      g_linkRefs.insert(id.lower(),new LinkRef(link,title));
     }
     else
     {
@@ -2152,7 +2211,6 @@ static QCString extractPageTitle(QCString &docs,QCString &id)
   {
     docs=docs.mid(end1);
   }
-  id = extractTitleId(title);
   //printf("extractPageTitle(title='%s' docs='%s' id='%s')\n",title.data(),docs.data(),id.data());
   return title;
 }
@@ -2214,7 +2272,7 @@ static QCString detab(const QCString &s,int &refIndent)
 
 //---------------------------------------------------------------------------
 
-QCString processMarkdown(const QCString &fileName,Entry *e,const QCString &input)
+QCString processMarkdown(const QCString &fileName,const int lineNr,Entry *e,const QCString &input)
 {
   static bool init=FALSE;
   if (!init)
@@ -2237,6 +2295,7 @@ QCString processMarkdown(const QCString &fileName,Entry *e,const QCString &input
   g_linkRefs.clear();
   g_current = e;
   g_fileName = fileName;
+  g_lineNr   = lineNr;
   static GrowBuf out;
   if (input.isEmpty()) return input;
   out.clear();
@@ -2279,14 +2338,7 @@ void MarkdownFileParser::parseInput(const char *fileName,
   current->fileName = fileName;
   current->docFile  = fileName;
   current->docLine  = 1;
-  int len = qstrlen(fileBuf);
-  BufStr input(len);
-  BufStr output(len);
-  input.addArray(fileBuf,qstrlen(fileBuf));
-  input.addChar('\0');
-  convertCppComments(&input,&output,fileName);
-  output.addChar('\0');
-  QCString docs = output.data();
+  QCString docs = fileBuf;
   QCString id;
   QCString title=extractPageTitle(docs,id).stripWhiteSpace();
   QCString titleFn = QFileInfo(fileName).baseName().utf8();

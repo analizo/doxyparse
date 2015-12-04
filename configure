@@ -2,7 +2,7 @@
 #
 # $Id$
 #
-# Copyright (C) 1997-2013 by Dimitri van Heesch.
+# Copyright (C) 1997-2014 by Dimitri van Heesch.
 # 
 # Permission to use, copy, modify, and distribute this software and its
 # documentation under the terms of the GNU General Public License is hereby 
@@ -17,7 +17,7 @@
 
 doxygen_version_major=1
 doxygen_version_minor=8
-doxygen_version_revision=6
+doxygen_version_revision=7
 
 #NOTE: Setting version_mmn to "NO" will omit mmn info from the package.
 doxygen_version_mmn=NO
@@ -56,8 +56,14 @@ f_langs=`ls -1 src/translator_??.h | sed -e 's%src/translator_%%g' | sed -e 's/\
 
 while test -n "$1";  do
   case $1 in
+    --prefix=*)
+       f_prefix=`echo $1 | sed 's/^--prefix=//'`
+       ;;
     --prefix | -prefix)
        shift; f_prefix=$1
+       ;;
+    --docdir=*)
+       f_docdir=`echo $1 | sed 's/^--docdir=//'`
        ;;
     --docdir | -docdir)
        shift; f_docdir=$1
@@ -77,29 +83,56 @@ while test -n "$1";  do
     --english-only | -english-only)
        f_english=YES
        ;;
+    --enable-langs=*)
+       f_langs=`echo $1 | sed 's/^--enable-langs=//'`
+       ;;
     --enable-langs | -enable-langs)
        shift; f_langs=$1
+       ;;
+    --platform=*)
+       f_platform=`echo $1 | sed 's/^--platform=//'`
        ;;
     --platform | -platform)
        shift; f_platform=$1
        ;;
+    --make=*)
+       f_make=`echo $1 | sed 's/^--make=//'`
+       ;;
     --make | -make)
        shift; f_make=$1
+       ;;
+    --dot=*)
+       f_dot=`echo $1 | sed 's/^--dot=//'`
        ;;
     --dot | -dot)
        shift; f_dot=$1
        ;;
+    --python=*)
+       f_python=`echo $1 | sed 's/^--python=//'`
+       ;;
     --python | -python)
        shift; f_python=$1
+       ;;
+    --perl=*)
+       f_perl=`echo $1 | sed 's/^--perl=//'`
        ;;
     --perl | -perl)
        shift; f_perl=$1
        ;;
+    --flex=*)
+       f_flex=`echo $1 | sed 's/^--flex=//'`
+       ;;
     --flex | -flex)
        shift; f_flex=$1
        ;;
+    --bison=*)
+       f_bison=`echo $1 | sed 's/^--bison=//'`
+       ;;
     --bison | -bison)
        shift; f_bison=$1
+       ;;
+    --install=*)
+       f_insttool=`echo $1 | sed 's/^--install=//'`
        ;;
     --install | -install)
        shift; f_insttool=$1
@@ -125,6 +158,9 @@ while test -n "$1";  do
     --with-sqlite3-static | -with-sqlite3-static)
        f_sqlite3=YES
        f_sqlite3static=YES
+       ;;
+    --sqlite3-path=*)
+       f_sqlite3_path=`echo $1 | sed 's/^--sqlite3-path=//'`
        ;;
     --sqlite3-path | -sqlite3-path)
        shift; f_sqlite3_path=$1
@@ -477,7 +513,7 @@ if test "$f_sqlite3" = YES; then
   printf "  Checking for sqlite3 ... "
   if test "$f_sqlite3_path" = NO; then
     sqlite3_hdr_dir="/usr/include /usr/local/include /opt/local/include"
-    sqlite3_lib_dir="/usr/lib /usr/local/lib /opt/local/lib /usr/lib/x86_64-linux-gnu"
+    sqlite3_lib_dir="/usr/lib /usr/local/lib /opt/local/lib /usr/lib/x86_64-linux-gnu /usr/lib64"
   else
     sqlite3_hdr_dir="$f_sqlite3_path/include"
     sqlite3_lib_dir="$f_sqlite3_path/lib"
@@ -525,7 +561,7 @@ fi
 if test "$f_libclang" = YES; then
   printf "  Checking for libclang ... "
   libclang_hdr_dir="/usr/include /usr/local/include /opt/local/include"
-  libclang_lib_dir="/usr/lib /usr/local/lib /opt/local/lib"
+  libclang_lib_dir="/usr/lib /usr/local/lib /opt/local/lib /usr/lib64/llvm /usr/lib/llvm"
   if test "$f_libclangstatic" = NO; then
     libclang_lib_name="libclang.so libclang.dylib libclang.a libclang.dll.a"
   else
@@ -566,7 +602,7 @@ fi
 
 printf "  Checking for python... "
 if test "$f_python" = NO; then
-  python_names="python"
+  python_names="python2 python"
   python_dirs="$bin_dirs /usr/bin /usr/local/bin /bin /sbin"
   python_prog=NO
   python_found=NO
@@ -678,15 +714,32 @@ fi
 
 # -----------------------------------------------------------------------------
 
+if ! test -d "generated_src/doxygen"; then
+  mkdir -p generated_src/doxygen
+fi
+if test "$f_wizard" = YES; then
+  if ! test -d "generated_src/doxywizard"; then
+    mkdir -p generated_src/doxywizard
+  fi
+fi
+
 #
 # Make VERSION file
 #
-echo "  Creating VERSION file."
-# Output should be something like 1.4.5-20051010
-if test "x$doxygen_version_mmn" = "xNO"; then
-  echo "$doxygen_version_major.$doxygen_version_minor.$doxygen_version_revision" > VERSION
-else
-  echo "$doxygen_version_major.$doxygen_version_minor.$doxygen_version_revision-$doxygen_version_mmn" > VERSION
+test -f "VERSION" && chmod u+w VERSION
+test -f "generated_src/doxygen/version.cpp" && chmod u+w generated_src/doxygen/version.cpp
+echo "  Generating generated_src/doxygen/version.cpp and VERSION..."
+cd src
+$f_python version.py ../generated_src/doxygen
+cd ..
+if test "$f_wizard" = YES; then
+  test -f "VERSION" && chmod u+w VERSION
+  test -f "generated_src/doxywizard/version.cpp" && chmod u+w generated_src/doxywizard/version.cpp
+  echo "  Generating generated_src/doxywizard/version.cpp and VERSION..."
+  cd src
+  $f_python version.py ../generated_src/doxywizard
+  cd ..
+
 fi
 
 test -f .makeconfig && rm .makeconfig
@@ -834,7 +887,7 @@ EOF
 #       if test $f_search = YES; then
 #         EXTRADEPS="$EXTRADEPS doxysearch"
 #       fi
-       echo "all: src/version.cpp $EXTRADEPS" >> $DST
+       echo "all: generated_src/doxygen/version.cpp $EXTRADEPS" >> $DST
        echo "	\$(MAKE) -C qtools" >> $DST
        echo "	\$(MAKE) -C libmd5" >> $DST
        echo "	\$(MAKE) -C src" >> $DST
@@ -901,28 +954,33 @@ EOF
      echo "  Created $DST from $SRC..."
 done
 
-# - generating src/lang_cfg.h 
+# - generating generated_src/doxygen/doxygen/lang_cfg.h 
 # use consistent method on Linux and Windows
 
-if test -f "src/lang_cfg.h"; then
-    chmod u+w src/lang_cfg.h   # make sure file can be overwritten
+if test -f "generated_src/doxygen/lang_cfg.h"; then
+    chmod u+w generated_src/doxygen/lang_cfg.h   # make sure file can be overwritten
 fi
-echo "  Generating src/lang_cfg.h..."
+echo "  Generating generated_src/doxygen/lang_cfg.h..."
 if test "$f_english" = YES; then
-   $f_python src/lang_cfg.py ENONLY > src/lang_cfg.h
+   $f_python src/lang_cfg.py ENONLY > generated_src/doxygen/lang_cfg.h
 else
    f_ulangs=`echo $f_langs | tr '[a-z,]' '[A-Z ]'`
-   $f_python src/lang_cfg.py $f_ulangs > src/lang_cfg.h
+   $f_python src/lang_cfg.py $f_ulangs > generated_src/doxygen/lang_cfg.h
 fi
 
-if test -f "src/config.h"; then
-    chmod u+w src/config.h
+if test -f "generated_src/doxygen/settings.h"; then
+    chmod u+w generated_src/doxygen/settings.h
 fi
-if test -f "src/settings.h"; then
-    chmod u+w src/settings.h
+echo "  Generating generated_src/doxygen/settings.h..."
+$f_python src/settings.py $f_sqlite3 $f_libclang generated_src/doxygen
+
+if test "$f_wizard" = YES; then
+  if test -f "generated_src/doxywizard/settings.h"; then
+      chmod u+w generated_src/doxywizard/settings.h
+  fi
+  echo "  Generating generated_src/doxywizard/settings.h..."
+  $f_python src/settings.py $f_sqlite3 $f_libclang generated_src/doxywizard
 fi
-echo "  Generating src/settings.h..."
-cd src
-$f_python settings.py $f_sqlite3 $f_libclang
+
 cd ..
 echo "  Finished"

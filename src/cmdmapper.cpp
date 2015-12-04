@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -63,6 +63,7 @@ CommandMap cmdMap[] =
   { "internal",      CMD_INTERNAL },
   { "invariant",     CMD_INVARIANT },
   { "javalink",      CMD_JAVALINK },
+  { "latexinclude",  CMD_LATEXINCLUDE },
   { "latexonly",     CMD_LATEXONLY },
   { "li",            CMD_LI },
   { "line",          CMD_LINE },
@@ -135,6 +136,8 @@ CommandMap cmdMap[] =
   { "parblock",      CMD_PARBLOCK },
   { "endparblock",   CMD_ENDPARBLOCK },
   { "diafile",       CMD_DIAFILE },
+  { "--",            CMD_NDASH },
+  { "---",           CMD_MDASH },
   { 0,               0 },
 };
 

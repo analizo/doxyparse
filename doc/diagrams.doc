@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -83,7 +83,7 @@
   <li> A <b>dotted dark green</b> arrow indicates private inheritance.
   </ul>
 
-  The elements in the class diagram in \f$\mbox{\LaTeX}\f$ have the 
+  The elements in the class diagram in \LaTeX have the 
   following meaning:
   <ul>
   <li> A \b white box indicates a class.
@@ -115,7 +115,7 @@
        edge of the arrow is labeled with the variable(s) responsible for the
        relation.
        Class \c A uses class \c B, if class \c A has a member variable \c m 
-       of type C, where B is a subtype of C (e.g. `C` could be `B`, `B*`, `T\<B\>*`). 
+       of type C, where B is a subtype of C (e.g. `C` could be `B`, `B*`, `T<B>*`). 
   </ul>
 
 

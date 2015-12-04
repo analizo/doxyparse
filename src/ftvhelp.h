@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -64,7 +64,7 @@ class FTVHelp : public IndexIntf
     //bool generateJSTree(FTextStream &tidx,FTextStream &t,const QList<FTVNode> &nl,int level,bool &first);
     //bool generateJSTreeTopLevel(FTextStream &tidx,FTextStream &t,const QList<FTVNode> &nl,int level,bool &first);
     QCString generateIndentLabel(FTVNode *n,int level);
-    void generateIndent(FTextStream &t,FTVNode *n,int level,bool opened);
+    void generateIndent(FTextStream &t,FTVNode *n,bool opened);
     void generateLink(FTextStream &t,FTVNode *n);
     //void generateJSLink(FTextStream &t,FTVNode *n);
     QList<FTVNode> *m_indentNodes;

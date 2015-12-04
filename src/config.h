@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -165,7 +165,7 @@ class ConfigEnum : public ConfigOption
 class ConfigString : public ConfigOption
 {
   public:
-    enum WidgetType { String, File, Dir };
+    enum WidgetType { String, File, Dir, Image };
     ConfigString(const char *name,const char *doc) 
       : ConfigOption(O_String)
     {
@@ -493,13 +493,14 @@ class Config
      *  \returns TRUE if successful, or FALSE if the string could not be
      *  parsed.
      */ 
-    bool parseString(const char *fn,const char *str);
+    //bool parseString(const char *fn,const char *str);
+    bool parseString(const char *fn,const char *str,bool upd = FALSE);
 
     /*! Parse a configuration file with name \a fn.
      *  \returns TRUE if successful, FALSE if the file could not be 
      *  opened or read.
      */ 
-    bool parse(const char *fn);
+    bool parse(const char *fn,bool upd = FALSE);
 
     /*! Called from the constructor, will add doxygen's default options
      *  to the configuration object 

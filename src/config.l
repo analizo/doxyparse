@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -435,6 +435,7 @@ static QCString          includeName;
 static QStrList          includePathList;
 static QStack<ConfigFileState> includeStack;  
 static int               includeDepth;
+static bool              config_upd = FALSE;
 
 static QCString     tabSizeString;
 static QCString     maxInitLinesString;
@@ -672,15 +673,31 @@ static void readIncludeFile(const char *incName)
 					         BEGIN(GetString);
 						 break;
 					       case ConfigOption::O_Obsolete:
-					         config_err("Warning: Tag `%s' at line %d of file %s has become obsolete.\n"
-						            "To avoid this warning please remove this line from your configuration "
-							    "file or upgrade it using \"doxygen -u\"\n", cmd.data(),yyLineNr,yyFileName.data()); 
+                                                 if (config_upd)
+                                                 {
+					           config_err("Warning: Tag `%s' at line %d of file `%s' has become obsolete.\n"
+						              "         This tag has been removed.\n", cmd.data(),yyLineNr,yyFileName.data());
+                                                 }
+                                                 else
+                                                 {
+					           config_err("Warning: Tag `%s' at line %d of file `%s' has become obsolete.\n"
+						              "         To avoid this warning please remove this line from your configuration "
+							      "file or upgrade it using \"doxygen -u\"\n", cmd.data(),yyLineNr,yyFileName.data()); 
+                                                 }
 					         BEGIN(SkipInvalid);
 						 break;
 					       case ConfigOption::O_Disabled:
-					         config_err("Warning: Tag `%s' at line %d of file %s belongs to an option that was not enabled at compile time.\n"
-						            "To avoid this warning please remove this line from your configuration "
-							    "file, upgrade it using \"doxygen -u\", or recompile doxygen with this feature enabled.\n", cmd.data(),yyLineNr,yyFileName.data()); 
+                                                 if (config_upd)
+                                                 {
+					           config_err("Warning: Tag `%s' at line %d of file `%s' belongs to an option that was not enabled at compile time.\n"
+						              "         This tag has been removed.\n", cmd.data(),yyLineNr,yyFileName.data());
+                                                 }
+                                                 else
+                                                 {
+					           config_err("Warning: Tag `%s' at line %d of file `%s' belongs to an option that was not enabled at compile time.\n"
+						              "         To avoid this warning please remove this line from your configuration "
+							    "file or upgrade it using \"doxygen -u\", or recompile doxygen with this feature enabled.\n", cmd.data(),yyLineNr,yyFileName.data()); 
+                                                 }
 					         BEGIN(SkipInvalid);
 						 break;
 					     }
@@ -847,11 +864,11 @@ void Config::writeTemplate(FTextStream &t,bool sl,bool upd)
   {
     t << convertToComment(m_header,"");
   }
-  ConfigOption *option = m_options->first();
-  while (option)
+  QListIterator<ConfigOption> it = iterator();
+  ConfigOption *option;
+  for (;(option=it.current());++it)
   {
     option->writeTemplate(t,sl,upd);
-    option = m_options->next();
   }
   /* print last lines of user comment that were at the end of the file */
   if (m_userComment)
@@ -863,11 +880,11 @@ void Config::writeTemplate(FTextStream &t,bool sl,bool upd)
 
 void Config::convertStrToVal()
 {
-  ConfigOption *option = m_options->first();
-  while (option)
+  QListIterator<ConfigOption> it = iterator();
+  ConfigOption *option;
+  for (;(option=it.current());++it)
   {
     option->convertStrToVal();
-    option = m_options->next();
   }
 }
 
@@ -1003,11 +1020,11 @@ void ConfigEnum::substEnvVars()
 
 void Config::substituteEnvironmentVars()
 {
-  ConfigOption *option = m_options->first();
-  while (option)
+  QListIterator<ConfigOption> it = iterator();
+  ConfigOption *option;
+  for (;(option=it.current());++it)
   {
     option->substEnvVars();
-    option = m_options->next();
   }
 }
 
@@ -1573,20 +1590,43 @@ void Config::check()
   }                               
 
   checkFileName("GENERATE_TAGFILE");
+
+#if 0 // TODO: this breaks test 25; SOURCEBROWSER = NO and SOURCE_TOOLTIPS = YES.
+      // So this and other regressions should be analysed and fixed before this can be enabled
+  // disable any boolean options that depend on disabled options
+  QListIterator<ConfigOption> it = iterator();
+  ConfigOption *option;
+  for (it.toFirst();(option=it.current());++it)
+  {
+    QCString depName = option->dependsOn(); // option has a dependency
+    if (!depName.isEmpty())
+    {
+      ConfigOption * dep = Config::instance()->get(depName);
+      if (dep->kind()==ConfigOption::O_Bool &&
+          Config_getBool(depName)==FALSE) // dependent option is disabled
+      {
+        if (option->kind()==ConfigOption::O_Bool)
+        {
+          printf("disabling option %s\n",option->name().data());
+          Config_getBool(option->name())=FALSE; // also disable this option
+        }
+      }
+    }
+  }
+#endif
 }
 
 void Config::init()
 {
-  ConfigOption *option = m_options->first();
-  while (option)
+  QListIterator<ConfigOption> it = iterator();
+  ConfigOption *option;
+  for (;(option=it.current());++it)
   {
     option->init();
-    option = m_options->next();
   }
 
   // sanity check if all depends relations are valid
-  option = m_options->first();
-  while (option)
+  for (it.toFirst();(option=it.current());++it)
   {
     QCString depName = option->dependsOn();
     if (!depName.isEmpty())
@@ -1599,7 +1639,6 @@ void Config::init()
         exit(1);
       }
     }
-    option = m_options->next();
   }
 }
 
@@ -1668,7 +1707,7 @@ static QCString configFileToString(const char *name)
   return "";
 }
 
-bool Config::parseString(const char *fn,const char *str)
+bool Config::parseString(const char *fn,const char *str,bool update)
 {
   config = Config::instance();
   inputString   = str;
@@ -1680,17 +1719,19 @@ bool Config::parseString(const char *fn,const char *str)
   includeDepth  = 0;
   configYYrestart( configYYin );
   BEGIN( Start );
+  config_upd = update;
   configYYlex();
+  config_upd = FALSE;
   inputString = 0;
   return TRUE;
 }
 
-bool Config::parse(const char *fn)
+bool Config::parse(const char *fn,bool update)
 {
   int retval;
   encoding = "UTF-8";
   printlex(yy_flex_debug, TRUE, __FILE__, fn);
-  retval =  parseString(fn,configFileToString(fn)); 
+  retval =  parseString(fn,configFileToString(fn), update); 
   printlex(yy_flex_debug, FALSE, __FILE__, fn);
   return retval;
 }

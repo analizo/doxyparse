@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -111,6 +111,7 @@ static int           g_lastSkipCppContext;
 static int           g_lastVerbStringContext;
 static int           g_memCallContext;
 static int	     g_lastCContext;
+static int           g_skipInlineInitContext;
 
 static bool          g_insideObjC;
 static bool          g_insideJava;
@@ -300,21 +301,18 @@ ClassDef *VariableContext::findVariable(const QCString &name)
 {
   if (name.isEmpty()) return 0;
   ClassDef *result = 0;
-  //QListIterator<Scope> sli(m_scopes);
+  QListIterator<Scope> sli(m_scopes);
   Scope *scope;
   QCString key = name;
   // search from inner to outer scope
-  scope = m_scopes.last();
-  //for (sli.toLast();(scope=sli.current());--sli)
-  while (scope)
+  for (sli.toLast();(scope=sli.current());--sli)
   {
     result = scope->find(key);
-    if (result) 
+    if (result)
     {
       DBG_CTX((stderr,"** findVariable(%s)=%p\n",name.data(),result));
       return result;
     }
-    scope = m_scopes.prev();
   }
   // nothing found -> also try the global scope
   result=m_globalScope.find(name);
@@ -672,9 +670,10 @@ static void setParameterList(MemberDef *md)
 {
   g_classScope = md->getClassDef() ? md->getClassDef()->name().data() : "";
   ArgumentList *al = md->argumentList();
-  if (al==0) return; 
-  Argument *a = al->first();
-  while (a)
+  if (al==0) return;
+  ArgumentListIterator it(*al);
+  Argument *a;
+  for (;(a=it.current());++it)
   {
     g_parmName = a->name.copy();
     g_parmType = a->type.copy();
@@ -685,7 +684,6 @@ static void setParameterList(MemberDef *md)
     g_parmType.stripPrefix("const ");
     g_parmType=g_parmType.stripWhiteSpace();
     g_theVarContext.addVariable(g_parmType,g_parmName);
-    a = al->next();
   }
 }
 
@@ -804,13 +802,14 @@ static MemberDef *setCallContextForVar(const QCString &name)
     }
     else if (mn->count()>1) // global defined more than once
     {
-      MemberDef *md=mn->first();
-      while (md)
+      MemberNameIterator it(*mn);
+      MemberDef *md;
+      for (;(md=it.current());++it)
       {
 	//printf("mn=%p md=%p md->getBodyDef()=%p g_sourceFileDef=%p\n",
 	//    mn,md,
 	//    md->getBodyDef(),g_sourceFileDef);
-	
+
 	// in case there are multiple members we could link to, we 
 	// only link to members if defined in the same file or 
 	// defined as external.
@@ -822,7 +821,6 @@ static MemberDef *setCallContextForVar(const QCString &name)
 	  //printf("returning member %s in source file %s\n",md->name().data(),g_sourceFileDef->name().data());
           return md;
         }
-	md=mn->next();
       }
       return 0;
     }
@@ -1805,6 +1803,7 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
 %x      OldStyleArgs
 %x	UsingName
 %x      RawString
+%x      InlineInit
 
 %%
 
@@ -2584,7 +2583,7 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
   					  g_name+=yytext; 
   					  BEGIN( FuncCall );
 					}
-<FuncCall,Body,MemberCall,MemberCall2,SkipInits>{RAWBEGIN}	{
+<FuncCall,Body,MemberCall,MemberCall2,SkipInits,InlineInit>{RAWBEGIN}	{
                                           QCString text=yytext;
                                           int i=text.find('R');
                                           g_code->codify(text.left(i+1));
@@ -2596,14 +2595,14 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
                                           g_delimiter=g_delimiter.left(g_delimiter.length()-1);
   					  BEGIN( RawString );
                                         }
-<FuncCall,Body,MemberCall,MemberCall2,SkipInits>\"	{
+<FuncCall,Body,MemberCall,MemberCall2,SkipInits,InlineInit>\"	{
 					  startFontClass("stringliteral");
   					  g_code->codify(yytext);
   					  g_lastStringContext=YY_START;
 					  g_inForEachExpression = FALSE;
   					  BEGIN( SkipString );
   					}
-<FuncCall,Body,MemberCall,MemberCall2,SkipInits>\'	{
+<FuncCall,Body,MemberCall,MemberCall2,SkipInits,InlineInit>\'	{
 					  startFontClass("stringliteral");
   					  g_code->codify(yytext);
   					  g_lastStringContext=YY_START;
@@ -2968,6 +2967,35 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
 					  g_theVarContext.addVariable(g_parmType,g_parmName);
 					  g_parmType.resize(0);g_parmName.resize(0);
 					}
+<MemberCall2,FuncCall>"{"		{
+                                          if (g_bracketCount>0)
+                                          {
+                                            g_code->codify(yytext);
+                                            g_skipInlineInitContext=YY_START;
+                                            g_curlyCount=0;
+                                            BEGIN(InlineInit);
+                                          }
+                                          else
+                                          {
+                                            REJECT;
+                                          }
+                                        }
+<InlineInit>"{"                         { g_curlyCount++;
+                                          g_code->codify(yytext);
+                                        }
+<InlineInit>"}"                         {
+                                          g_code->codify(yytext);
+                                          if (--g_curlyCount<=0)
+                                          {
+                                            BEGIN(g_skipInlineInitContext);
+                                          }
+                                        }
+<InlineInit>\n                          {
+                                          codifyLines(yytext);
+                                        }
+<InlineInit>.                           {
+                                          g_code->codify(yytext);
+                                        }
 <MemberCall2,FuncCall>"("		{
 					  g_parmType.resize(0);g_parmName.resize(0);
   					  g_code->codify(yytext);
@@ -3304,8 +3332,8 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
 					  }
   					}
 <SkipCPP>\n/.*\n			{ 
-  					  codifyLines(yytext);
 					  endFontClass();
+  					  codifyLines(yytext);
 					  BEGIN( g_lastSkipCppContext ) ;
 					}
 <*>\n{B}*"//@"[{}].*\n			{ // remove one-line group marker

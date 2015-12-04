@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -81,6 +81,7 @@ class MemberDef : public Definition
     ClassDef *getClassDef() const;
     FileDef  *getFileDef() const;
     NamespaceDef* getNamespaceDef() const;
+    ClassDef *accessorClass() const;
 
     // grabbing the property read/write accessor names
     const char *getReadAccessor() const;
@@ -253,7 +254,7 @@ class MemberDef : public Definition
     // overrules
     QCString documentation() const;
     QCString briefDescription(bool abbr=FALSE) const;
-
+    QCString fieldType() const;
 
 
     //-----------------------------------------------------------------------------------

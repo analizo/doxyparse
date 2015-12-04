@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -5023,6 +5023,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 
 					    tempEntry = current; // temporarily switch to the previous entry
 					    current = previous;
+					    previous = 0;
 
 					    docBlockContext   = SkipCurlyEndDoc;
 					    docBlockInBody    = FALSE;
@@ -5062,7 +5063,11 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
   					}
 <SkipCurlyEndDoc>"}"			{
   				          //addToBody("}");
-					  current = tempEntry;
+                                          if (tempEntry) // we can only switch back to current if no new item was created
+					  {
+					    current = tempEntry;
+					    tempEntry = 0;
+					  }
   					  BEGIN( lastCurlyContext );
   					}
 <SkipCurly>\"			        { 
@@ -5115,6 +5120,11 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
   					  lastCContext = YY_START;
 					  BEGIN(SkipCxxComment);
   					}
+<SkipInits>"("                          {
+                                          roundCount=0;
+                                          lastSkipRoundContext=YY_START;
+                                          BEGIN(SkipRound);
+                                        }
 <SkipInits>\"				{
   					  lastStringContext=YY_START;
   				          BEGIN( SkipString ); 
@@ -5510,7 +5520,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					    BEGIN( CopyArgComment );
 					}
 <CSConstraintType,CSConstraintName>"#"	{ // artificially inserted token to signal end of comment block
-                                          current->typeConstr->last()->docs = fullArgString;
+                                          current->typeConstr->getLast()->docs = fullArgString;
   					}
 <CSConstraintType>"{"			{ // end of type constraint reached
                                           // parse documentation of the constraints
@@ -5528,24 +5538,24 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
                                         }
 <CSConstraintName>{ID}                  {
                                           // parameter name
-                                          current->typeConstr->last()->name=yytext;
+                                          current->typeConstr->getLast()->name=yytext;
                                         }
 <CSConstraintType>"where"		{ // another constraint for a different param
 					  current->typeConstr->append(new Argument);
                                           BEGIN( CSConstraintName );
   					}
 <CSConstraintType>({ID}".")*{ID}("<"{ID}">")?("()")?  {
-                                          if (current->typeConstr->last()->type.isEmpty())
+                                          if (current->typeConstr->getLast()->type.isEmpty())
                                               // first type constraint for this parameter
                                           {
-                                            current->typeConstr->last()->type=yytext;
+                                            current->typeConstr->getLast()->type=yytext;
                                           }
                                           else // new type constraint for same parameter
                                           {
-                                            QCString name = current->typeConstr->last()->name;
+                                            QCString name = current->typeConstr->getLast()->name;
                                             current->typeConstr->append(new Argument);
-                                            current->typeConstr->last()->name=name;
-                                            current->typeConstr->last()->type=yytext;
+                                            current->typeConstr->getLast()->name=name;
+                                            current->typeConstr->getLast()->type=yytext;
                                           }
                                         }
 <CSConstraintName,CSConstraintType>\n	{
@@ -5766,7 +5776,8 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  specName = &current->name;
 					  BEGIN ( Specialization );
 					}
-<Bases>"<"   	       	                { 
+<Bases>{BN}*"<"                         {
+                                          lineCount();
   					  sharpCount=1; 
 					  roundCount=0;
 					  lastSkipSharpContext = YY_START;
@@ -6194,7 +6205,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
                                           g_nestedComment=FALSE;
   					  BEGIN(DocCopyBlock);
                                         }
-<DocBlock>"<"{PRE}">"			{
+<DocBlock>{B}*"<"{PRE}">"		{
                                           docBlock+=yytext;
 				          docBlockName="<pre>";
                                           g_fencedSize=0;
@@ -6210,6 +6221,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
   					}
 <DocBlock>"~~~"[~]*                     {
                                           docBlock+=yytext;
+                                          docBlockName="~~~";
                                           g_fencedSize=yyleng;
                                           g_nestedComment=FALSE;
                                           BEGIN(DocCopyBlock);
@@ -6293,6 +6305,18 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					    REJECT;
 					  }
   					}
+<DocCopyBlock>^{B}*"*"+/({ID}|"(")	{ // Assume *var or *(... is part of source code (see bug723516)
+					  if (docBlockName=="code")
+                                          {
+                                            QCString indent;
+                                            indent.fill(' ',computeIndent(yytext,-1));
+                                            docBlock+=indent+"*";
+                                          }
+                                          else
+                                          {
+                                            REJECT;
+                                          }
+                                        }
 <DocCopyBlock>^{B}*"*"+/{BN}*		{ // start of a comment line with one *
   					  if (docBlockName=="code")
                                           {
@@ -6497,7 +6521,14 @@ static void startCommentBlock(bool brief)
 
 static void newEntry()
 {
-  current_root->addSubEntry(current);
+  if (tempEntry==0) // if temp entry is not 0, it holds current, 
+                    // and current is actually replaced by previous which was 
+                    // already added to current_root, so we should not add it again 
+                    // (see bug723314)
+  {
+    current_root->addSubEntry(current);
+  }
+  tempEntry = 0;
   previous = current;
   current = new Entry ;
   initEntry();

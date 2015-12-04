@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby
@@ -133,13 +133,14 @@ static bool writeDefArgumentList(OutputList &ol,ClassDef *cd,
   if (md->getLanguage()==SrcLangExt_Tcl)
   {
     if (defArgList->count()==0) return FALSE;
-    Argument *a=defArgList->first();
+    ArgumentListIterator ali(*defArgList);
+    Argument *a;
     ol.endMemberDocName();
     ol.startParameterList(FALSE);
     ol.startParameterType(TRUE,0);
     ol.endParameterType();
     ol.startParameterName(FALSE);
-    while (a)
+    for (;(a=ali.current());++ali)
     {
       if (a->defval.isEmpty())
       {
@@ -149,7 +150,6 @@ static bool writeDefArgumentList(OutputList &ol,ClassDef *cd,
       {
         ol.docify("?"+a->name+"? ");
       }
-      a=defArgList->next();
     }
     ol.endParameterName(TRUE,FALSE,FALSE);
     return TRUE;
@@ -181,7 +181,6 @@ static bool writeDefArgumentList(OutputList &ol,ClassDef *cd,
   ol.popGeneratorState();
   //printf("===> name=%s isDefine=%d\n",md->name().data(),md->isDefine());
 
-  Argument *a=defArgList->first();
   QCString cName;
   if (cd)
   {
@@ -208,6 +207,8 @@ static bool writeDefArgumentList(OutputList &ol,ClassDef *cd,
   bool first=TRUE;
   bool paramTypeStarted=FALSE;
   bool isDefine = md->isDefine();
+  ArgumentListIterator ali(*defArgList);
+  Argument *a=ali.current();
   while (a)
   {
     if (isDefine || first)
@@ -302,7 +303,8 @@ static bool writeDefArgumentList(OutputList &ol,ClassDef *cd,
       ol.endTypewriter();
 
     }
-    a=defArgList->next();
+    ++ali;
+    a=ali.current();
     if (a)
     {
       if (!md->isObjCMethod()) ol.docify(", "); // there are more arguments
@@ -432,7 +434,8 @@ static void writeExceptionList(OutputList &ol, ClassDef *cd, MemberDef *md)
 static void writeTemplatePrefix(OutputList &ol,ArgumentList *al)
 {
   ol.docify("template<");
-  Argument *a=al->first();
+  ArgumentListIterator ali(*al);
+  Argument *a = ali.current();
   while (a)
   {
     ol.docify(a->type);
@@ -443,7 +446,8 @@ static void writeTemplatePrefix(OutputList &ol,ArgumentList *al)
       ol.docify(" = ");
       ol.docify(a->defval);
     }
-    a=al->next();
+    ++ali;
+    a=ali.current();
     if (a) ol.docify(", ");
   }
   ol.docify("> ");
@@ -976,7 +980,7 @@ QCString MemberDef::getOutputFileBase() const
       );
     return "dummy";
   }
-  else if (separateMemberPages)
+  else if (separateMemberPages && isDetailedSectionLinkable())
   {
     if (getEnumScope()) // enum value, which is part of enum's documentation
     {
@@ -1349,7 +1353,7 @@ bool MemberDef::isBriefSectionVisible() const
   bool visibleIfNotDefaultCDTor = !(cOrDTor &&
                                    m_impl->defArgList &&
                                    (m_impl->defArgList->isEmpty() ||
-                                    m_impl->defArgList->first()->type == "void"
+                                    m_impl->defArgList->getFirst()->type == "void"
                                    ) &&
                                    !hasDocs
                                   );
@@ -1415,6 +1419,7 @@ void MemberDef::writeDeclaration(OutputList &ol,
   if (cd) d=cd; else if (nd) d=nd; else if (fd) d=fd; else d=gd;
 
   _writeTagData(compoundType);
+  _addToSearchIndex();
 
   QCString cname  = d->name();
   QCString cdname = d->displayName();
@@ -1569,7 +1574,7 @@ void MemberDef::writeDeclaration(OutputList &ol,
                );
   }
   bool htmlOn = ol.isEnabled(OutputGenerator::Html);
-  if (htmlOn && /*Config_getBool("HTML_ALIGN_MEMBERS") &&*/ !ltype.isEmpty())
+  if (htmlOn && !ltype.isEmpty())
   {
     ol.disable(OutputGenerator::Html);
   }
@@ -1788,11 +1793,12 @@ void MemberDef::writeDeclaration(OutputList &ol,
       ol.writeDoc(rootNode,getOuterScope()?getOuterScope():d,this);
       if (detailsVisible)
       {
+        static bool separateMemberPages = Config_getBool("SEPARATE_MEMBER_PAGES");
         ol.pushGeneratorState();
         ol.disableAllBut(OutputGenerator::Html);
         //ol.endEmphasis();
         ol.docify(" ");
-        if (m_impl->group!=0 && gd==0) // forward link to the group
+        if (separateMemberPages || (m_impl->group!=0 && gd==0)) // forward link to the page or group
         {
           ol.startTextLink(getOutputFileBase(),anchor());
         }
@@ -1896,7 +1902,7 @@ bool MemberDef::isDetailedSectionVisible(bool inGroup,bool inFile) const
   static bool hideUndocMembers = Config_getBool("HIDE_UNDOC_MEMBERS");
   bool groupFilter = getGroupDef()==0 || inGroup || separateMemPages;
   bool fileFilter  = getNamespaceDef()==0 || !inFile;
-  bool simpleFilter = !hideUndocMembers && inlineSimpleStructs &&
+  bool simpleFilter = (hasBriefDescription() || !hideUndocMembers) && inlineSimpleStructs &&
                       getClassDef()!=0 && getClassDef()->isSimple();
 
   bool visible = isDetailedSectionLinkable() && groupFilter && fileFilter &&
@@ -2287,8 +2293,9 @@ void MemberDef::_writeEnumValues(OutputList &ol,Definition *container,
     //printf("** %s: enum values=%d\n",name().data(),fmdl!=0 ? fmdl->count() : 0);
     if (fmdl)
     {
-      MemberDef *fmd=fmdl->first();
-      while (fmd)
+      MemberListIterator it(*fmdl);
+      MemberDef *fmd;
+      for (;(fmd=it.current());++it)
       {
         //printf("Enum %p: isLinkable()=%d\n",fmd,fmd->isLinkable());
         if (fmd->isLinkable())
@@ -2313,7 +2320,7 @@ void MemberDef::_writeEnumValues(OutputList &ol,Definition *container,
           Doxygen::indexList->addIndexItem(container,fmd);
 
           //ol.writeListItem();
-          ol.startDescTableTitle(); // this enables emphasis!
+          ol.startDescTableTitle();
           ol.startDoxyAnchor(cfname,cname,fmd->anchor(),fmd->name(),fmd->argsString());
           first=FALSE;
           //ol.startEmphasis();
@@ -2350,7 +2357,6 @@ void MemberDef::_writeEnumValues(OutputList &ol,Definition *container,
           }
           ol.endDescTableData();
         }
-        fmd=fmdl->next();
       }
     }
     if (!first)
@@ -2697,6 +2703,8 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
         if (sp!=-1)
         {
           ldef=ldef.left(sp+1)+ldef.mid(ep+2);
+        } else {
+          ldef=ldef.mid(ep+2);
         }
       }
       // strip keywords
@@ -3037,6 +3045,18 @@ static Definition *getClassFromType(Definition *scope,const QCString &type,SrcLa
 }
 #endif
 
+QCString MemberDef::fieldType() const
+{
+  QCString type = m_impl->accessorType;
+  if (type.isEmpty())
+  {
+    type = m_impl->type;
+  }
+
+  if (isTypedef()) type.prepend("typedef ");
+  return simplifyTypeForTable(type);
+}
+
 void MemberDef::writeMemberDocSimple(OutputList &ol, Definition *container)
 {
   Definition *scope  = getOuterScope();
@@ -3057,15 +3077,7 @@ void MemberDef::writeMemberDocSimple(OutputList &ol, Definition *container)
   ol.startInlineMemberType();
   ol.startDoxyAnchor(cfname,cname,memAnchor,doxyName,doxyArgs);
 
-  QCString type = m_impl->accessorType;
-  if (type.isEmpty())
-  {
-    type = m_impl->type;
-  }
-
-  if (isTypedef()) type.prepend("typedef ");
-
-  QCString ts = simplifyTypeForTable(type);
+  QCString ts = fieldType();
 
   if (cd) // cd points to an anonymous struct pointed to by this member
           // so we add a link to it from the type column.
@@ -3600,7 +3612,6 @@ void MemberDef::_writeTagData(const DefType compoundType)
     }
     writeDocAnchorsToTagFile();
     Doxygen::tagFile << "    </member>" << endl;
-    _addToSearchIndex();
   }
   m_impl->tagDataWritten |= typeMask;
 }
@@ -3710,11 +3721,11 @@ void MemberDef::writeEnumDeclaration(OutputList &typeDecl,
   uint numVisibleEnumValues=0;
   if (fmdl)
   {
-    MemberDef *fmd=fmdl->first();
-    while (fmd)
+    MemberListIterator mli(*fmdl);
+    MemberDef *fmd;
+    for (mli.toFirst();(fmd=mli.current());++mli)
     {
       if (fmd->isBriefSectionVisible()) numVisibleEnumValues++;
-      fmd=fmdl->next();
     }
   }
   if (numVisibleEnumValues==0 && !isBriefSectionVisible())
@@ -3730,6 +3741,7 @@ void MemberDef::writeEnumDeclaration(OutputList &typeDecl,
     if (isLinkableInProject() || hasDocumentedEnumValues())
     {
       _writeTagData(compoundType);
+      _addToSearchIndex();
       writeLink(typeDecl,cd,nd,fd,gd);
     }
     else
@@ -3754,7 +3766,8 @@ void MemberDef::writeEnumDeclaration(OutputList &typeDecl,
     typeDecl.docify("{ ");
     if (fmdl)
     {
-      MemberDef *fmd=fmdl->first();
+      MemberListIterator mli(*fmdl);
+      MemberDef *fmd=mli.current();
       bool fmdVisible = fmd->isBriefSectionVisible();
       while (fmd)
       {
@@ -3777,6 +3790,7 @@ void MemberDef::writeEnumDeclaration(OutputList &typeDecl,
           if (fmd->hasDocumentation()) // enum value has docs
           {
             fmd->_writeTagData(compoundType);
+            fmd->_addToSearchIndex();
             fmd->writeLink(typeDecl,cd,nd,fd,gd);
           }
           else // no docs for this enum value
@@ -3794,7 +3808,8 @@ void MemberDef::writeEnumDeclaration(OutputList &typeDecl,
         }
 
         bool prevVisible = fmdVisible;
-        fmd=fmdl->next();
+        ++mli;
+        fmd=mli.current();
         if (fmd && (fmdVisible=fmd->isBriefSectionVisible()))
         {
           typeDecl.writeString(", ");
@@ -3854,6 +3869,11 @@ void MemberDef::setAccessorType(ClassDef *cd,const char *t)
 {
   m_impl->accessorClass = cd;
   m_impl->accessorType = t;
+}
+
+ClassDef *MemberDef::accessorClass() const
+{
+  return m_impl->accessorClass;
 }
 
 void MemberDef::findSectionsInDocumentation()

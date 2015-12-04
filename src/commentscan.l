@@ -1,6 +1,6 @@
 /*****************************************************************************
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -234,6 +234,7 @@ static DocCmdMap docCmdMap[] =
   { "include",         0,                       TRUE  },
   { "includelineno",   0,                       TRUE  },
   { "invariant",       0,                       TRUE  },
+  { "latexinclude",    0,                       FALSE },
   { "li",              0,                       TRUE  },
   { "line",            0,                       TRUE  },
   { "note",            0,                       TRUE  },
@@ -553,7 +554,7 @@ static void addXRefItem(const char *listName,const char *itemTitle,
     item->text += " <p>";
     if (Doxygen::markdownSupport)
     {
-      item->text += processMarkdown(yyFileName,current,outputXRef);
+      item->text += processMarkdown(yyFileName,yyLineNr,current,outputXRef);
     }
     else
     {
@@ -575,7 +576,7 @@ static void addXRefItem(const char *listName,const char *itemTitle,
     ASSERT(item!=0);
     if (Doxygen::markdownSupport)
     {
-      item->text = processMarkdown(yyFileName,current,outputXRef);
+      item->text = processMarkdown(yyFileName,yyLineNr,current,outputXRef);
     }
     else
     {
@@ -593,11 +594,26 @@ static void addXRefItem(const char *listName,const char *itemTitle,
     {
       docEntry->doc += cmdString;
     }
-    SectionInfo *si=new SectionInfo(listName,anchorLabel,
-	                            g_sectionTitle,SectionInfo::Anchor,
-                                    g_sectionLevel);
-    Doxygen::sectionDict->append(anchorLabel,si);
-    docEntry->anchors->append(si);
+    SectionInfo *si = Doxygen::sectionDict->find(anchorLabel);
+    if (si)
+    {
+      if (si->lineNr != -1)
+      {
+        warn(listName,yyLineNr,"multiple use of section label '%s', (first occurrence: %s, line %d)",anchorLabel,si->fileName.data(),si->lineNr);
+      }
+      else
+      {
+        warn(listName,yyLineNr,"multiple use of section label '%s', (first occurrence: %s)",anchorLabel,si->fileName.data());
+      }
+    }
+    else
+    {
+      si=new SectionInfo(listName,yyLineNr,anchorLabel,
+                         g_sectionTitle,SectionInfo::Anchor,
+                         g_sectionLevel);
+      Doxygen::sectionDict->append(anchorLabel,si);
+      docEntry->anchors->append(si);
+    }
   }
   outputXRef.resize(0);
 }
@@ -643,18 +659,32 @@ static SectionInfo::SectionType sectionLevelToType(int level)
 
 static void addSection()
 {
-  // create a new section element
-  g_sectionTitle+=yytext;
-  g_sectionTitle=g_sectionTitle.stripWhiteSpace();
-  SectionInfo *si = new SectionInfo(yyFileName,g_sectionLabel,
+  SectionInfo *si = Doxygen::sectionDict->find(g_sectionLabel);
+  if (si)
+  {
+    if (si->lineNr != -1)
+    {
+      warn(yyFileName,yyLineNr,"multiple use of section label '%s', (first occurrence: %s, line %d)",g_sectionLabel.data(),si->fileName.data(),si->lineNr);
+    }
+    else
+    {
+      warn(yyFileName,yyLineNr,"multiple use of section label '%s', (first occurrence: %s)",g_sectionLabel.data(),si->fileName.data());
+    }
+  }
+  else
+  {
+    // create a new section element
+    g_sectionTitle+=yytext;
+    g_sectionTitle=g_sectionTitle.stripWhiteSpace();
+    si = new SectionInfo(yyFileName,yyLineNr,g_sectionLabel,
                           g_sectionTitle,sectionLevelToType(g_sectionLevel),g_sectionLevel);
 
-  // add section to this entry
-  current->anchors->append(si);
+    // add section to this entry
+    current->anchors->append(si);
 
-  // add section to the global dictionary
-  Doxygen::sectionDict->append(g_sectionLabel,si);
-
+    // add section to the global dictionary
+    Doxygen::sectionDict->append(g_sectionLabel,si);
+  }
 }
 
 //-----------------------------------------------------------------------------
@@ -850,7 +880,7 @@ DCMD1     ("arg"|"attention"|"author"|"cite"|"code")
 DCMD2     ("date"|"dot"|"msc"|"dotfile"|"example")
 DCMD3     ("htmlinclude"|"htmlonly"|"image"|"include")
 DCMD4     ("includelineno"|"internal"|"invariant")
-DCMD5     ("latexonly"|"li"|"line"|"manonly"|"name") 
+DCMD5     ("latexinclude"|"latexonly"|"li"|"line"|"manonly"|"name")
 DCMD6     ("note"|"par"|"paragraph"|"param"|"post")
 DCMD7     ("pre"|"remarks"|(("relate"[sd])("also")?))
 DCMD8     ("remarks"|("return"[s]?)|"retval"|"sa"|"section")
@@ -1169,6 +1199,12 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
   					}
 <Comment>^{B}*([\-:|]{B}*)*("--"|"---")({B}*[\-:|])*{B}*/\n { // horizontal line (dashed)
   				          addOutput(yytext); 
+                                        }
+<Comment>{CMD}"---"                     { // escaped mdash
+                                          addOutput(yytext);
+                                        }
+<Comment>{CMD}"--"                      { // escaped mdash
+                                          addOutput(yytext);
                                         }
 <Comment>"---"                          { // mdash
                                           addOutput(insidePre || Doxygen::markdownSupport ? yytext : "&mdash;");
@@ -1701,9 +1737,24 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
   /* ----- handle arguments of the anchor command ------- */
 
 <AnchorLabel>{LABELID}			{ // found argument
-                                          SectionInfo  *si = new SectionInfo(yyFileName,yytext,0,SectionInfo::Anchor,0);
-                                          Doxygen::sectionDict->append(yytext,si);
-  					  current->anchors->append(si);
+                                          SectionInfo *si = Doxygen::sectionDict->find(yytext);
+                                          if (si)
+                                          {
+                                            if (si->lineNr != -1)
+                                            {
+                                              warn(yyFileName,yyLineNr,"multiple use of section label '%s', (first occurrence: %s, line %d)",yytext,si->fileName.data(),si->lineNr);
+                                            }
+                                            else
+                                            {
+                                              warn(yyFileName,yyLineNr,"multiple use of section label '%s', (first occurrence: %s)",yytext,si->fileName.data());
+                                            }
+                                          }
+                                          else
+                                          {
+                                            si = new SectionInfo(yyFileName,yyLineNr,yytext,0,SectionInfo::Anchor,0);
+                                            Doxygen::sectionDict->append(yytext,si);
+  					    current->anchors->append(si);
+                                          }
 					  addOutput(yytext);
 					  BEGIN( Comment );
   					}
@@ -1765,7 +1816,7 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
 
   /* ----- handle arguments of if/ifnot commands ------- */
 
-<GuardParam>"("                         {
+<GuardParam>{B}*"("                         {
                                           g_guardExpr=yytext;
                                           g_roundCount=1;
                                           BEGIN(GuardExpr);
@@ -1791,7 +1842,7 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
                                           unput(*yytext);
                                           BEGIN(GuardParam);
                                         }
-<GuardParam>[a-z_A-Z0-9.\-]+            { // parameter of if/ifnot guard
+<GuardParam>{B}*[a-z_A-Z0-9.\-]+            { // parameter of if/ifnot guard
                                           handleGuard(yytext);
   					}
 <GuardParam>{DOCNL}			{ // end of argument
@@ -1842,8 +1893,14 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
 					  }
 					  else
 					  {
-					    delete guards.pop();
-					    BEGIN( GuardParamEnd );
+					    GuardedSection *s = guards.pop();
+                                            bool parentVisible = s->parentVisible();
+                                            delete s;
+                                            if (parentVisible)
+                                            {
+					      enabledSectionFound=TRUE;
+					      BEGIN( GuardParamEnd );
+                                            }
 					  }
   					}
 <SkipGuardedSection>{CMD}"else"/{NW}	{
@@ -2403,6 +2460,11 @@ static bool handleParBlock(const QCString &)
     warn(yyFileName,yyLineNr,
 	"found \\parblock command while already in a parblock!");
   }
+  if (!g_spaceBeforeCmd.isEmpty()) 
+  {
+    addOutput(g_spaceBeforeCmd);
+    g_spaceBeforeCmd.resize(0);
+  }
   addOutput("@parblock ");
   g_insideParBlock = TRUE;
   return FALSE;
@@ -2865,9 +2927,9 @@ bool parseCommentBlock(/* in */     ParserInterface *parser,
 
   if (Doxygen::markdownSupport)
   {
-    current->brief      = processMarkdown(fileName,current,current->brief);
-    current->doc        = processMarkdown(fileName,current,current->doc);
-    current->inbodyDocs = processMarkdown(fileName,current,current->inbodyDocs);
+    current->brief      = processMarkdown(fileName,lineNr,current,current->brief);
+    current->doc        = processMarkdown(fileName,lineNr,current,current->doc);
+    current->inbodyDocs = processMarkdown(fileName,lineNr,current,current->inbodyDocs);
   }
 
   Debug::print(Debug::CommentScan,0,
@@ -3079,7 +3141,7 @@ static void groupAddDocs(Entry *e,const char *fileName)
 static void handleGuard(const QCString &expr)
 {
   CondParser prs;
-  bool sectionEnabled=prs.parse(yyFileName,yyLineNr,expr);
+  bool sectionEnabled=prs.parse(yyFileName,yyLineNr,expr.stripWhiteSpace());
   bool parentEnabled = TRUE;
   if (!guards.isEmpty()) parentEnabled = guards.top()->isEnabled();
   if (parentEnabled)

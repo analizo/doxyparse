@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -45,6 +45,7 @@
 #include "membergroup.h"
 #include "dirdef.h"
 #include "section.h"
+#include "htmlentity.h"
 
 // no debug info
 #define XML_DB(x) do {} while(0)
@@ -1844,7 +1845,7 @@ static void generateXMLForPage(PageDef *pd,FTextStream &ti,bool isExample)
     SectionInfo *si = Doxygen::sectionDict->find(pd->name());
     if (si)
     {
-      t << "    <title>" << convertToXML(convertCharEntitiesToUTF8(si->title)) 
+      t << "    <title>" << convertToXML(convertCharEntitiesToUTF8(filterTitle(si->title))) 
         << "</title>" << endl;
     }
   }
@@ -1897,7 +1898,32 @@ void generateXML()
     err("Cannot open file %s for writing!\n",fileName.data());
     return;
   }
-  f.writeBlock(compound_xsd,qstrlen(compound_xsd));
+
+  // write compound.xsd, but replace special marker with the entities
+  const char *startLine = compound_xsd;
+  while (*startLine)
+  {
+    // find end of the line
+    const char *endLine = startLine+1;
+    while (*endLine && *(endLine-1)!='\n') endLine++; // skip to end of the line including \n
+    int len=endLine-startLine;
+    if (len>0)
+    {
+      QCString s(len+1);
+      qstrncpy(s.data(),startLine,len);
+      s[len]='\0';
+      if (s.find("<!-- Automatically insert here the HTML entities -->")!=-1)
+      {
+        FTextStream t(&f);
+        HtmlEntityMapper::instance()->writeXMLSchema(t);
+      }
+      else
+      {
+        f.writeBlock(startLine,len);
+      }
+    }
+    startLine=endLine;
+  }
   f.close();
 
   fileName=outputDirectory+"/index.xml";

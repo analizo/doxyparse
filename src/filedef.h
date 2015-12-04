@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2013 by Dimitri van Heesch.
+ * Copyright (C) 1997-2014 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -133,6 +133,10 @@ class FileDef : public Definition
     ClassSDict *getClassSDict() const             { return m_classSDict; }
 
     QCString title() const;
+    bool hasDetailedDescription() const;
+    QCString fileVersion() const;
+
+    bool subGrouping() const { return m_subGrouping; }
     
     //---------------------------------
 
@@ -237,13 +241,11 @@ class FileList : public QList<FileDef>
     FileList(const char *path) : QList<FileDef>(), m_pathName(path) {}
    ~FileList() {}
     QCString path() const { return m_pathName; }
-    int compareItems(QCollection::Item item1,QCollection::Item item2)
+  private:
+    int compareValues(const FileDef *md1,const FileDef *md2) const
     {
-      FileDef *md1 = (FileDef *)item1;
-      FileDef *md2 = (FileDef *)item2;
       return qstricmp(md1->name(),md2->name());
     }
-  private:
     QCString m_pathName;
 };
 
@@ -252,10 +254,9 @@ class OutputNameList : public QList<FileList>
   public:
     OutputNameList() : QList<FileList>() {}
    ~OutputNameList() {}
-    int compareItems(QCollection::Item item1,QCollection::Item item2)
+ private:
+    int compareValues(const FileList *fl1,const FileList *fl2) const
     {
-      FileList *fl1 = (FileList *)item1;
-      FileList *fl2 = (FileList *)item2;
       return qstricmp(fl1->path(),fl2->path());
     }
 };
