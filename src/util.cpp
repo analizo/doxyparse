@@ -218,6 +218,7 @@ QCString stripAnonymousNamespaceScope(const QCString &s)
 {
   int i,p=0,l;
   QCString newScope;
+  int sl = s.length();
   while ((i=getScopeFragment(s,p,&l))!=-1)
   {
     //printf("Scope fragment %s\n",s.mid(i,l).data());
@@ -229,10 +230,10 @@ QCString stripAnonymousNamespaceScope(const QCString &s)
         newScope+=s.mid(i,l);
       }
     }
-    else
+    else if (i<sl)
     {
       if (!newScope.isEmpty()) newScope+="::";
-      newScope+=s.right(s.length()-i);
+      newScope+=s.right(sl-i);
       goto done;
     }
     p=i+l;
@@ -1652,7 +1653,9 @@ static const char virtualScope[] = { 'v', 'i', 'r', 't', 'u', 'a', 'l', ':' };
 QCString removeRedundantWhiteSpace(const QCString &s)
 {
   static bool cliSupport = Config_getBool("CPP_CLI_SUPPORT");
-  if (s.isEmpty()) return s;
+  static bool vhdl = Config_getBool("OPTIMIZE_OUTPUT_VHDL");
+   
+  if (s.isEmpty() || vhdl) return s;
   static GrowBuf growBuf;
   //int resultLen = 1024;
   //int resultPos = 0;
@@ -1870,7 +1873,8 @@ int findParameterList(const QString &name)
       }
       else
       {
-        return bracePos;
+        int bp = bracePos>0 ? name.findRev('(',bracePos-1) : -1;
+        return bp==-1 ? bracePos : bp;
       }
     }
   } while (pos!=-1);
@@ -4304,7 +4308,27 @@ bool getDefs(const QCString &scName,
       //printf("found %d candidate members\n",members.count());
       if (members.count()>0) // at least one match
       {
-        md=members.last();
+        if (currentFile)
+        {
+          //printf("multiple results; pick one from file:%s\n", currentFile->name().data());
+          md = members.first();
+          while (md) 
+          {
+            if (md->getFileDef() && md->getFileDef()->name() == currentFile->name()) 
+            {
+              break; // found match in the current file
+            }
+            md=members.next();
+          }
+          if (!md) // member not in the current file
+          {
+            md=members.last();
+          }
+        } 
+        else 
+        {
+          md=members.last();
+        }
       }
       if (md && (md->getEnumScope()==0 || !md->getEnumScope()->isStrong())) 
            // found a matching global member, that is not a scoped enum value (or uniquely matches)
@@ -4410,7 +4434,7 @@ bool resolveRef(/* in */  const char *scName,
   QCString tsName = name;
   //bool memberScopeFirst = tsName.find('#')!=-1;
   QCString fullName = substitute(tsName,"#","::");
-  if (fullName.find("anonymous_namespace{")==-1 && fullName.find('<')==-1)
+  if (fullName.find("anonymous_namespace{")==-1)
   {
     fullName = removeRedundantWhiteSpace(substitute(fullName,".","::"));
   }
@@ -5053,6 +5077,34 @@ static void initBaseClassHierarchy(BaseClassList *bcl)
     cd->visited=FALSE;
   }
 }
+//----------------------------------------------------------------------------
+
+bool classHasVisibleChildren(ClassDef *cd)
+{
+  BaseClassList *bcl;
+
+  if (cd->getLanguage()==SrcLangExt_VHDL) // reverse baseClass/subClass relation
+  {
+    if (cd->baseClasses()==0) return FALSE;
+    bcl=cd->baseClasses();
+  }
+  else 
+  {
+    if (cd->subClasses()==0) return FALSE;
+    bcl=cd->subClasses();
+  }
+
+  BaseClassListIterator bcli(*bcl);
+  for ( ; bcli.current() ; ++bcli)
+  {
+    if (bcli.current()->classDef->isVisibleInHierarchy())
+    {
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
 
 //----------------------------------------------------------------------------
 
@@ -5860,29 +5912,29 @@ int extractClassNameFromType(const QCString &type,int &pos,QCString &name,QCStri
   static const QRegExp re_ftn("[a-z_A-Z\\x80-\\xFF][()=_a-z_A-Z0-9:\\x80-\\xFF]*");
   QRegExp re;
 
-  if (lang == SrcLangExt_Fortran)
-  {
-    if (type.at(pos)==',') return -1;
-    if (type.left(4).lower()=="type")
-    {
-      re = re_norm;
-    }
-    else
-    {
-      re = re_ftn;
-    }
-  }
-  else
-  {
-    re = re_norm;
-  }
-
   name.resize(0);
   templSpec.resize(0);
   int i,l;
   int typeLen=type.length();
   if (typeLen>0)
   {
+    if (lang == SrcLangExt_Fortran)
+    {
+      if (type.at(pos)==',') return -1;
+      if (type.left(4).lower()=="type")
+      {
+        re = re_norm;
+      }
+      else
+      {
+        re = re_ftn;
+      }
+    }
+    else
+    {
+      re = re_norm;
+    }
+
     if ((i=re.match(type,pos,&l))!=-1) // for each class name in the type
     {
       int ts=i+l;
@@ -6293,11 +6345,11 @@ PageDef *addRelatedPage(const char *name,const QCString &ptitle,
     if (tagInfo)
     {
       pd->setReference(tagInfo->tagName);
-      pd->setFileName(tagInfo->fileName);
+      pd->setFileName(tagInfo->fileName,TRUE);
     }
     else
     {
-      pd->setFileName(convertNameToFile(pd->name(),FALSE,TRUE));
+      pd->setFileName(convertNameToFile(pd->name(),FALSE,TRUE),FALSE);
     }
 
     //printf("Appending page `%s'\n",baseName.data());
@@ -6437,7 +6489,7 @@ void filterLatexString(FTextStream &t,const char *str,
         case '}':  t << "\\}";           break;
         case '<':  t << "$<$";           break;
         case '>':  t << "$>$";           break;
-        case '|':  t << "$|$";           break;
+        case '|':  t << "$\\vert$";      break;
         case '~':  t << "$\\sim$";       break;
         case '[':  if (Config_getBool("PDF_HYPERLINKS") || insideItem) 
                      t << "\\mbox{[}"; 
@@ -6963,7 +7015,7 @@ QCString parseCommentAsText(const Definition *scope,const MemberDef *md,
 
 static QDict<void> aliasesProcessed;
 
-static QCString expandAliasRec(const QCString s);
+static QCString expandAliasRec(const QCString s,bool allowRecursion=FALSE);
 
 struct Marker
 {
@@ -7085,7 +7137,7 @@ static QCString replaceAliasArguments(const QCString &aliasValue,const QCString 
     //printf("part before marker %d: '%s'\n",i,aliasValue.mid(p,m->pos-p).data());
     if (m->number>0 && m->number<=(int)args.count()) // valid number
     {
-      result+=*args.at(m->number-1);
+      result+=expandAliasRec(*args.at(m->number-1),TRUE);
       //printf("marker index=%d pos=%d number=%d size=%d replacement %s\n",i,m->pos,m->number,m->size,
       //    args.at(m->number-1)->data());
     }
@@ -7093,7 +7145,7 @@ static QCString replaceAliasArguments(const QCString &aliasValue,const QCString 
   }
   result+=aliasValue.right(l-p); // append remainder
   //printf("string after replacement of markers: '%s'\n",result.data());
-  
+
   // expand the result again
   result = substitute(result,"\\{","{");
   result = substitute(result,"\\}","}");
@@ -7124,7 +7176,7 @@ static QCString escapeCommas(const QCString &s)
   return result.data();
 }
 
-static QCString expandAliasRec(const QCString s)
+static QCString expandAliasRec(const QCString s,bool allowRecursion)
 {
   QCString result;
   static QRegExp cmdPat("[\\\\@][a-z_A-Z][a-z_A-Z0-9]*");
@@ -7157,10 +7209,10 @@ static QCString expandAliasRec(const QCString s)
     }
     //printf("Found command s='%s' cmd='%s' numArgs=%d args='%s' aliasText=%s\n",
     //    s.data(),cmd.data(),numArgs,args.data(),aliasText?aliasText->data():"<none>");
-    if (aliasesProcessed.find(cmd)==0 && aliasText) // expand the alias
+    if ((allowRecursion || aliasesProcessed.find(cmd)==0) && aliasText) // expand the alias
     {
       //printf("is an alias!\n");
-      aliasesProcessed.insert(cmd,(void *)0x8);
+      if (!allowRecursion) aliasesProcessed.insert(cmd,(void *)0x8);
       QCString val = *aliasText;
       if (hasArgs)
       {
@@ -7169,7 +7221,7 @@ static QCString expandAliasRec(const QCString s)
         //       aliasText->data(),val.data(),args.data());
       }
       result+=expandAliasRec(val);
-      aliasesProcessed.remove(cmd);
+      if (!allowRecursion) aliasesProcessed.remove(cmd);
       p=i+l;
       if (hasArgs) p+=argsLen+2;
     }
@@ -7682,6 +7734,7 @@ QCString extractBlock(const QCString text,const QCString marker)
     p=i+1;
   }
   l1=p;
+  int lp=i;
   if (found)
   {
     while ((i=text.find('\n',p))!=-1)
@@ -7692,10 +7745,15 @@ QCString extractBlock(const QCString text,const QCString marker)
         break;
       }
       p=i+1;
+      lp=i;
     }
   }
+  if (l2==-1) // marker at last line without newline (see bug706874)
+  {
+    l2=lp;
+  }
   //printf("text=[%s]\n",text.mid(l1,l2-l1).data());
-  return text.mid(l1,l2-l1);
+  return l2>l1 ? text.mid(l1,l2-l1) : QCString();
 }
 
 /** Returns a string representation of \a lang. */
@@ -7890,3 +7948,326 @@ void addDocCrossReference(MemberDef *src,MemberDef *dst)
   }
 }
 
+//--------------------------------------------------------------------------------------
+
+/*! @brief Get one unicode character as an unsigned integer from utf-8 string
+ *
+ * @param s utf-8 encoded string
+ * @param idx byte position of given string \a s.
+ * @return the unicode codepoint, 0 - MAX_UNICODE_CODEPOINT
+ * @see getNextUtf8OrToLower()
+ * @see getNextUtf8OrToUpper()
+ */
+uint getUtf8Code( const QCString& s, int idx )
+{
+  const int length = s.length();
+  if (idx >= length) { return 0; }
+  const uint c0 = (uchar)s.at(idx);
+  if ( c0 < 0xC2 || c0 >= 0xF8 ) // 1 byte character
+  {
+    return c0;
+  }
+  if (idx+1 >= length) { return 0; }
+  const uint c1 = ((uchar)s.at(idx+1)) & 0x3f;
+  if ( c0 < 0xE0 ) // 2 byte character
+  {
+    return ((c0 & 0x1f) << 6) | c1;
+  }
+  if (idx+2 >= length) { return 0; }
+  const uint c2 = ((uchar)s.at(idx+2)) & 0x3f;
+  if ( c0 < 0xF0 ) // 3 byte character
+  {
+    return ((c0 & 0x0f) << 12) | (c1 << 6) | c2;
+  }
+  if (idx+3 >= length) { return 0; }
+  // 4 byte character
+  const uint c3 = ((uchar)s.at(idx+3)) & 0x3f;
+  return ((c0 & 0x07) << 18) | (c1 << 12) | (c2 << 6) | c3;
+}
+
+
+/*! @brief Returns one unicode character as an unsigned integer 
+ *  from utf-8 string, making the character lower case if it was upper case.
+ *
+ * @param s utf-8 encoded string
+ * @param idx byte position of given string \a s.
+ * @return the unicode codepoint, 0 - MAX_UNICODE_CODEPOINT, excludes 'A'-'Z'
+ * @see getNextUtf8Code()
+*/
+uint getUtf8CodeToLower( const QCString& s, int idx )
+{
+  const uint v = getUtf8Code( s, idx );
+  return v < 0x7f ? tolower( v ) : v;
+}
+
+
+/*! @brief Returns one unicode character as ian unsigned interger 
+ *  from utf-8 string, making the character upper case if it was lower case.
+ *
+ * @param s utf-8 encoded string
+ * @param idx byte position of given string \a s.
+ * @return the unicode codepoint, 0 - MAX_UNICODE_CODEPOINT, excludes 'A'-'Z'
+ * @see getNextUtf8Code()
+ */
+uint getUtf8CodeToUpper( const QCString& s, int idx )
+{
+  const uint v = getUtf8Code( s, idx );
+  return v < 0x7f ? toupper( v ) : v;
+}
+
+//--------------------------------------------------------------------------------------
+
+bool namespaceHasVisibleChild(NamespaceDef *nd,bool includeClasses)
+{
+  if (nd->getNamespaceSDict())
+  {
+    NamespaceSDict::Iterator cnli(*nd->getNamespaceSDict());
+    NamespaceDef *cnd;
+    for (cnli.toFirst();(cnd=cnli.current());++cnli)
+    {
+      if (cnd->isLinkable() && cnd->localName().find('@')==-1)
+      {
+        return TRUE;
+      }
+      else if (namespaceHasVisibleChild(cnd,includeClasses))
+      {
+        return TRUE;
+      }
+    }
+  }
+  if (includeClasses && nd->getClassSDict())
+  {
+    ClassSDict::Iterator cli(*nd->getClassSDict());
+    ClassDef *cd;
+    for (;(cd=cli.current());++cli)
+    {
+      if (cd->isLinkableInProject() && cd->templateMaster()==0) 
+      { 
+        return TRUE;
+      }
+    }
+  }
+  return FALSE;
+}
+
+//----------------------------------------------------------------------------
+
+bool classVisibleInIndex(ClassDef *cd)
+{
+  static bool allExternals = Config_getBool("ALLEXTERNALS");
+  return (allExternals && cd->isLinkable()) || cd->isLinkableInProject();
+}
+
+//----------------------------------------------------------------------------
+
+QCString extractDirection(QCString &docs)
+{
+  QRegExp re("\\[[^\\]]+\\]"); // [...]
+  int l=0;
+  if (re.match(docs,0,&l)==0)
+  {
+    int  inPos  = docs.find("in", 1,FALSE);
+    int outPos  = docs.find("out",1,FALSE);
+    bool input  =  inPos!=-1 &&  inPos<l;
+    bool output = outPos!=-1 && outPos<l;
+    if (input || output) // in,out attributes
+    {
+      docs = docs.mid(l); // strip attributes
+      if (input && output) return "[in,out]";
+      else if (input)      return "[in]";
+      else if (output)     return "[out]";
+    }
+  }
+  return QCString();
+}
+
+//-----------------------------------------------------------
+
+/** Computes for a given list type \a inListType, which are the
+ *  the corresponding list type(s) in the base class that are to be
+ *  added to this list.
+ *
+ *  So for public inheritance, the mapping is 1-1, so outListType1=inListType
+ *  Private members are to be hidden completely.
+ *
+ *  For protected inheritance, both protected and public members of the
+ *  base class should be joined in the protected member section.
+ *
+ *  For private inheritance, both protected and public members of the
+ *  base class should be joined in the private member section.
+ */
+void convertProtectionLevel(
+                   MemberListType inListType,
+                   Protection inProt,
+                   int *outListType1,
+                   int *outListType2
+                  )
+{
+  static bool extractPrivate = Config_getBool("EXTRACT_PRIVATE");
+  // default representing 1-1 mapping
+  *outListType1=inListType;
+  *outListType2=-1;
+  if (inProt==Public)
+  {
+    switch (inListType) // in the private section of the derived class,
+                        // the private section of the base class should not
+                        // be visible
+    {
+      case MemberListType_priMethods:
+      case MemberListType_priStaticMethods:
+      case MemberListType_priSlots:
+      case MemberListType_priAttribs:
+      case MemberListType_priStaticAttribs:
+      case MemberListType_priTypes:
+        *outListType1=-1;
+        *outListType2=-1;
+        break;
+      default:
+        break;
+    }
+  }
+  else if (inProt==Protected) // Protected inheritance
+  {
+    switch (inListType) // in the protected section of the derived class,
+                        // both the public and protected members are shown
+                        // as protected
+    {
+      case MemberListType_pubMethods:
+      case MemberListType_pubStaticMethods:
+      case MemberListType_pubSlots:
+      case MemberListType_pubAttribs:
+      case MemberListType_pubStaticAttribs:
+      case MemberListType_pubTypes:
+      case MemberListType_priMethods:
+      case MemberListType_priStaticMethods:
+      case MemberListType_priSlots:
+      case MemberListType_priAttribs:
+      case MemberListType_priStaticAttribs:
+      case MemberListType_priTypes:
+        *outListType1=-1;
+        *outListType2=-1;
+        break;
+
+      case MemberListType_proMethods:
+        *outListType2=MemberListType_pubMethods;
+        break;
+      case MemberListType_proStaticMethods:
+        *outListType2=MemberListType_pubStaticMethods;
+        break;
+      case MemberListType_proSlots:
+        *outListType2=MemberListType_pubSlots;
+        break;
+      case MemberListType_proAttribs:
+        *outListType2=MemberListType_pubAttribs;
+        break;
+      case MemberListType_proStaticAttribs:
+        *outListType2=MemberListType_pubStaticAttribs;
+        break;
+      case MemberListType_proTypes:
+        *outListType2=MemberListType_pubTypes;
+        break;
+      default:
+        break;
+    }
+  }
+  else if (inProt==Private)
+  {
+    switch (inListType) // in the private section of the derived class,
+                        // both the public and protected members are shown
+                        // as private
+    {
+      case MemberListType_pubMethods:
+      case MemberListType_pubStaticMethods:
+      case MemberListType_pubSlots:
+      case MemberListType_pubAttribs:
+      case MemberListType_pubStaticAttribs:
+      case MemberListType_pubTypes:
+      case MemberListType_proMethods:
+      case MemberListType_proStaticMethods:
+      case MemberListType_proSlots:
+      case MemberListType_proAttribs:
+      case MemberListType_proStaticAttribs:
+      case MemberListType_proTypes:
+        *outListType1=-1;
+        *outListType2=-1;
+        break;
+
+      case MemberListType_priMethods:
+        if (extractPrivate)
+        {
+          *outListType1=MemberListType_pubMethods;
+          *outListType2=MemberListType_proMethods;
+        }
+        else
+        {
+          *outListType1=-1;
+          *outListType2=-1;
+        }
+        break;
+      case MemberListType_priStaticMethods:
+        if (extractPrivate)
+        {
+          *outListType1=MemberListType_pubStaticMethods;
+          *outListType2=MemberListType_proStaticMethods;
+        }
+        else
+        {
+          *outListType1=-1;
+          *outListType2=-1;
+        }
+        break;
+      case MemberListType_priSlots:
+        if (extractPrivate)
+        {
+          *outListType1=MemberListType_pubSlots;
+          *outListType1=MemberListType_proSlots;
+        }
+        else
+        {
+          *outListType1=-1;
+          *outListType2=-1;
+        }
+        break;
+      case MemberListType_priAttribs:
+        if (extractPrivate)
+        {
+          *outListType1=MemberListType_pubAttribs;
+          *outListType2=MemberListType_proAttribs;
+        }
+        else
+        {
+          *outListType1=-1;
+          *outListType2=-1;
+        }
+        break;
+      case MemberListType_priStaticAttribs:
+        if (extractPrivate)
+        {
+          *outListType1=MemberListType_pubStaticAttribs;
+          *outListType2=MemberListType_proStaticAttribs;
+        }
+        else
+        {
+          *outListType1=-1;
+          *outListType2=-1;
+        }
+        break;
+      case MemberListType_priTypes:
+        if (extractPrivate)
+        {
+          *outListType1=MemberListType_pubTypes;
+          *outListType2=MemberListType_proTypes;
+        }
+        else
+        {
+          *outListType1=-1;
+          *outListType2=-1;
+        }
+        break;
+      default:
+        break;
+    }
+  }
+  //printf("convertProtectionLevel(type=%d prot=%d): %d,%d\n",
+  //    inListType,inProt,*outListType1,*outListType2);
+}

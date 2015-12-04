@@ -132,6 +132,7 @@ static int           g_inputLines;      //!< number of line in the code fragment
 static int	     g_yyLineNr;        //!< current line number
 static bool          g_needsTermination;
 static Definition   *g_searchCtx;
+static bool          g_collectXRefs;
 static bool          g_isFixedForm;
 
 static bool          g_insideBody;      //!< inside subprog/program body? => create links
@@ -378,36 +379,6 @@ static void writeMultiLineCodeLink(CodeOutputInterface &ol,
   }
 }
 
-#if 0
-static QCString fileLocation() 
-{
-  QCString result = g_sourceFileDef?g_sourceFileDef->absFilePath():QCString("[unknown]");
-  result+=":"+QCString().setNum(g_yyLineNr);
-  result+=":"+QCString().setNum(1);
-  return result;
-}
-
-
-/**
-  generates dictionay entries that are used if REFERENCED_BY_RELATION ... options are set
-  (e.g. the "referenced by ..." list after the function documentation) 
-*/
-
-static void addDocCrossReference(MemberDef *src, MemberDef *dst)
-{
-  if (dst->isTypedef() || dst->isEnumerate()) return; // don't add types
- //printf("======= addDocCrossReference src=%s,dst=%s\n",src->name().data(),dst->name().data());
-  if ((Config_getBool("REFERENCED_BY_RELATION") || Config_getBool("CALLER_GRAPH")) && 
-      (src->isFunction()))
-  {
-    dst->addSourceReferencedBy(src,fileLocation());
-  }
-  if ((Config_getBool("REFERENCES_RELATION") || Config_getBool("CALL_GRAPH")) && (src->isFunction()))
-  {
-    src->addSourceReferences(dst,fileLocation());
-  }
-}
-#endif
 
 //-------------------------------------------------------------------------------
 /**
@@ -565,7 +536,8 @@ static bool getLink(UseSDict *usedict, // dictonary with used modules
     if (md->getGroupDef()) d = md->getGroupDef();
     if (d && d->isLinkable())
     {
-      if (g_currentDefinition && g_currentMemberDef && md!=g_currentMemberDef && g_insideBody)
+      if (g_currentDefinition && g_currentMemberDef && 
+          md!=g_currentMemberDef && g_insideBody && g_collectXRefs)
       { 
 	addDocCrossReference(g_currentMemberDef,md); 
       }     
@@ -712,14 +684,14 @@ CHAR      (CHARACTER{ARGS}?|CHARACTER{BS}"*"({BS}[0-9]+|{ARGS}))
 TYPE_SPEC (({NUM_TYPE}({BS}"*"{BS}[0-9]+)?)|({NUM_TYPE}{KIND})|DOUBLE{BS_}COMPLEX|DOUBLE{BS_}PRECISION|{CHAR})
 
 INTENT_SPEC intent{BS}"("{BS}(in|out|in{BS}out){BS}")"
-ATTR_SPEC (IMPLICIT|ALLOCATABLE|DIMENSION{ARGS}|EXTERNAL|{INTENT_SPEC}|INTRINSIC|OPTIONAL|PARAMETER|POINTER|PROTECTED|PRIVATE|PUBLIC|SAVE|TARGET|RECURSIVE|PURE|ELEMENTAL)
+ATTR_SPEC (IMPLICIT|ALLOCATABLE|DIMENSION{ARGS}|EXTERNAL|{INTENT_SPEC}|INTRINSIC|OPTIONAL|PARAMETER|POINTER|PROTECTED|PRIVATE|PUBLIC|SAVE|TARGET|RECURSIVE|PURE|IMPURE|ELEMENTAL)
 ACCESS_SPEC (PROTECTED|PRIVATE|PUBLIC)
 /* Assume that attribute statements are almost the same as attributes. */
 ATTR_STMT {ATTR_SPEC}|DIMENSION
 FLOW  (DO|SELECT|CASE|WHERE|IF|THEN|ELSE|WHILE|FORALL|ELSEWHERE|ELSEIF|RETURN|CONTINUE|EXIT)
 COMMANDS  (FORMAT|CONTAINS|MODULE{BS_}PROCEDURE|WRITE|READ|ALLOCATE|ALLOCATED|ASSOCIATED|DEALLOCATE|SIZE|INQUIRE|OPEN|CLOSE|DATA|COMMON)
 IGNORE (CALL)
-PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTAL)?
+PREFIX    (RECURSIVE{BS_}|IMPURE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,3}(RECURSIVE|IMPURE|PURE|ELEMENTAL)?
 
 /* |  */
 
@@ -1133,7 +1105,8 @@ void resetFortranCodeParserState() {}
 void parseFortranCode(CodeOutputInterface &od,const char *className,const QCString &s, 
                   bool exBlock, const char *exName,FileDef *fd,
 		  int startLine,int endLine,bool inlineFragment,
-		  MemberDef *memberDef,bool,Definition *searchCtx)
+		  MemberDef *memberDef,bool,Definition *searchCtx,
+                  bool collectXRefs)
 {
   //printf("***parseCode() exBlock=%d exName=%s fd=%p\n",exBlock,exName,fd);
 
@@ -1142,6 +1115,7 @@ void parseFortranCode(CodeOutputInterface &od,const char *className,const QCStri
   (void)className;
 
   if (s.isEmpty()) return;
+  printlex(yy_flex_debug, TRUE, __FILE__, fd ? fd->fileName().data(): NULL);
   TooltipManager::instance()->clearTooltips();
   g_code = &od;
   g_inputString   = s;
@@ -1150,6 +1124,7 @@ void parseFortranCode(CodeOutputInterface &od,const char *className,const QCStri
   g_currentFontClass = 0;
   g_needsTermination = FALSE;
   g_searchCtx = searchCtx;
+  g_collectXRefs = collectXRefs;
   if (endLine!=-1)
     g_inputLines  = endLine+1;
   else
@@ -1182,9 +1157,9 @@ void parseFortranCode(CodeOutputInterface &od,const char *className,const QCStri
   startCodeLine();
   g_parmName.resize(0);
   g_parmType.resize(0);
-  fcodeYYrestart( fcodeYYin );
+  fortrancodeYYrestart( fortrancodeYYin );
   BEGIN( Start );
-  fcodeYYlex();
+  fortrancodeYYlex();
   if (g_needsTermination)
   {
     endFontClass();
@@ -1200,18 +1175,19 @@ void parseFortranCode(CodeOutputInterface &od,const char *className,const QCStri
     delete g_sourceFileDef;
     g_sourceFileDef=0;
   }
+  printlex(yy_flex_debug, FALSE, __FILE__, fd ? fd->fileName().data(): NULL);
   return;
 }
 
 #if !defined(YY_FLEX_SUBMINOR_VERSION) 
 extern "C" { // some bogus code to keep the compiler happy
-  void fcodeYYdummy() { yy_flex_realloc(0,0); } 
+  void fortrancodeYYdummy() { yy_flex_realloc(0,0); } 
 }
 #elif YY_FLEX_SUBMINOR_VERSION<33
 #error "You seem to be using a version of flex newer than 2.5.4 but older than 2.5.33. These versions do NOT work with doxygen! Please use version <=2.5.4 or >=2.5.33 or expect things to be parsed wrongly!"
 #else
 extern "C" { // some bogus code to keep the compiler happy
-  void fcodeYYdummy() { yy_top_state(); } 
+  void fortrancodeYYdummy() { yy_top_state(); } 
 }
 #endif
 

@@ -23,6 +23,7 @@ class Entry;
 
 /** processes string \a s and converts markdown into doxygen/html commands. */
 QCString processMarkdown(const QCString &fileName,Entry *e,const QCString &s);
+QCString markdownFileNameToId(const QCString &fileName);
 
 class MarkdownFileParser : public ParserInterface
 {
@@ -48,7 +49,8 @@ class MarkdownFileParser : public ParserInterface
                    bool inlineFragment=FALSE,
                    MemberDef *memberDef=0,
                    bool showLineNumbers=TRUE,
-                   Definition *searchCtx=0
+                   Definition *searchCtx=0,
+                   bool collectXRefs=TRUE
                   );
     void resetCodeParserState();
     void parsePrototype(const char *text);

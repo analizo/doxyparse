@@ -41,15 +41,15 @@
 
 
 static const char navtree_script[]=
-#include "navtree_js.h"
+#include "navtree.js.h"
 ;
 
 static const char resize_script[]=
-#include "resize_js.h"
+#include "resize.js.h"
 ;
 
 static const char navtree_css[]=
-#include "navtree_css.h"
+#include "navtree.css.h"
 ;
 
 static unsigned char blank_png[352] =
@@ -890,7 +890,7 @@ static void generateBriefDoc(FTextStream &t,Definition *def)
         def,0,brief,FALSE,FALSE,0,TRUE,TRUE);
     QCString relPath = relativePathToRoot(def->getOutputFileBase());
     HtmlCodeGenerator htmlGen(t,relPath);
-    HtmlDocVisitor *visitor = new HtmlDocVisitor(t,htmlGen,def,0);
+    HtmlDocVisitor *visitor = new HtmlDocVisitor(t,htmlGen,def);
     root->accept(visitor);
     delete visitor;
     delete root;
@@ -1129,7 +1129,14 @@ static bool generateJSTree(NavIndexEntryList &navIndex,FTextStream &t,
       if (n->children.count()>0) // write children to separate file for dynamic loading
       {
         QCString fileId = n->file;
-        if (dupOfParent(n)) fileId+="_dup";
+        if (n->anchor)
+        {
+          fileId+="_"+n->anchor;
+        }
+        if (dupOfParent(n)) 
+        {
+          fileId+="_dup";
+        }
         QFile f(htmlOutput+"/"+fileId+".js");
         if (f.open(IO_WriteOnly))
         {

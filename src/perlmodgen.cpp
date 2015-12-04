@@ -364,6 +364,8 @@ public:
   void visitPost(DocDotFile *);
   void visitPre(DocMscFile *);
   void visitPost(DocMscFile *);
+  void visitPre(DocDiaFile *);
+  void visitPost(DocDiaFile *);
   void visitPre(DocLink *);
   void visitPost(DocLink *);
   void visitPre(DocRef *);
@@ -390,6 +392,8 @@ public:
   void visitPost(DocHtmlBlockQuote *);
   void visitPre(DocVhdlFlow *);
   void visitPost(DocVhdlFlow *);
+  void visitPre(DocParBlock *);
+  void visitPost(DocParBlock *);
 
 private:
 
@@ -1207,6 +1211,20 @@ void PerlModDocVisitor::visitPost(DocMscFile *)
 #endif
 }
 
+void PerlModDocVisitor::visitPre(DocDiaFile *)
+{
+#if 0
+  m_output.add("<diafile name=\""); m_output.add(df->file()); m_output.add("\">");
+#endif
+}
+
+void PerlModDocVisitor::visitPost(DocDiaFile *)
+{
+#if 0
+  m_output.add("</diafile>");
+#endif
+}
+
 
 void PerlModDocVisitor::visitPre(DocLink *lnk)
 {
@@ -1331,7 +1349,7 @@ void PerlModDocVisitor::visitPost(DocParamList *)
     .closeHash();
 }
 
-void PerlModDocVisitor::visitPre(DocXRefItem *)
+void PerlModDocVisitor::visitPre(DocXRefItem *x)
 {
 #if 0
   m_output.add("<xrefsect id=\"");
@@ -1342,12 +1360,14 @@ void PerlModDocVisitor::visitPre(DocXRefItem *)
   m_output.add("</xreftitle>");
   m_output.add("<xrefdescription>");
 #endif
+  if (x->title().isEmpty()) return;
   openItem("xrefitem");
   openSubBlock("content");
 }
 
-void PerlModDocVisitor::visitPost(DocXRefItem *)
+void PerlModDocVisitor::visitPost(DocXRefItem *x)
 {
+  if (x->title().isEmpty()) return;
   closeSubBlock();
   closeItem();
 #if 0
@@ -1404,6 +1424,15 @@ void PerlModDocVisitor::visitPre(DocVhdlFlow *)
 void PerlModDocVisitor::visitPost(DocVhdlFlow *)
 {
 }
+
+void PerlModDocVisitor::visitPre(DocParBlock *)
+{
+}
+
+void PerlModDocVisitor::visitPost(DocParBlock *)
+{
+}
+
 
 static void addTemplateArgumentList(ArgumentList *al,PerlModOutput &output,const char *)
 {

@@ -115,14 +115,15 @@ void NamespaceDef::findSectionsInDocumentation()
   }
 }
 
-void NamespaceDef::insertUsedFile(const char *f)
+void NamespaceDef::insertUsedFile(FileDef *fd)
 {
-  if (files.find(f)==-1) 
+  if (fd==0) return;
+  if (files.find(fd)==-1) 
   {
     if (Config_getBool("SORT_MEMBER_DOCS"))
-      files.inSort(f);
+      files.inSort(fd);
     else
-      files.append(f);
+      files.append(fd);
   }
 }
 
@@ -429,7 +430,7 @@ void NamespaceDef::writeSummaryLinks(OutputList &ol)
       MemberList * ml = getMemberList(lmd->type);
       if (ml && ml->declVisible())
       {
-        ol.writeSummaryLink(0,ml->listTypeAsString(ml->listType()),lmd->title(lang),first);
+        ol.writeSummaryLink(0,MemberList::listTypeAsString(ml->listType()),lmd->title(lang),first);
         first=FALSE;
       }
     }
@@ -460,27 +461,8 @@ void NamespaceDef::writeDocumentation(OutputList &ol)
   static bool generateTreeView = Config_getBool("GENERATE_TREEVIEW");
   //static bool outputJava = Config_getBool("OPTIMIZE_OUTPUT_JAVA");
   //static bool fortranOpt = Config_getBool("OPTIMIZE_FOR_FORTRAN");
-  SrcLangExt lang = getLanguage();
 
-  QCString pageTitle;
-  if (lang==SrcLangExt_Java || lang==SrcLangExt_CSharp)
-  {
-    pageTitle = theTranslator->trPackage(displayName());
-  }
-  else if (lang==SrcLangExt_Fortran)
-  {
-    pageTitle = theTranslator->trModuleReference(displayName());
-  }
-  else if (lang==SrcLangExt_IDL)
-  {
-    pageTitle = isConstantGroup()
-        ? theTranslator->trConstantGroupReference(displayName())
-        : theTranslator->trModuleReference(displayName());
-  }
-  else
-  {
-    pageTitle = theTranslator->trNamespaceReference(displayName());
-  }
+  QCString pageTitle = title();
   startFile(ol,getOutputFileBase(),name(),pageTitle,HLI_NamespaceVisible,!generateTreeView);
 
   if (!generateTreeView)
@@ -522,6 +504,7 @@ void NamespaceDef::writeDocumentation(OutputList &ol)
 
   //---------------------------------------- start flexible part -------------------------------
 
+  SrcLangExt lang = getLanguage();
   QListIterator<LayoutDocEntry> eli(
       LayoutDocManager::instance().docEntries(LayoutDocManager::Namespace));
   LayoutDocEntry *lde;
@@ -908,7 +891,7 @@ void NamespaceSDict::writeDeclaration(OutputList &ol,const char *title,
       {
         if (nd->isConstantGroup())
         {
-          err("Internal inconsistency: constant group but not IDL?");
+          err("Internal inconsistency: constant group but not IDL?\n");
         }
         found=TRUE;
         break;
@@ -953,7 +936,7 @@ void NamespaceSDict::writeDeclaration(OutputList &ol,const char *title,
         }
         else
         {
-          err("Internal inconsistency: namespace in IDL not module or cg");
+          err("Internal inconsistency: namespace in IDL not module or cg\n");
         }
       }
       ol.insertMemberAlign();
@@ -1096,3 +1079,27 @@ MemberDef * NamespaceDef::getMemberByName(const QCString &n) const
   return md;
 }
 
+QCString NamespaceDef::title() const
+{
+  SrcLangExt lang = getLanguage();
+  QCString pageTitle;
+  if (lang==SrcLangExt_Java || lang==SrcLangExt_CSharp)
+  {
+    pageTitle = theTranslator->trPackage(displayName());
+  }
+  else if (lang==SrcLangExt_Fortran)
+  {
+    pageTitle = theTranslator->trModuleReference(displayName());
+  }
+  else if (lang==SrcLangExt_IDL)
+  {
+    pageTitle = isConstantGroup()
+        ? theTranslator->trConstantGroupReference(displayName())
+        : theTranslator->trModuleReference(displayName());
+  }
+  else
+  {
+    pageTitle = theTranslator->trNamespaceReference(displayName());
+  }
+  return pageTitle;
+}

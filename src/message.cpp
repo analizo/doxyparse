@@ -1,12 +1,10 @@
 /******************************************************************************
  *
- * 
- *
  * Copyright (C) 1997-2013 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
- * documentation under the terms of the GNU General Public License is hereby 
- * granted. No representations are made about the suitability of this software 
+ * documentation under the terms of the GNU General Public License is hereby
+ * granted. No representations are made about the suitability of this software
  * for any purpose. It is provided "as is" without express or implied warranty.
  * See the GNU General Public License for more details.
  *
@@ -210,4 +208,31 @@ void err(const char *fmt, ...)
   va_start(args, fmt);
   vfprintf(warnFile, (QCString(error_str) + fmt).data(), args);
   va_end(args); 
+}
+
+void printlex(int dbg, bool enter, const char *lexName, const char *fileName)
+{
+  const char *enter_txt = "entering";
+  const char *enter_txt_uc = "Entering";
+
+  if (!enter)
+  {
+    enter_txt = "finished";
+    enter_txt_uc = "Finished";
+  }
+
+  if (dbg)
+  {
+    if (fileName)
+      fprintf(stderr,"--%s lexical analyzer: %s (for: %s)\n",enter_txt, lexName, fileName);
+    else
+      fprintf(stderr,"--%s lexical analyzer: %s\n",enter_txt, lexName);
+  }
+  else
+  {
+    if (fileName)
+      Debug::print(Debug::Lex,0,"%s lexical analyzer: %s (for: %s)\n",enter_txt_uc, lexName, fileName);
+    else
+      Debug::print(Debug::Lex,0,"%s lexical analyzer: %s\n",enter_txt_uc, lexName);
+  }
 }

@@ -107,6 +107,8 @@ class ManDocVisitor : public DocVisitor
     void visitPost(DocDotFile *);
     void visitPre(DocMscFile *);
     void visitPost(DocMscFile *);
+    void visitPre(DocDiaFile *);
+    void visitPost(DocDiaFile *);
     void visitPre(DocLink *lnk);
     void visitPost(DocLink *);
     void visitPre(DocRef *ref);
@@ -133,6 +135,8 @@ class ManDocVisitor : public DocVisitor
     void visitPost(DocHtmlBlockQuote *);
     void visitPre(DocVhdlFlow *);
     void visitPost(DocVhdlFlow *);
+    void visitPre(DocParBlock *);
+    void visitPost(DocParBlock *);
 
   private:
 

@@ -21,10 +21,11 @@
 	<Configurations>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
+			OutputDirectory="..\bin\Debug"
+			IntermediateDirectory=".\Debug"
 			ConfigurationType="1"
 			CharacterSet="1"
+			BuildLogFile="$(IntDir)\$(TargetName)BuildLog.htm"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -44,7 +45,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="&quot;$(XAPIAN_DIR)\xapian-core-1.2.8\include&quot;,..\qtools"
+				AdditionalIncludeDirectories="&quot;$(XAPIAN_DIR)\include&quot;,..\qtools"
 				PreprocessorDefinitions="_CRT_SECURE_NO_WARNINGS"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -52,6 +53,7 @@
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				DebugInformationFormat="4"
+				ProgramDatabaseFileName=".\Debug\$(TargetName).pdb"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -65,7 +67,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="qtools.lib xapian.lib uuid.lib rpcrt4.lib ws2_32.lib"
-				OutputFile="..\bin\doxyindexer.exe"
+				OutputFile="..\bin\Debug\doxyindexer.exe"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories="&quot;$(XAPIAN_DIR)\Debug&quot;;Debug"
 				GenerateManifest="false"
@@ -100,10 +102,11 @@
 		</Configuration>
 		<Configuration
 			Name="Debug|x64"
-			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="..\bin\Debug64"
+			IntermediateDirectory=".\Debug64"
 			ConfigurationType="1"
 			CharacterSet="1"
+			BuildLogFile="$(IntDir)\$(TargetName)BuildLog.htm"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -132,6 +135,7 @@
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				DebugInformationFormat="3"
+				ProgramDatabaseFileName=".\Debug64\$(TargetName).pdb"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -145,7 +149,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="qtools.lib xapian.lib uuid.lib rpcrt4.lib ws2_32.lib"
-				OutputFile="..\bin\doxyindexer.exe"
+				OutputFile="..\bin\Debug64\doxyindexer.exe"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="&quot;$(XAPIAN_DIR)\Debug64&quot;;Debug64"
 				GenerateDebugInformation="true"
@@ -177,10 +181,11 @@
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
+			OutputDirectory="..\bin\Relase"
+			IntermediateDirectory=".\Release"
 			ConfigurationType="1"
 			CharacterSet="1"
+			BuildLogFile="$(IntDir)\$(TargetName)BuildLog.htm"
 			WholeProgramOptimization="1"
 			>
 			<Tool
@@ -209,6 +214,7 @@
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				DebugInformationFormat="3"
+				ProgramDatabaseFileName=".\Release\$(TargetName).pdb"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -257,10 +263,11 @@
 		</Configuration>
 		<Configuration
 			Name="Release|x64"
-			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="..\bin\Relase64"
+			IntermediateDirectory=".\Release64"
 			ConfigurationType="1"
 			CharacterSet="1"
+			BuildLogFile="$(IntDir)\$(TargetName)BuildLog.htm"
 			WholeProgramOptimization="1"
 			>
 			<Tool
@@ -290,6 +297,7 @@
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				DebugInformationFormat="3"
+				ProgramDatabaseFileName=".\Relase64\$(TargetName).pdb"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"

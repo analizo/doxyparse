@@ -489,6 +489,7 @@ void MemberList::writePlainDeclarations(OutputList &ol,
  *  @param inheritedFrom if not 0, the list is shown inside the
  *         given class as inherited members, parameter cd points to the
  *         class containing the members.
+ *  @param lt Type of list that is inherited from.
  */
 void MemberList::writeDeclarations(OutputList &ol,
              ClassDef *cd,NamespaceDef *nd,FileDef *fd,GroupDef *gd,
@@ -878,7 +879,7 @@ void MemberList::setNeedsSorting(bool b)
   m_needsSorting = b;
 }
 
-QCString MemberList::listTypeAsString(MemberListType type) const
+QCString MemberList::listTypeAsString(MemberListType type) 
 {
   switch(type)
   {

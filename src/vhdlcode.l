@@ -1512,10 +1512,12 @@ void resetVhdlCodeParserState()
 void parseVhdlCode(CodeOutputInterface &od,const char *className,const QCString &s, 
                   bool /*exBlock*/, const char *exName,FileDef *fd,
                   int startLine,int endLine,bool inlineFragment,
-                  MemberDef *memberDef,bool,Definition *searchCtx)
+                  MemberDef *memberDef,bool,Definition *searchCtx,
+                  bool /* collectXRefs */)
 {
   //printf("***parseCode() exBlock=%d exName=%s fd=%p\n",exBlock,exName,fd);
   if (s.isEmpty()) return;
+  printlex(yy_flex_debug, TRUE, __FILE__, fd ? fd->fileName().data(): NULL);
   TooltipManager::instance()->clearTooltips();
   if (memberDef)
   {
@@ -1598,6 +1600,7 @@ void parseVhdlCode(CodeOutputInterface &od,const char *className,const QCString 
     g_sourceFileDef=0;
   }
   g_startCode=FALSE;
+  printlex(yy_flex_debug, FALSE, __FILE__, fd ? fd->fileName().data(): NULL);
 }
 
 void codeFreeVhdlScanner()

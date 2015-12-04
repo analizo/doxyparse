@@ -510,6 +510,20 @@ static FileState *checkAndOpenFile(const QCString &fileName,bool &alreadyInclude
 static FileState *findFile(const char *fileName,bool localInclude,bool &alreadyIncluded)
 {
   //printf("** findFile(%s,%d) g_yyFileName=%s\n",fileName,localInclude,g_yyFileName.data());
+  if (portable_isAbsolutePath(fileName))
+  {
+    FileState *fs = checkAndOpenFile(fileName,alreadyIncluded);
+    if (fs)
+    {
+      setFileName(fileName);
+      g_yyLineNr=1;
+      return fs;
+    }
+    else if (alreadyIncluded)
+    {
+      return 0;
+    }
+  }
   if (localInclude && !g_yyFileName.isEmpty())
   {
     QFileInfo fi(g_yyFileName);
@@ -1337,7 +1351,7 @@ bool computeExpression(const QCString &expr)
   e = removeIdsAndMarkers(e);
   if (e.isEmpty()) return FALSE;
   //printf("parsing `%s'\n",e.data());
-  return parseCppExpression(g_yyFileName,g_yyLineNr,e);
+  return parseconstexp(g_yyFileName,g_yyLineNr,e);
 }
 
 /*! expands the macro definition in \a name
@@ -1769,8 +1783,8 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
 					  }
 					  BEGIN(CopyLine);
                                         }
-<Start>^{B}*[a-z_A-Z\x80-\xFF][a-z_A-Z0-9\x80-\xFF]+{B}*"("[^\(\)\n]*"("[^\)\n]*")"[^\)\n]*")"{B}*\n | // function list macro with one (...) argument, e.g. for K_GLOBAL_STATIC_WITH_ARGS
-<Start>^{B}*[a-z_A-Z\x80-\xFF][a-z_A-Z0-9\x80-\xFF]+{B}*"("[^\)\n]*")"{B}*\n { // function like macro
+<Start>^{B}*[_A-Z][_A-Z0-9]+{B}*"("[^\(\)\n]*"("[^\)\n]*")"[^\)\n]*")"{B}*\n | // function list macro with one (...) argument, e.g. for K_GLOBAL_STATIC_WITH_ARGS
+<Start>^{B}*[_A-Z][_A-Z0-9]+{B}*"("[^\)\n]*")"{B}*\n { // function like macro
   					  static bool skipFuncMacros = Config_getBool("SKIP_FUNCTION_MACROS");
 					  QCString name(yytext);
 					  name=name.left(name.find('(')).stripWhiteSpace();
@@ -2955,6 +2969,7 @@ void cleanUpPreprocessor()
 
 void preprocessFile(const char *fileName,BufStr &input,BufStr &output)
 {
+  printlex(yy_flex_debug, TRUE, __FILE__, fileName);
   uint orgOffset=output.curPos();
   //printf("##########################\n%s\n####################\n",
   //    input.data());
@@ -3163,6 +3178,7 @@ void preprocessFile(const char *fileName,BufStr &input,BufStr &output)
     }
   }
   DefineManager::instance().endContext();
+  printlex(yy_flex_debug, FALSE, __FILE__, fileName);
 }
 
 void preFreeScanner()

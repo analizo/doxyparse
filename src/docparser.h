@@ -130,7 +130,9 @@ class DocNode
                 Kind_Text           = 47,
                 Kind_MscFile        = 48,
                 Kind_HtmlBlockQuote = 49,
-                Kind_VhdlFlow       = 50
+                Kind_VhdlFlow       = 50,
+                Kind_ParBlock       = 51,
+                Kind_DiaFile        = 52
               };
     /*! Creates a new node */
     DocNode() : m_parent(0), m_insidePre(FALSE) {}
@@ -687,6 +689,30 @@ class DocMscFile : public CompAccept<DocMscFile>, public DocNode
     QCString  m_context;
 };
 
+/** Node representing a dia file */
+class DocDiaFile : public CompAccept<DocDiaFile>, public DocNode
+{
+  public:
+    DocDiaFile(DocNode *parent,const QCString &name,const QCString &context);
+    void parse();
+    Kind kind() const          { return Kind_DiaFile; }
+    QCString name() const      { return m_name; }
+    QCString file() const      { return m_file; }
+    QCString relPath() const   { return m_relPath; }
+    bool hasCaption() const    { return !m_children.isEmpty(); }
+    QCString width() const     { return m_width; }
+    QCString height() const    { return m_height; }
+    QCString context() const   { return m_context; }
+    void accept(DocVisitor *v) { CompAccept<DocDiaFile>::accept(this,v); }
+  private:
+    QCString  m_name;
+    QCString  m_file;
+    QCString  m_relPath;
+    QCString  m_width;
+    QCString  m_height;
+    QCString  m_context;
+};
+
 /** Node representing a VHDL flow chart */
 class DocVhdlFlow : public CompAccept<DocVhdlFlow>, public DocNode
 {
@@ -900,6 +926,19 @@ class DocInternal : public CompAccept<DocInternal>, public DocNode
   private:
 };
 
+/** Node representing an block of paragraphs */
+class DocParBlock : public CompAccept<DocParBlock>, public DocNode
+{
+  public:
+    DocParBlock(DocNode *parent) { m_parent = parent; }
+    int parse();
+    Kind kind() const          { return Kind_ParBlock; }
+    void accept(DocVisitor *v) { CompAccept<DocParBlock>::accept(this,v); }
+
+  private:
+};
+
+
 /** Node representing a simple list */
 class DocSimpleList : public CompAccept<DocSimpleList>, public DocNode
 {
@@ -983,8 +1022,7 @@ class DocParamSect : public CompAccept<DocParamSect>, public DocNode
        In=1, Out=2, InOut=3, Unspecified=0
     };
     DocParamSect(DocNode *parent,Type t) 
-      : m_type(t), m_dir(Unspecified), 
-        m_hasInOutSpecifier(FALSE), m_hasTypeSpecifier(FALSE) 
+      : m_type(t), m_hasInOutSpecifier(FALSE), m_hasTypeSpecifier(FALSE) 
     { m_parent = parent; }
     int parse(const QCString &cmdName,bool xmlContext,Direction d);
     Kind kind() const          { return Kind_ParamSect; }
@@ -995,7 +1033,6 @@ class DocParamSect : public CompAccept<DocParamSect>, public DocNode
 
   private:
     Type            m_type;
-    Direction       m_dir;
     bool            m_hasInOutSpecifier;
     bool            m_hasTypeSpecifier;
 };
@@ -1027,6 +1064,7 @@ class DocPara : public CompAccept<DocPara>, public DocNode
     void handleImage(const QCString &cmdName);
     void handleDotFile(const QCString &cmdName);
     void handleMscFile(const QCString &cmdName);
+    void handleDiaFile(const QCString &cmdName);
     void handleInclude(const QCString &cmdName,DocInclude::Type t);
     void handleLink(const QCString &cmdName,bool isJavaLink);
     void handleCite();
@@ -1189,7 +1227,6 @@ class DocHtmlCaption : public CompAccept<DocHtmlCaption>, public DocNode
 
   private:
     HtmlAttribList m_attribs;
-    bool           m_atTop;
 };
 
 /** Node representing a HTML table row */

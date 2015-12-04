@@ -836,6 +836,19 @@ void XmlDocVisitor::visitPost(DocMscFile *)
   if (m_hide) return;
   m_t << "</mscfile>" << endl;
 }
+
+void XmlDocVisitor::visitPre(DocDiaFile *df)
+{
+  if (m_hide) return;
+  m_t << "<diafile name=\"" << df->file() << "\">";
+}
+
+void XmlDocVisitor::visitPost(DocDiaFile *)
+{
+  if (m_hide) return;
+  m_t << "</diafile>" << endl;
+}
+
 void XmlDocVisitor::visitPre(DocLink *lnk)
 {
   if (m_hide) return;
@@ -999,6 +1012,7 @@ void XmlDocVisitor::visitPost(DocParamList *)
 void XmlDocVisitor::visitPre(DocXRefItem *x)
 {
   if (m_hide) return;
+  if (x->title().isEmpty()) return;
   m_t << "<xrefsect id=\"";
   m_t << x->file() << "_1" << x->anchor();
   m_t << "\">";
@@ -1008,9 +1022,10 @@ void XmlDocVisitor::visitPre(DocXRefItem *x)
   m_t << "<xrefdescription>";
 }
 
-void XmlDocVisitor::visitPost(DocXRefItem *)
+void XmlDocVisitor::visitPost(DocXRefItem *x)
 {
   if (m_hide) return;
+  if (x->title().isEmpty()) return;
   m_t << "</xrefdescription>";
   m_t << "</xrefsect>";
 }
@@ -1067,6 +1082,19 @@ void XmlDocVisitor::visitPre(DocVhdlFlow *)
 void XmlDocVisitor::visitPost(DocVhdlFlow *)
 {
 }
+
+void XmlDocVisitor::visitPre(DocParBlock *)
+{
+  if (m_hide) return;
+  m_t << "<parblock>";
+}
+
+void XmlDocVisitor::visitPost(DocParBlock *)
+{
+  if (m_hide) return;
+  m_t << "</parblock>";
+}
+
 
 void XmlDocVisitor::filter(const char *str)
 { 

@@ -959,7 +959,7 @@ void Definition::writeSourceDef(OutputList &ol,const char *)
         {
           ol.disable(OutputGenerator::Latex);
         }
-        // write line link (HTML, LaTeX optionally)
+        // write file link (HTML, LaTeX optionally)
         ol.writeObjectLink(0,fn,0,m_impl->body->fileDef->name());
         ol.enableAll();
         ol.disable(OutputGenerator::Html);
@@ -1050,6 +1050,13 @@ void Definition::setBodyDef(FileDef *fd)
   m_impl->body->fileDef=fd; 
 }
 
+bool Definition::hasSources() const
+{
+  return m_impl->body && m_impl->body->startLine!=-1 &&
+         m_impl->body->endLine>=m_impl->body->startLine &&
+         m_impl->body->fileDef;
+}
+
 /*! Write code of this definition into the documentation */
 void Definition::writeInlineCode(OutputList &ol,const char *scopeName)
 {
@@ -1057,9 +1064,7 @@ void Definition::writeInlineCode(OutputList &ol,const char *scopeName)
   ol.pushGeneratorState();
   //printf("Source Fragment %s: %d-%d bodyDef=%p\n",name().data(),
   //        m_startBodyLine,m_endBodyLine,m_bodyDef);
-  if (inlineSources && 
-      m_impl->body && m_impl->body->startLine!=-1 && 
-      m_impl->body->endLine>=m_impl->body->startLine && m_impl->body->fileDef)
+  if (inlineSources && hasSources())
   {
     QCString codeFragment;
     int actualStart=m_impl->body->startLine,actualEnd=m_impl->body->endLine;
@@ -1815,7 +1820,7 @@ int Definition::getEndBodyLine() const
   return m_impl->body ? m_impl->body->endLine : -1; 
 }
 
-FileDef *Definition::getBodyDef()                
+FileDef *Definition::getBodyDef() const
 { 
   return m_impl->body ? m_impl->body->fileDef : 0; 
 }
@@ -1874,6 +1879,12 @@ void Definition::setLanguage(SrcLangExt lang)
 void Definition::_setSymbolName(const QCString &name) 
 { 
   m_symbolName=name; 
+}
+
+bool Definition::hasBriefDescription() const
+{
+  static bool briefMemberDesc = Config_getBool("BRIEF_MEMBER_DESC");
+  return !briefDescription().isEmpty() && briefMemberDesc;
 }
 
 

@@ -514,7 +514,7 @@ void FileDef::writeSummaryLinks(OutputList &ol)
       MemberList * ml = getMemberList(lmd->type);
       if (ml && ml->declVisible())
       {
-        ol.writeSummaryLink(0,ml->listTypeAsString(ml->listType()),lmd->title(lang),first);
+        ol.writeSummaryLink(0,MemberList::listTypeAsString(ml->listType()),lmd->title(lang),first);
         first=FALSE;
       }
     }
@@ -807,6 +807,7 @@ void FileDef::writeSource(OutputList &ol,bool sameTu,QStrList &filesInSameTu)
   static bool generateTreeView  = Config_getBool("GENERATE_TREEVIEW");
   static bool filterSourceFiles = Config_getBool("FILTER_SOURCE_FILES");
   static bool latexSourceCode   = Config_getBool("LATEX_SOURCE_CODE");
+  DevNullCodeDocInterface devNullIntf;
   QCString title = m_docname;
   if (!m_fileVersion.isEmpty())
   {
@@ -878,10 +879,33 @@ void FileDef::writeSource(OutputList &ol,bool sameTu,QStrList &filesInSameTu)
     ParserInterface *pIntf = Doxygen::parserManager->getParser(getDefFileExtension());
     pIntf->resetCodeParserState();
     ol.startCodeFragment();
+    bool needs2PassParsing = 
+        Doxygen::parseSourcesNeeded &&                // we need to parse (filtered) sources for cross-references
+        !filterSourceFiles &&                         // but user wants to show sources as-is
+        !getFileFilter(absFilePath(),TRUE).isEmpty(); // and there is a filter used while parsing
+
+    if (needs2PassParsing)
+    {
+      // parse code for cross-references only (see bug707641)
+      pIntf->parseCode(devNullIntf,0,
+                       fileToString(absFilePath(),TRUE,TRUE),
+                       getLanguage(),
+                       FALSE,0,this
+                      );
+    }
     pIntf->parseCode(ol,0,
         fileToString(absFilePath(),filterSourceFiles,TRUE),
-        getLanguage(),
-        FALSE,0,this
+        getLanguage(),      // lang
+        FALSE,              // isExampleBlock
+        0,                  // exampleName
+        this,               // fileDef
+        -1,                 // startLine
+        -1,                 // endLine
+        FALSE,              // inlineFragment
+        0,                  // memberDef
+        TRUE,               // showLineNumbers
+        0,                  // searchCtx
+        !needs2PassParsing  // collectXRefs
         );
     ol.endCodeFragment();
   }
@@ -1770,3 +1794,9 @@ void FileDef::getAllIncludeFilesRecursively(QStrList &incFiles) const
   QDict<void> includes(257);
   ::getAllIncludeFilesRecursively(&includes,this,incFiles);
 }
+
+QCString FileDef::title() const
+{
+  return theTranslator->trFileReference(name());
+}
+

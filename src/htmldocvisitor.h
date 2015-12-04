@@ -33,7 +33,7 @@ class CodeOutputInterface;
 class HtmlDocVisitor : public DocVisitor
 {
   public:
-    HtmlDocVisitor(FTextStream &t,CodeOutputInterface &ci,Definition *ctx,MemberDef *md);
+    HtmlDocVisitor(FTextStream &t,CodeOutputInterface &ci,Definition *ctx);
     
     //--------------------------------------
     // visitor functions for leaf nodes
@@ -108,6 +108,8 @@ class HtmlDocVisitor : public DocVisitor
     void visitPost(DocDotFile *);
     void visitPre(DocMscFile *);
     void visitPost(DocMscFile *);
+    void visitPre(DocDiaFile *);
+    void visitPost(DocDiaFile *);
     void visitPre(DocLink *);
     void visitPost(DocLink *);
     void visitPre(DocRef *);
@@ -132,6 +134,8 @@ class HtmlDocVisitor : public DocVisitor
     void visitPost(DocHtmlBlockQuote *);
     void visitPre(DocVhdlFlow *);
     void visitPost(DocVhdlFlow *);
+    void visitPre(DocParBlock *);
+    void visitPost(DocParBlock *);
 
   private:
 
@@ -148,6 +152,7 @@ class HtmlDocVisitor : public DocVisitor
     void endLink();
     void writeDotFile(const QCString &fileName,const QCString &relPath,const QCString &context);
     void writeMscFile(const QCString &fileName,const QCString &relPath,const QCString &context);
+    void writeDiaFile(const QCString &fileName,const QCString &relPath,const QCString &context);
 
     void pushEnabled();
     void popEnabled();
@@ -165,7 +170,6 @@ class HtmlDocVisitor : public DocVisitor
     bool m_hide;
     QStack<bool> m_enabled;
     Definition *m_ctx;
-    MemberDef *m_md;
     QCString m_langExt;
 };
 

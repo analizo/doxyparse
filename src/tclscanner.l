@@ -127,7 +127,7 @@ int TclFindElement(
     goto done;
   }
 
-  if (*p == '{') 
+  if (*p == '{')   /* } to keep vi happy */
   {
     openBraces = 1;
     p++;
@@ -2503,7 +2503,7 @@ static void tcl_parse(const QCString ns, const QCString cls)
   tcl.ns.insert("::",myEntry);
   tcl.entry_current = tcl_entry_new();
 
-  tclscanYYrestart( tclscanYYin );
+  tclscannerYYrestart( tclscannerYYin );
   BEGIN( TOP );
   yylineno=1;
   myScan = new tcl_scan;
@@ -2518,7 +2518,7 @@ static void tcl_parse(const QCString ns, const QCString cls)
   tcl.entry_inside = tcl.entry_file;
   myScan->entry_scan = tcl.entry_inside;
   tcl.scan.insert(0,myScan);
-  tclscanYYlex();
+  tclscannerYYlex();
   tcl.scan.clear();
   tcl.ns.clear();
   tcl.cl.clear();
@@ -2541,6 +2541,7 @@ tcl_inf("%s\n",fileName);
 
   tcl.input_string = input;
   if (tcl.input_string.length()<1) return;
+  printlex(yy_flex_debug, TRUE, __FILE__, fileName);
 
   msg("Parsing %s...\n",fileName);
   groupEnterFile(fileName,yylineno);
@@ -2554,6 +2555,7 @@ tcl_inf("%s\n",fileName);
   groupLeaveFile(tcl.file_name,yylineno);
   root->program.resize(0);
   myFile.close();
+  printlex(yy_flex_debug, FALSE, __FILE__, fileName);
 }
 
 //! Parse file and codify.
@@ -2569,7 +2571,8 @@ void TclLanguageScanner::parseCode(CodeOutputInterface & codeOutIntf,
                    bool inlineFragment,
                    MemberDef *memberDef,
                    bool showLineNumbers,
-                   Definition *searchCtx
+                   Definition *searchCtx,
+                   bool collectXRefs
                   )
 {
   (void)scopeName;
@@ -2579,8 +2582,10 @@ void TclLanguageScanner::parseCode(CodeOutputInterface & codeOutIntf,
   (void)endLine;
   (void)inlineFragment;
   (void)searchCtx;
+  (void)collectXRefs;
 
   if (input.length()<1) return;
+  printlex(yy_flex_debug, TRUE, __FILE__, fileDef ? fileDef->fileName().data(): NULL);
   tcl.input_string = input;
 
   QCString myNs="";
@@ -2653,6 +2658,7 @@ tcl_inf("%s (%d,%d) %d %d\n",myStr.ascii(),startLine,endLine,isExampleBlock,inli
   tcl.cl.clear();
   tcl.fn.clear();
   tcl.entry.clear();
+  printlex(yy_flex_debug, FALSE, __FILE__, fileDef ? fileDef->fileName().data(): NULL);
 }
 
 bool TclLanguageScanner::needsPreprocessing(const QCString &extension)

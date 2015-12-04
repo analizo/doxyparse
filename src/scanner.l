@@ -191,6 +191,7 @@ static QCString         g_delimiter;
 static int              g_column;
 
 static int              g_fencedSize=0;
+static bool             g_nestedComment=0;
 
 //-----------------------------------------------------------------------------
 
@@ -1175,13 +1176,27 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					}
    */
 <ObjCParams>"("				{
-  					  BEGIN( ObjCParamType );
-  					}
-<ObjCParamType>[^)]*			{
-  					  current->argList->getLast()->type=QCString(yytext).stripWhiteSpace();
-  					}
+				 	  roundCount=0;
+					  current->argList->getLast()->type.resize(0);
+					  BEGIN( ObjCParamType );
+					}
+<ObjCParamType>"("                      {
+                                          roundCount++;
+  					  current->argList->getLast()->type+=yytext;
+                                        }
 <ObjCParamType>")"/{B}*			{
-  					  BEGIN( ObjCParams );
+                                          if (roundCount<=0)
+                                          {
+                                            BEGIN( ObjCParams );
+                                          }
+                                          else
+                                          {
+                                            current->argList->getLast()->type+=yytext;
+                                            roundCount--;
+                                          }
+					}
+<ObjCParamType>[^()]*			{
+        				  current->argList->getLast()->type+=QCString(yytext).stripWhiteSpace();
   					}
 <ObjCMethod,ObjCParams>";"		{ // end of method declaration
 					  if (current->argList->getLast() && current->argList->getLast()->type.isEmpty())
@@ -1192,7 +1207,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  //printf("argList=%s\n",current->args.data());
   					  unput(';');
   					  BEGIN( Function );
-  					}
+                                        }
 <ObjCMethod,ObjCParams>(";"{BN}+)?"{"	{ // start of a method body
   					  lineCount();
                                           //printf("Type=%s Name=%s args=%s\n",
@@ -1354,7 +1369,14 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
                                           if (!insidePHP) 
 					  {
 					    current->type += " abstract ";
-					    current->virt = Pure;
+					    if (!insideJava)
+					    {
+                                              current->virt = Pure;
+					    }
+					    else
+					    {
+                                              current->spec|=Entry::Abstract;
+					    }
 					  }
 					  else
 					  {
@@ -1597,9 +1619,20 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 <FindMembers>"@class" | // for Objective C class declarations
 <FindMembers>{B}*{TYPEDEFPREFIX}"class{" |
 <FindMembers>{B}*{TYPEDEFPREFIX}"class"{BN}+ { 
-					  isTypedef=((QCString)yytext).find("typedef")!=-1;
+                                          QCString decl = yytext;
+					  isTypedef=decl.find("typedef")!=-1;
+                                          bool isConst=decl.find("const")!=-1;
+                                          bool isVolatile=decl.find("volatile")!=-1;
   					  current->section = Entry::CLASS_SEC;
 					  addType( current ) ;
+                                          if (isConst)
+                                          {
+                                            current->type += " const";
+                                          }
+                                          else if (isVolatile)
+                                          {
+                                            current->type += " volatile";
+                                          }
 					  current->type += " class" ;
 					  current->fileName  = yyFileName;
 					  current->startLine = yyLineNr;
@@ -1688,13 +1721,24 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
   					}
 <FindMembers>{B}*{TYPEDEFPREFIX}"struct{" | 
 <FindMembers>{B}*{TYPEDEFPREFIX}"struct"/{BN}+ { 
-					  isTypedef=((QCString)yytext).find("typedef")!=-1;
+                                          QCString decl = yytext;
+					  isTypedef=decl.find("typedef")!=-1;
+                                          bool isConst=decl.find("const")!=-1;
+                                          bool isVolatile=decl.find("volatile")!=-1;
   					  current->section = Entry::CLASS_SEC ;
 					  current->spec    = Entry::Struct |
 					    (current->spec & Entry::Published); // preserve UNO IDL
 					  // bug 582676: can be a struct nested in an interface so keep insideObjC state
 					  //current->objc    = insideObjC = FALSE;
 					  addType( current ) ;
+                                          if (isConst)
+                                          {
+                                            current->type += " const";
+                                          }
+                                          else if (isVolatile)
+                                          {
+                                            current->type += " volatile";
+                                          }
 					  current->type += " struct" ;
 					  current->fileName  = yyFileName;
 					  current->startLine = yyLineNr;
@@ -1751,12 +1795,23 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
   					}
 <FindMembers>{B}*{TYPEDEFPREFIX}"union{" |
 <FindMembers>{B}*{TYPEDEFPREFIX}"union"{BN}+ { 
-					  isTypedef=((QCString)yytext).find("typedef")!=-1;
+                                          QCString decl=yytext;
+					  isTypedef=decl.find("typedef")!=-1;
+                                          bool isConst=decl.find("const")!=-1;
+                                          bool isVolatile=decl.find("volatile")!=-1;
   					  current->section = Entry::CLASS_SEC;
                                           current->spec    = Entry::Union;
 					  // bug 582676: can be a struct nested in an interface so keep insideObjC state
 					  //current->objc    = insideObjC = FALSE;
 					  addType( current ) ;
+                                          if (isConst)
+                                          {
+                                            current->type += " const";
+                                          }
+                                          else if (isVolatile)
+                                          {
+                                            current->type += " volatile";
+                                          }
 					  current->type += " union" ;
 					  current->fileName  = yyFileName;
 					  current->startLine = yyLineNr;
@@ -2847,7 +2902,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
                                             BEGIN(lastRawStringContext);
                                           }
                                         }
-<RawGString>[^)]+                       {
+<RawGString>[^)\n]+                     {
                                           *pCopyRawGString+=yytext;
                                         }
 <RawGString>.                           {
@@ -3218,7 +3273,10 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					    *pCopyCurlyGString+=yytext; 
 					  }
                                         }
-<GCopyCurly>[^"'{}\/\n]+		{
+<GCopyCurly>[^"'{}\/\n,]+		{
+  					  *pCopyCurlyGString+=yytext;
+  					}
+<GCopyCurly>[,]+		        {
   					  *pCopyCurlyGString+=yytext;
   					}
 <GCopyCurly>"/"				{ *pCopyCurlyGString+=yytext; }
@@ -4403,6 +4461,13 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  else 
 					    BEGIN( lastCopyArgContext );
   					}
+<CopyArgSharp>"("                       {
+  					  *copyArgString+=*yytext;
+  					  fullArgString+=*yytext;
+  					  argRoundCount=0; 
+					  lastCopyArgContext = YY_START;
+					  BEGIN( CopyArgRound ); 
+                                        }
 <CopyArgSharp>"<"			{
   					  argSharpCount++;
 					  //printf("argSharpCount++=%d  copy\n",argSharpCount);
@@ -4921,6 +4986,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
   				          //addToBody(yytext);
   					  ++curlyCount ; 
 					}
+<SkipCurly>"}"/{BN}*("/*!"|"/**"|"//!"|"///")"<!--" | /* see bug710917 */
 <SkipCurly>"}"				{ 
   				          //addToBody(yytext);
   					  if( curlyCount )
@@ -4929,22 +4995,6 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  }
 					  else
 					  {
-#if 0
-					    if (!Config_getBool("HIDE_IN_BODY_DOCS") && 
-						!current->doc.isEmpty())
-					    {
-					      // copy documentation found inside the body
-					      // to the previous item
-					      if (previous->inbodyLine==-1)
-					      {
-					        previous->inbodyLine = current->docLine;
-					        previous->inbodyFile = current->docFile;
-					      }
-					      //printf("*** inbodyDocs+=%s\n",current->doc.data());
-					      previous->inbodyDocs += current->doc;
-					      current->doc.resize(0);
-					    }
-#endif
 					    if (current->sli && previous) // copy special list items
 					    {
 					      QListIterator<ListItemInfo> li(*current->sli);
@@ -5742,21 +5792,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
   					  *specName += *yytext;
   					  if (roundCount==0 && --sharpCount<=0)
 					  {
-					    if (1 /*!insideCS*/) 
-					    {
-					      baseName+=*specName;
-					    }
-					    else
-					    {
-					      if (current->tArgLists==0)
-					      {
-						current->tArgLists = new QList<ArgumentList>;
-						current->tArgLists->setAutoDelete(TRUE);
-					      }
-					      ArgumentList *al = new ArgumentList;
-					      current->tArgLists->append(al);
-					      stringToArgumentList(*specName,al);
-					    }
+					    baseName+=removeRedundantWhiteSpace(*specName);
 					    BEGIN(lastSkipSharpContext);
 					  }
   					}
@@ -6155,23 +6191,27 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 				            docBlockName.at(1)='}';
 					  }
                                           g_fencedSize=0;
+                                          g_nestedComment=FALSE;
   					  BEGIN(DocCopyBlock);
                                         }
 <DocBlock>"<"{PRE}">"			{
                                           docBlock+=yytext;
 				          docBlockName="<pre>";
                                           g_fencedSize=0;
+                                          g_nestedComment=FALSE;
   					  BEGIN(DocCopyBlock);
   					}
 <DocBlock>{CMD}("verbatim"|"latexonly"|"htmlonly"|"xmlonly"|"manonly"|"dot"|"code")/[^a-z_A-Z0-9]	{ // verbatim command (which could contain nested comments!)
                                           docBlock+=yytext;
 				          docBlockName=&yytext[1];
                                           g_fencedSize=0;
+                                          g_nestedComment=FALSE;
   					  BEGIN(DocCopyBlock);
   					}
 <DocBlock>"~~~"[~]*                     {
                                           docBlock+=yytext;
                                           g_fencedSize=yyleng;
+                                          g_nestedComment=FALSE;
                                           BEGIN(DocCopyBlock);
                                         }
 <DocBlock>{B}*"<code>"                  {
@@ -6179,6 +6219,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  {
 					    docBlock+=yytext;
 					    docBlockName="<code>";
+                                            g_nestedComment=FALSE;
 					    BEGIN(DocCopyBlock);
 					  }
 					  else
@@ -6240,12 +6281,32 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
                                             docBlock+=indent;
                                           }
   					}
-<DocCopyBlock>^{B}*+"*"/{BN}*		{ // start of a comment line
+<DocCopyBlock>^{B}*"*"+/{BN}+"*"{BN}*	{ // start of a comment line with two *'s
   					  if (docBlockName=="code")
                                           {
                                             QCString indent;
-                                            indent.fill(' ',computeIndent(yytext,0)-1);
-                                            docBlock+=indent+"*";
+                                            indent.fill(' ',computeIndent(yytext,0));
+                                            docBlock+=indent;
+                                          }
+                                          else
+					  {
+					    REJECT;
+					  }
+  					}
+<DocCopyBlock>^{B}*"*"+/{BN}*		{ // start of a comment line with one *
+  					  if (docBlockName=="code")
+                                          {
+                                            QCString indent;
+                                            if (g_nestedComment) // keep * it is part of the code
+                                            {
+                                              indent.fill(' ',computeIndent(yytext,-1));
+                                              docBlock+=indent+"*";
+                                            }
+                                            else // remove * it is part of the comment block
+                                            {
+                                              indent.fill(' ',computeIndent(yytext,0));
+                                              docBlock+=indent;
+                                            }
                                           }
                                           else
 					  {
@@ -6263,6 +6324,14 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
   					  docBlock+=yytext;
   					}
 <DocCopyBlock>"/*"|"*/"|"//"		{
+                                          if (yytext[1]=='*')
+                                          {
+                                            g_nestedComment=TRUE;
+                                          }
+                                          else if (yytext[0]=='*')
+                                          {
+                                            g_nestedComment=FALSE;
+                                          }
   					  docBlock+=yytext;
 					}
 <DocCopyBlock>\n			{ // newline
@@ -6563,7 +6632,7 @@ static void parseCompounds(Entry *rt)
       g_column=0;
       inputString = ce->program;
       inputPosition = 0;
-      scanYYrestart( scanYYin ) ;
+      scannerYYrestart( scannerYYin ) ;
       if (ce->section==Entry::ENUM_SEC || (ce->spec&Entry::Enum))
 	BEGIN( FindFields ) ;
       else
@@ -6633,7 +6702,7 @@ static void parseCompounds(Entry *rt)
       //memberGroupInside.resize(0);
       groupEnterCompound(yyFileName,yyLineNr,ce->name);
       
-      scanYYlex() ;
+      scannerYYlex() ;
       g_lexInit=TRUE;
       //forceEndGroup();
 
@@ -6710,7 +6779,7 @@ static void parseMain(const char *fileName,
     }
     current->reset();
     initEntry();
-    scanYYrestart( scanYYin );
+    scannerYYrestart( scannerYYin );
     if ( insidePHP )
     {
       BEGIN( FindMembersPHP );
@@ -6720,7 +6789,7 @@ static void parseMain(const char *fileName,
       BEGIN( FindMembers );
     }
 
-    scanYYlex();
+    scannerYYlex();
     g_lexInit=TRUE;
 
     if (YY_START==Comment)
@@ -6774,7 +6843,7 @@ static void parsePrototype(const QCString &text)
   
   // save scanner state
   orgState = YY_CURRENT_BUFFER;
-  yy_switch_to_buffer(yy_create_buffer(scanYYin, YY_BUF_SIZE));
+  yy_switch_to_buffer(yy_create_buffer(scannerYYin, YY_BUF_SIZE));
   orgInputString = inputString; 
   orgInputPosition = inputPosition;
 
@@ -6782,9 +6851,9 @@ static void parsePrototype(const QCString &text)
   inputString = text;
   inputPosition = 0;
   g_column = 0;
-  scanYYrestart( scanYYin );
+  scannerYYrestart( scannerYYin );
   BEGIN(Prototype);
-  scanYYlex();
+  scannerYYlex();
   g_lexInit=TRUE;
 
   current->name = current->name.stripWhiteSpace();
@@ -6806,7 +6875,7 @@ void scanFreeScanner()
 #if defined(YY_FLEX_SUBMINOR_VERSION)
   if (g_lexInit)
   {
-    scanYYlex_destroy();
+    scannerYYlex_destroy();
   }
 #endif
 }
@@ -6845,8 +6914,13 @@ void CLanguageScanner::parseInput(const char *fileName,
                                   QStrList & filesInSameTranslationUnit)
 {
   g_thisParser = this;
+
+  printlex(yy_flex_debug, TRUE, __FILE__, fileName);
+
   ::parseMain(fileName,fileBuf,root,
               sameTranslationUnit,filesInSameTranslationUnit);
+
+  printlex(yy_flex_debug, FALSE, __FILE__, fileName);
 }
 
 void CLanguageScanner::parseCode(CodeOutputInterface & codeOutIntf,
@@ -6861,12 +6935,13 @@ void CLanguageScanner::parseCode(CodeOutputInterface & codeOutIntf,
                    bool inlineFragment,
 		   MemberDef *memberDef,
 		   bool showLineNumbers,
-                   Definition *searchCtx
+                   Definition *searchCtx,
+                   bool collectXRefs
                   )
 {
   ::parseCCode(codeOutIntf,scopeName,input,lang,isExampleBlock,exampleName,
                fileDef,startLine,endLine,inlineFragment,memberDef,
-	       showLineNumbers,searchCtx);
+	       showLineNumbers,searchCtx,collectXRefs);
 }
 
 bool CLanguageScanner::needsPreprocessing(const QCString &extension)

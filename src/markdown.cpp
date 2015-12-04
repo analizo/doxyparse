@@ -850,9 +850,15 @@ static int processLink(GrowBuf &out,const char *data,int,int size)
   }
   else
   {
-    if (link.find("@ref ")!=-1 || link.find("\\ref ")!=-1) 
+    SrcLangExt lang = getLanguageFromFileName(link);
+    int lp=-1;
+    if ((lp=link.find("@ref "))!=-1 || (lp=link.find("\\ref "))!=-1 || lang==SrcLangExt_Markdown) 
         // assume doxygen symbol link
     {
+      if (lp==-1) // link to markdown page
+      {
+        out.addStr("@ref ");
+      }
       out.addStr(link);
       out.addStr(" \"");
       if (explicitTitle && !title.isEmpty())
@@ -1968,6 +1974,9 @@ static QCString processBlocks(const QCString &s,int indent)
     end++;
   }
 
+#if 0 // commented out, since starting with a comment block is probably a usage error
+      // see also http://stackoverflow.com/q/20478611/784672
+
   // special case when the documentation starts with a code block
   // since the first line is skipped when looking for a code block later on.
   if (end>codeBlockIndent && isCodeBlock(data,0,end,blockIndent))
@@ -1976,6 +1985,7 @@ static QCString processBlocks(const QCString &s,int indent)
     end=i+1;
     pi=-1;
   }
+#endif
 
   // process each line
   while (i<size)
@@ -2249,6 +2259,15 @@ QCString processMarkdown(const QCString &fileName,Entry *e,const QCString &input
 
 //---------------------------------------------------------------------------
 
+QCString markdownFileNameToId(const QCString &fileName)
+{
+  QCString baseFn  = stripFromPath(QFileInfo(fileName).absFilePath().utf8());
+  int i = baseFn.findRev('.');
+  if (i!=-1) baseFn = baseFn.left(i);
+  QCString baseName = substitute(substitute(baseFn," ","_"),"/","_");
+  return "md_"+baseName;
+}
+
 void MarkdownFileParser::parseInput(const char *fileName, 
                 const char *fileBuf, 
                 Entry *root,
@@ -2270,17 +2289,16 @@ void MarkdownFileParser::parseInput(const char *fileName,
   QCString docs = output.data();
   QCString id;
   QCString title=extractPageTitle(docs,id).stripWhiteSpace();
-  //g_correctSectionLevel = !title.isEmpty();
-  QCString baseFn  = stripFromPath(QFileInfo(fileName).absFilePath().utf8());
-  int i = baseFn.findRev('.');
-  if (i!=-1) baseFn = baseFn.left(i);
   QCString titleFn = QFileInfo(fileName).baseName().utf8();
   QCString fn      = QFileInfo(fileName).fileName().utf8();
-  QCString baseName = substitute(substitute(baseFn," ","_"),"/","_");
   static QCString mdfileAsMainPage = Config_getString("USE_MDFILE_AS_MAINPAGE");
-  if (id.isEmpty()) id = "md_"+baseName;
+  if (id.isEmpty()) id = markdownFileNameToId(fileName);
   if (title.isEmpty()) title = titleFn;
-  if (fn==mdfileAsMainPage)
+  if (!mdfileAsMainPage.isEmpty() &&
+      (fn==mdfileAsMainPage || // name reference
+       QFileInfo(fileName).absFilePath()==
+       QFileInfo(mdfileAsMainPage).absFilePath()) // file reference with path
+     )
   {
     docs.prepend("@mainpage\n");
   }
@@ -2347,7 +2365,8 @@ void MarkdownFileParser::parseCode(CodeOutputInterface &codeOutIntf,
                bool inlineFragment,
                MemberDef *memberDef,
                bool showLineNumbers,
-               Definition *searchCtx
+               Definition *searchCtx,
+               bool collectXRefs
               )
 {
   ParserInterface *pIntf = Doxygen::parserManager->getParser("*.cpp");
@@ -2355,7 +2374,8 @@ void MarkdownFileParser::parseCode(CodeOutputInterface &codeOutIntf,
   {
     pIntf->parseCode(
        codeOutIntf,scopeName,input,lang,isExampleBlock,exampleName,
-       fileDef,startLine,endLine,inlineFragment,memberDef,showLineNumbers,searchCtx);
+       fileDef,startLine,endLine,inlineFragment,memberDef,showLineNumbers,
+       searchCtx,collectXRefs);
   }
 }
 

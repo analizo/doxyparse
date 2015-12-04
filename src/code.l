@@ -124,6 +124,7 @@ static QStack<int>   g_classScopeLengthStack;
 
 static int           g_prefixed_with_this_keyword = FALSE;
 static Definition   *g_searchCtx;
+static bool          g_collectXRefs;
 
 // context for an Objective-C method call
 struct ObjCCallCtx
@@ -399,7 +400,7 @@ static CallContext g_theCallContext;
 static void pushScope(const char *s)
 {
   g_classScopeLengthStack.push(new int(g_classScope.length()));
-  if (g_classScope.isEmpty())
+  if (g_classScope.isEmpty() || leftScopeMatch(s,g_classScope))
   {
     g_classScope = s;
   }
@@ -886,7 +887,7 @@ static bool getLinkInScope(const QCString &c,  // scope
       //        g_currentDefinition,g_currentMemberDef,g_insideBody);
 
       if (g_currentDefinition && g_currentMemberDef &&
-	  md!=g_currentMemberDef && g_insideBody)
+          md!=g_currentMemberDef && g_insideBody && g_collectXRefs)
       {
 	addDocCrossReference(g_currentMemberDef,md);
       }
@@ -1021,7 +1022,8 @@ static void generateClassOrGlobalLink(CodeOutputInterface &ol,const char *clName
       Definition *d = md->getOuterScope()==Doxygen::globalScope ?
                       md->getFileDef() : md->getOuterScope();
       if (md->getGroupDef()) d = md->getGroupDef();
-      if (d && d->isLinkable() && md->isLinkable() && g_currentMemberDef)
+      if (d && d->isLinkable() && md->isLinkable() && 
+          g_currentMemberDef && g_collectXRefs)
       {
         addDocCrossReference(g_currentMemberDef,md);
       }
@@ -1074,7 +1076,7 @@ static void generateClassOrGlobalLink(CodeOutputInterface &ol,const char *clName
 	  }
 	  writeMultiLineCodeLink(ol,md,text);
           addToSearchIndex(clName);
-	  if (g_currentMemberDef)
+	  if (g_currentMemberDef && g_collectXRefs)
 	  {
 	    addDocCrossReference(g_currentMemberDef,md);
 	  }
@@ -1130,7 +1132,7 @@ static bool generateClassMemberLink(CodeOutputInterface &ol,MemberDef *xmd,const
     {
       // add usage reference
       if (g_currentDefinition && g_currentMemberDef &&
-	  /*xmd!=g_currentMemberDef &&*/ g_insideBody)
+	  /*xmd!=g_currentMemberDef &&*/ g_insideBody && g_collectXRefs)
       {
 	addDocCrossReference(g_currentMemberDef,xmd);
       }
@@ -1507,7 +1509,7 @@ static void writeObjCMethodCall(ObjCCallCtx *ctx)
 	    if (ctx->method && ctx->method->isLinkable())
 	    {
               writeMultiLineCodeLink(*g_code,ctx->method,pName->data());
-	      if (g_currentMemberDef)
+	      if (g_currentMemberDef && g_collectXRefs)
 	      {
 	        addDocCrossReference(g_currentMemberDef,ctx->method);
 	      }
@@ -1586,7 +1588,7 @@ static void writeObjCMethodCall(ObjCCallCtx *ctx)
 	    else if (ctx->objectVar && ctx->objectVar->isLinkable()) // object is class variable
 	    {
 	      writeMultiLineCodeLink(*g_code,ctx->objectVar,pObject->data());
-	      if (g_currentMemberDef)
+	      if (g_currentMemberDef && g_collectXRefs)
 	      {
 	        addDocCrossReference(g_currentMemberDef,ctx->objectVar);
 	      }
@@ -2639,7 +2641,7 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
 					    BEGIN( g_lastStringContext );
                                           }
                                         }
-<RawString>[^)]+                        { g_code->codify(yytext); }
+<RawString>[^)\n]+                      { g_code->codify(yytext); }
 <RawString>.                            { g_code->codify(yytext); }
 <RawString>\n                           { codifyLines(yytext); }
 <SkipVerbString>[^"\n]+			{
@@ -3587,13 +3589,18 @@ void resetCCodeParserState()
 }
 
 void parseCCode(CodeOutputInterface &od,const char *className,const QCString &s, 
-                  SrcLangExt lang,bool exBlock, const char *exName,FileDef *fd,
-		  int startLine,int endLine,bool inlineFragment,
-		  MemberDef *memberDef,bool showLineNumbers,Definition *searchCtx)
+                SrcLangExt lang,bool exBlock, const char *exName,FileDef *fd,
+		int startLine,int endLine,bool inlineFragment,
+		MemberDef *memberDef,bool showLineNumbers,Definition *searchCtx,
+                bool collectXRefs)
 {
   //printf("***parseCode() exBlock=%d exName=%s fd=%p className=%s searchCtx=%s\n",
   //      exBlock,exName,fd,className,searchCtx?searchCtx->name().data():"<none>");
+
   if (s.isEmpty()) return;
+
+  printlex(yy_flex_debug, TRUE, __FILE__, fd ? fd->fileName().data(): NULL);
+
   TooltipManager::instance()->clearTooltips();
   if (g_codeClassSDict==0)
   {
@@ -3605,6 +3612,7 @@ void parseCCode(CodeOutputInterface &od,const char *className,const QCString &s,
   g_currentFontClass = 0;
   g_needsTermination = FALSE;
   g_searchCtx = searchCtx;
+  g_collectXRefs = collectXRefs;
   g_inFunctionTryBlock = FALSE;
   if (endLine!=-1)
     g_inputLines  = endLine+1;
@@ -3683,6 +3691,8 @@ void parseCCode(CodeOutputInterface &od,const char *className,const QCString &s,
     delete g_sourceFileDef;
     g_sourceFileDef=0;
   }
+
+  printlex(yy_flex_debug, FALSE, __FILE__, fd ? fd->fileName().data(): NULL);
   return;
 }
 

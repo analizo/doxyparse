@@ -775,6 +775,13 @@ void ManDocVisitor::visitPost(DocMscFile *)
 {
 }
 
+void ManDocVisitor::visitPre(DocDiaFile *)
+{
+}
+
+void ManDocVisitor::visitPost(DocDiaFile *)
+{
+}
 
 void ManDocVisitor::visitPre(DocLink *)
 {
@@ -926,6 +933,7 @@ void ManDocVisitor::visitPost(DocParamList *pl)
 void ManDocVisitor::visitPre(DocXRefItem *x)
 {
   if (m_hide) return;
+  if (x->title().isEmpty()) return;
   if (!m_firstCol)
   { 
     m_t << endl;
@@ -937,9 +945,10 @@ void ManDocVisitor::visitPre(DocXRefItem *x)
   m_t << ".RS 4" << endl;
 }
 
-void ManDocVisitor::visitPost(DocXRefItem *)
+void ManDocVisitor::visitPost(DocXRefItem *x)
 {
   if (m_hide) return;
+  if (x->title().isEmpty()) return;
   if (!m_firstCol) m_t << endl;
   m_t << ".RE" << endl;
   m_t << ".PP" << endl;
@@ -999,6 +1008,14 @@ void ManDocVisitor::visitPre(DocVhdlFlow *)
 }
 
 void ManDocVisitor::visitPost(DocVhdlFlow *)
+{
+}
+
+void ManDocVisitor::visitPre(DocParBlock *)
+{
+}
+
+void ManDocVisitor::visitPost(DocParBlock *)
 {
 }
 

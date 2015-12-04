@@ -32,7 +32,7 @@ class PageDef : public Definition
    ~PageDef();
 
     // setters
-    void setFileName(const char *name);
+    void setFileName(const char *name,bool dontEscape);
     void setShowToc(bool b);
 
     // getters
@@ -70,7 +70,6 @@ class PageDef : public Definition
     void writePageDocumentation(OutputList &ol);
     QCString m_fileName;
     QCString m_title;
-    GroupDef *m_inGroup;
     PageSDict *m_subPageDict;                 // list of pages in the group
     Definition *m_pageScope;
     int m_nestingLevel;

@@ -320,6 +320,9 @@ static int yyread(char *buf,int max_size)
 }
 
 //--------------------------------------------------------------------------
+#define REAL_YY_DECL int doctokenizerYYlex (void)
+#define YY_DECL static int local_doctokinizer(void)
+#define LOCAL_YY_DECL local_doctokinizer()
 
 %}
 
@@ -355,6 +358,7 @@ INOUT	  "inout"|"in"|"out"|("in"{BLANK}*","{BLANK}*"out")|("out"{BLANK}*","{BLAN
 PARAMIO   {CMD}param{BLANK}*"["{BLANK}*{INOUT}{BLANK}*"]"
 TEMPCHAR  [a-z_A-Z0-9.,: \t\*\&\(\)\[\]]
 FUNCCHAR  [a-z_A-Z0-9,:\<\> \t\^\*\&\[\]]
+FUNCPART  {FUNCCHAR}*("("{FUNCCHAR}*")"{FUNCCHAR}*)?
 SCOPESEP  "::"|"#"|"."
 TEMPLPART "<"{TEMPCHAR}*">"
 ANONNS    "anonymous_namespace{"[^}]*"}"
@@ -363,7 +367,7 @@ SCOPEKEYS ":"({ID}":")*
 SCOPECPP  {SCOPEPRE}*(~)?{ID}{TEMPLPART}?
 SCOPEOBJC {SCOPEPRE}?{ID}{SCOPEKEYS}?
 SCOPEMASK {SCOPECPP}|{SCOPEOBJC}
-FUNCARG   "("{FUNCCHAR}*")"({BLANK}*("volatile"|"const"){BLANK})?
+FUNCARG   "("{FUNCPART}")"({BLANK}*("volatile"|"const"){BLANK})?
 OPNEW     {BLANK}+"new"({BLANK}*"[]")?
 OPDEL     {BLANK}+"delete"({BLANK}*"[]")?
 OPNORM    {OPNEW}|{OPDEL}|"+"|"-"|"*"|"/"|"%"|"^"|"&"|"|"|"~"|"!"|"="|"<"|">"|"+="|"-="|"*="|"/="|"%="|"^="|"&="|"|="|"<<"|">>"|"<<="|">>="|"=="|"!="|"<="|">="|"&&"|"||"|"++"|"--"|","|"->*"|"->"|"[]"|"()"
@@ -386,7 +390,7 @@ HTMLKEYU  "STRONG"|"CENTER"|"TABLE"|"CAPTION"|"SMALL"|"CODE"|"DFN"|"VAR"|"IMG"|"
 HTMLKEYW  {HTMLKEYL}|{HTMLKEYU}
 REFWORD2  ("#"|"::")?((({ID}{TEMPLPART}?)|{ANONNS})("."|"#"|"::"|"-"|"/"))*({ID}{TEMPLPART}?(":")?){FUNCARG}?
 REFWORD3  ({ID}":")*{ID}":"?
-REFWORD   {LABELID}|{REFWORD2}|{REFWORD3}
+REFWORD   {LABELID}|{REFWORD2}|{REFWORD3}|{LNKWORD2}
 
 %option noyywrap
 %option yylineno
@@ -735,7 +739,7 @@ REFWORD   {LABELID}|{REFWORD2}|{REFWORD3}
                        }
 <St_CodeOpt>{BLANK}*"{"(".")?{LABELID}"}" {
                          g_token->name = yytext;
-                         int i=g_token->name.find('{');
+                         int i=g_token->name.find('{'); /* } to keep vi happy */
                          g_token->name = g_token->name.mid(i+1,g_token->name.length()-i-2);
                          BEGIN(St_Code);
                        }
@@ -1022,6 +1026,10 @@ REFWORD   {LABELID}|{REFWORD2}|{REFWORD3}
   		       }
 <St_Param>[^ \t\n,]+   {
   			 g_token->name = yytext;
+                         if (g_token->name.at(yyleng-1)==':')
+                         {
+                           g_token->name=g_token->name.left(yyleng-1);
+                         }
 			 return TK_WORD;
                        }
 <St_Param>{WS}*","{WS}*  /* param separator */
@@ -1184,6 +1192,7 @@ void doctokenizerYYFindSections(const char *input,Definition *d,
                                 MemberGroup *mg,const char *fileName)
 {
   if (input==0) return;
+  printlex(yy_flex_debug, TRUE, __FILE__, fileName);
   g_inputString = input;
   //printf("parsing --->`%s'<---\n",input);
   g_inputPos    = 0;
@@ -1193,6 +1202,7 @@ void doctokenizerYYFindSections(const char *input,Definition *d,
   BEGIN(St_Sections);
   doctokenizerYYlineno = 1;
   doctokenizerYYlex();
+  printlex(yy_flex_debug, FALSE, __FILE__, fileName);
 }
 
 void doctokenizerYYinit(const char *input,const char *fileName)
@@ -1380,6 +1390,13 @@ void doctokenizerYYendAutoList()
   g_autoListLevel--;
 }
 
+REAL_YY_DECL
+{
+  printlex(yy_flex_debug, TRUE, __FILE__, g_fileName);
+  int retval = LOCAL_YY_DECL;
+  printlex(yy_flex_debug, FALSE, __FILE__, g_fileName);
+  return retval;
+}
 #if !defined(YY_FLEX_SUBMINOR_VERSION) 
 extern "C" { // some bogus code to keep the compiler happy
     void doctokenizerYYdummy() { yy_flex_realloc(0,0); }

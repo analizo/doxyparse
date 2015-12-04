@@ -52,6 +52,7 @@
 #include "formula.h"
 #include "config.h"
 #include "growbuf.h"
+#include "markdown.h"
 
 // debug off
 #define DBG(x) do {} while(0)
@@ -269,6 +270,14 @@ static QCString findAndCopyImage(const char *fileName,DocImage::Type type)
 	  break;
       }
       QCString outputFile = outputDir+"/"+result;
+      QFileInfo outfi(outputFile);
+      if (outfi.isSymLink())
+      {
+        QFile::remove(outputFile);
+        warn_doc_error(g_fileName,doctokenizerYYlineno,
+            "destination of image %s is a symlink, replacing with image",
+            qPrint(outputFile));
+      }
       if (outputFile!=inputFile) // prevent copying to ourself
       {
         QFile outImage(outputFile.data());
@@ -286,6 +295,10 @@ static QCString findAndCopyImage(const char *fileName,DocImage::Type type)
           warn_doc_error(g_fileName,doctokenizerYYlineno,
               "could not write output image %s",qPrint(outputFile));
         }
+      }
+      else
+      {
+        printf("Source & Destination are the same!\n");
       }
     }
     else
@@ -1562,6 +1575,7 @@ DocSymbol::SymType DocSymbol::decodeSymbol(const QCString &symName,char *letter)
 {
   int l=symName.length();
   DBG(("decodeSymbol(%s) l=%d\n",qPrint(symName),l));
+  // TODO: replace this with a hash
   if      (symName=="&copy;")  return DocSymbol::Copy;
   else if (symName=="&trade;") return DocSymbol::Tm;
   else if (symName=="&tm;")    return DocSymbol::Tm; // alias for &trade;
@@ -2404,8 +2418,13 @@ DocRef::DocRef(DocNode *parent,const QCString &target,const QCString &context) :
   QCString     anchor;
   //printf("DocRef::DocRef(target=%s,context=%s)\n",target.data(),context.data());
   ASSERT(!target.isEmpty());
+  SrcLangExt lang = getLanguageFromFileName(target);
   m_relPath = g_relPath;
   SectionInfo *sec = Doxygen::sectionDict->find(target);
+  if (sec==0 && lang==SrcLangExt_Markdown) // lookup as markdown file
+  {
+    sec = Doxygen::sectionDict->find(markdownFileNameToId(target));
+  }
   if (sec) // ref to section or anchor
   {
     PageDef *pd = 0;
@@ -2868,6 +2887,92 @@ void DocMscFile::parse()
   }
 
   DBG(("DocMscFile::parse() end\n"));
+  DocNode *n=g_nodeStack.pop();
+  ASSERT(n==this);
+}
+
+//---------------------------------------------------------------------------
+
+DocDiaFile::DocDiaFile(DocNode *parent,const QCString &name,const QCString &context) :
+      m_name(name), m_relPath(g_relPath), m_context(context)
+{
+  m_parent = parent;
+}
+
+void DocDiaFile::parse()
+{
+  g_nodeStack.push(this);
+  DBG(("DocDiaFile::parse() start\n"));
+
+  doctokenizerYYsetStateTitle();
+  int tok;
+  while ((tok=doctokenizerYYlex()))
+  {
+    if (!defaultHandleToken(this,tok,m_children))
+    {
+      switch (tok)
+      {
+        case TK_COMMAND:
+          warn_doc_error(g_fileName,doctokenizerYYlineno,"Illegal command %s as part of a \\diafile",
+	       qPrint(g_token->name));
+          break;
+        case TK_SYMBOL:
+	  warn_doc_error(g_fileName,doctokenizerYYlineno,"Unsupported symbol %s found",
+               qPrint(g_token->name));
+          break;
+        default:
+	  warn_doc_error(g_fileName,doctokenizerYYlineno,"Unexpected token %s",
+		tokToString(tok));
+          break;
+      }
+    }
+  }
+  tok=doctokenizerYYlex();
+  while (tok==TK_WORD) // there are values following the title
+  {
+    if (g_token->name=="width")
+    {
+      m_width=g_token->chars;
+    }
+    else if (g_token->name=="height")
+    {
+      m_height=g_token->chars;
+    }
+    else
+    {
+      warn_doc_error(g_fileName,doctokenizerYYlineno,"Unknown option %s after image title",
+            qPrint(g_token->name));
+    }
+    tok=doctokenizerYYlex();
+  }
+  ASSERT(tok==0);
+  doctokenizerYYsetStatePara();
+  handlePendingStyleCommands(this,m_children);
+
+  bool ambig;
+  FileDef *fd = findFileDef(Doxygen::diaFileNameDict,m_name,ambig);
+  if (fd==0 && m_name.right(4)!=".dia") // try with .dia extension as well
+  {
+    fd = findFileDef(Doxygen::diaFileNameDict,m_name+".dia",ambig);
+  }
+  if (fd)
+  {
+    m_file = fd->absFilePath();
+  }
+  else if (ambig)
+  {
+    warn_doc_error(g_fileName,doctokenizerYYlineno,"included dia file name %s is ambiguous.\n"
+           "Possible candidates:\n%s",qPrint(m_name),
+           qPrint(showFileDefMatches(Doxygen::exampleNameDict,m_name))
+          );
+  }
+  else
+  {
+    warn_doc_error(g_fileName,doctokenizerYYlineno,"included dia file %s is not found "
+           "in any of the paths specified via DIAFILE_DIRS!",qPrint(m_name));
+  }
+
+  DBG(("DocDiaFile::parse() end\n"));
   DocNode *n=g_nodeStack.pop();
   ASSERT(n==this);
 }
@@ -4323,6 +4428,33 @@ int DocHtmlBlockQuote::parse()
 
 //---------------------------------------------------------------------------
 
+int DocParBlock::parse()
+{
+  DBG(("DocParBlock::parse() start\n"));
+  int retval=0;
+  g_nodeStack.push(this);
+
+  // parse one or more paragraphs 
+  bool isFirst=TRUE;
+  DocPara *par=0;
+  do
+  {
+    par = new DocPara(this);
+    if (isFirst) { par->markFirst(); isFirst=FALSE; }
+    m_children.append(par);
+    retval=par->parse();
+  }
+  while (retval==TK_NEWPARA);
+  if (par) par->markLast();
+
+  DocNode *n=g_nodeStack.pop();
+  ASSERT(n==this);
+  DBG(("DocParBlock::parse() end retval=%x\n",retval));
+  return (retval==RetVal_EndBlockQuote) ? RetVal_OK : retval;
+}
+
+//---------------------------------------------------------------------------
+
 int DocSimpleListItem::parse()
 {
   g_nodeStack.push(this);
@@ -5077,6 +5209,30 @@ void DocPara::handleMscFile(const QCString &cmdName)
   df->parse();
 }
 
+void DocPara::handleDiaFile(const QCString &cmdName)
+{
+  int tok=doctokenizerYYlex();
+  if (tok!=TK_WHITESPACE)
+  {
+    warn_doc_error(g_fileName,doctokenizerYYlineno,"expected whitespace after %s command",
+        qPrint(cmdName));
+    return;
+  }
+  doctokenizerYYsetStateFile();
+  tok=doctokenizerYYlex();
+  doctokenizerYYsetStatePara();
+  if (tok!=TK_WORD)
+  {
+    warn_doc_error(g_fileName,doctokenizerYYlineno,"unexpected token %s as the argument of %s",
+        tokToString(tok),qPrint(cmdName));
+    return;
+  }
+  QCString name = g_token->name;
+  DocDiaFile *df = new DocDiaFile(this,name,g_context);
+  m_children.append(df);
+  df->parse();
+}
+
 void DocPara::handleVhdlFlow()
 {
   DocVhdlFlow *vf = new DocVhdlFlow(this);
@@ -5509,6 +5665,9 @@ int DocPara::handleCommand(const QCString &cmdName)
         doctokenizerYYsetStatePara();
       }
       break;
+    case CMD_ENDPARBLOCK:
+      retval=RetVal_EndParBlock;
+      break;
     case CMD_ENDCODE:
     case CMD_ENDHTMLONLY:
     case CMD_ENDMANONLY:
@@ -5567,6 +5726,13 @@ int DocPara::handleCommand(const QCString &cmdName)
     case CMD_ENDINTERNAL:
       retval = RetVal_EndInternal;
       break;
+    case CMD_PARBLOCK:
+      {
+        DocParBlock *block = new DocParBlock(this);
+        m_children.append(block);
+        retval = block->parse();
+      }
+      break;
     case CMD_COPYDOC:   // fall through
     case CMD_COPYBRIEF: // fall through
     case CMD_COPYDETAILS:
@@ -5614,6 +5780,9 @@ int DocPara::handleCommand(const QCString &cmdName)
       break;
     case CMD_MSCFILE:
       handleMscFile(cmdName);
+      break;
+    case CMD_DIAFILE:
+      handleDiaFile(cmdName);
       break;
     case CMD_LINK:
       handleLink(cmdName,FALSE);
@@ -6920,11 +7089,19 @@ static QCString extractCopyDocId(const char *data, uint &j, uint len)
     }
     if (!found) j++;
   }
+  if (qstrncmp(data+j," const",6)==0)
+  {
+    j+=6;
+  }
+  else if (qstrncmp(data+j," volatile",9)==0)
+  {
+    j+=9;
+  }
   e=j;
   QCString id(e-s+1);
   if (e>s) memcpy(id.data(),data+s,e-s);
   id.at(e-s)='\0';
-  //printf("extractCopyDocId=%s input='%s'\n",id.data(),&data[s]);
+  //printf("extractCopyDocId='%s' input='%s'\n",id.data(),&data[s]);
   return id;
 }
 

@@ -80,13 +80,17 @@
 	    $project{"TARGET_EXT"} = ".dll";
 	}
     } else {
-	Project('TMAKE_LFLAGS_CONSOLE_ANY = $$TMAKE_LFLAGS_CONSOLE');
-	Project('TMAKE_LFLAGS_WINDOWS_ANY = $$TMAKE_LFLAGS_WINDOWS');
-	if ( Project("TMAKE_APP_FLAG") ) {
-	    $project{"TARGET_EXT"} = ".exe";
-	} else {
-	    $project{"TARGET_EXT"} = ".a";
-	}
+        if ( Config("cgi") ) {
+	    Project('TMAKE_LFLAGS_CONSOLE_ANY = $$TMAKE_LFLAGS_CONSOLE');
+	    Project('TMAKE_LFLAGS_WINDOWS_ANY = $$TMAKE_LFLAGS_WINDOWS');
+	    $project{"TARGET_EXT"} = "";
+        } else {
+	    if ( Project("TMAKE_APP_FLAG") ) {
+	        $project{"TARGET_EXT"} = ".exe";
+	    } else {
+	        $project{"TARGET_EXT"} = ".a";
+	    }
+        }
     }
     if ( Config("windows") ) {
 	if ( Config("console") ) {
@@ -203,7 +207,7 @@ TARGET	=	#$ ExpandGlue("TARGET",$project{"DESTDIR"},"",$project{"TARGET_EXT"});
 
 all: #$ ExpandGlue("ALL_DEPS",""," "," "); $text .= '$(TARGET)';
 
-$(TARGET): $(OBJECTS) $(OBJMOC) #$ Expand("TARGETDEPS");
+$(TARGET): $(HEADERS) $(OBJECTS) $(OBJMOC) #$ Expand("TARGETDEPS");
 #$ Project("TMAKE_APP_OR_DLL") || DisableOutput();
 	$(LINK) $(LFLAGS) -o $(TARGET) $(OBJECTS) $(OBJMOC) $(LIBS)
 #$ Project("TMAKE_APP_OR_DLL") || EnableOutput();

@@ -132,6 +132,9 @@ CommandMap cmdMap[] =
   { "docbookonly",   CMD_DBONLY },
   { "enddocbookonly",CMD_ENDDBONLY },
   { "endinternal",   CMD_ENDINTERNAL },
+  { "parblock",      CMD_PARBLOCK },
+  { "endparblock",   CMD_ENDPARBLOCK },
+  { "diafile",       CMD_DIAFILE },
   { 0,               0 },
 };
 

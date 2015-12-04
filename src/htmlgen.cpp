@@ -47,63 +47,63 @@
 #define DBG_HTML(x) 
 
 static const char defaultHtmlHeader[] =
-#include "header_html.h"
+#include "header.html.h"
 ;
 
 static const char defaultHtmlFooter[] =
-#include "footer_html.h"
+#include "footer.html.h"
 ;
 
 static const char defaultStyleSheet[] = 
-#include "doxygen_css.h"
+#include "doxygen.css.h"
 ;
 
 static const char search_functions_script[]=
-#include "search_functions_php.h"
+#include "search_functions.php.h"
 ;
 
 static const char search_opensearch_script[]=
-#include "search_opensearch_php.h"
+#include "search_opensearch.php.h"
 ;
 
 static const char search_styleSheet[] =
-#include "search_css.h"
+#include "search.css.h"
 ;
 
 static const char search_jquery_script1[]=
-#include "jquery_p1_js.h"
+#include "jquery_p1.js.h"
 ;
 
 static const char search_jquery_script2[]=
-#include "jquery_p2_js.h"
+#include "jquery_p2.js.h"
 ;
 
 static const char search_jquery_script3[]=
-#include "jquery_p3_js.h"
+#include "jquery_p3.js.h"
 ;
 
 static const char search_jquery_script4[]=
-#include "jquery_ui_js.h"
+#include "jquery_ui.js.h"
 ;
 
 static const char search_jquery_script5[]=
-#include "jquery_fx_js.h"
+#include "jquery_fx.js.h"
 ;
 
 static const char search_jquery_script6[]=
-#include "jquery_pt_js.h"
+#include "jquery_pt.js.h"
 ;
 
 static const char svgpan_script[]=
-#include "svgpan_js.h"
+#include "svgpan.js.h"
 ;
 
 static const char dynsections_script[]=
-#include "dynsections_js.h"
+#include "dynsections.js.h"
 ;
 
 static const char extsearch_script[]=
-#include "extsearch_js.h"
+#include "extsearch.js.h"
 ;
 
 static QCString g_header;
@@ -1385,8 +1385,8 @@ void HtmlCodeGenerator::_writeCodeLink(const char *className,
 }
 
 void HtmlCodeGenerator::writeTooltip(const char *id, const DocLinkInfo &docInfo,
-                                     const char *decl, const char *desc, 
-                                     const SourceLinkInfo &defInfo, 
+                                     const char *decl, const char *desc,
+                                     const SourceLinkInfo &defInfo,
                                      const SourceLinkInfo &declInfo)
 {
   m_t << "<div class=\"ttc\" id=\"" << id << "\">";
@@ -1417,7 +1417,7 @@ void HtmlCodeGenerator::writeTooltip(const char *id, const DocLinkInfo &docInfo,
   if (desc)
   {
     m_t << "<div class=\"ttdoc\">";
-    docify(desc);
+    m_t << desc; // desc is already HTML escaped
     m_t << "</div>";
   }
   if (!defInfo.file.isEmpty())
@@ -2748,9 +2748,9 @@ void HtmlGenerator::endParamList()
   t << "</dl>"; 
 }
 
-void HtmlGenerator::writeDoc(DocNode *n,Definition *ctx,MemberDef *md)
+void HtmlGenerator::writeDoc(DocNode *n,Definition *ctx,MemberDef *)
 {
-  HtmlDocVisitor *visitor = new HtmlDocVisitor(t,m_codeGen,ctx,md);
+  HtmlDocVisitor *visitor = new HtmlDocVisitor(t,m_codeGen,ctx);
   n->accept(visitor);
   delete visitor; 
 }
@@ -3279,7 +3279,7 @@ void HtmlGenerator::writeExternalSearchPage()
 void HtmlGenerator::startConstraintList(const char *header)
 {
   t << "<div class=\"typeconstraint\">" << endl;
-  t << "<dl><dt><b>" << header << "</b><dt><dd>" << endl;
+  t << "<dl><dt><b>" << header << "</b></dt><dd>" << endl;
   t << "<table border=\"0\" cellspacing=\"2\" cellpadding=\"0\">" << endl;
 }
 

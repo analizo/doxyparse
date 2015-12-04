@@ -78,6 +78,7 @@ static int      g_blockCount;
 static bool     g_lastEscaped;
 static int      g_lastBlockContext;
 static bool     g_pythonDocString;
+static int      g_nestingCount;
 
 static SrcLangExt g_lang;
 static bool       isFixedForm; // For Fortran
@@ -240,9 +241,12 @@ void replaceComment(int offset);
 
 %%
 
-<Scan>[^"'!\/\n\\#\\-]*           { /* eat anything that is not " / or \n */ 
-                                     copyToOutput(yytext,(int)yyleng); 
-				   }
+<Scan>[^"'!\/\n\\#-,]*              { /* eat anything that is not " / , or \n */ 
+                                       copyToOutput(yytext,(int)yyleng);
+                                    }
+<Scan>[,]                           { /* eat , so we have a nice separator in long initialization lines */ 
+                                       copyToOutput(yytext,(int)yyleng);
+                                    }
 <Scan>"\"\"\""!                     { /* start of python long comment */
                                      if (g_lang!=SrcLangExt_Python)
 				     {
@@ -251,7 +255,8 @@ void replaceComment(int offset);
 				     else
 				     {
                                        g_pythonDocString = TRUE;
-                                       copyToOutput(yytext,(int)yyleng); 
+                                       g_nestingCount=0;
+                                       copyToOutput(yytext,(int)yyleng);
 				       BEGIN(CComment);
 				     }
                                    }
@@ -263,6 +268,7 @@ void replaceComment(int offset);
 				     else
 				     {
                                        copyToOutput(yytext,(int)yyleng); 
+                                       g_nestingCount=0;
 				       BEGIN(CComment);
 				     }
   				   }
@@ -277,6 +283,7 @@ void replaceComment(int offset);
                                        if (isFixedForm && (g_col == 0))
                                        {
                                          copyToOutput(yytext,(int)yyleng); 
+                                         g_nestingCount=0;
 				         BEGIN(CComment);
 				       }
 				       else
@@ -365,8 +372,12 @@ void replaceComment(int offset);
 				     g_readLineCtx=YY_START;
 				     BEGIN(ReadLine);
 				   }
+<Scan>"/**/"                       { /* avoid matching next rule for empty C comment, see bug 711723 */
+                                     copyToOutput(yytext,(int)yyleng);
+                                   }
 <Scan>"/*"[*!]?			   { /* start of a C comment */
   			             g_specialComment=(int)yyleng==3;
+                                     g_nestingCount=0;
                                      copyToOutput(yytext,(int)yyleng); 
 				     BEGIN(CComment); 
                                    }
@@ -378,6 +389,7 @@ void replaceComment(int offset);
 				     else
 				     {
                                        copyToOutput(yytext,(int)yyleng); 
+                                       g_nestingCount=0;
 				       BEGIN(CComment);
 				     }
   				   }
@@ -389,6 +401,7 @@ void replaceComment(int offset);
 				     else
 				     {
                                        copyToOutput(yytext,(int)yyleng); 
+                                       g_nestingCount=0;
 				       BEGIN(CComment);
 				     }
   				   }
@@ -400,6 +413,7 @@ void replaceComment(int offset);
 				     else
 				     {
                                        copyToOutput(yytext,(int)yyleng); 
+                                       g_nestingCount=0;
 				       BEGIN(CComment);
 				     }
   				   }
@@ -564,7 +578,7 @@ void replaceComment(int offset);
                                      copyToOutput(yytext,(int)yyleng); 
                                    }
 
-<CComment>[^\\!@*\n{\"]*           { /* anything that is not a '*' or command */ 
+<CComment>[^\\!@*\n{\"\/]*           { /* anything that is not a '*' or command */ 
                                      copyToOutput(yytext,(int)yyleng); 
                                    }
 <CComment>"*"+[^*/\\@\n{\"]*       { /* stars without slashes */
@@ -590,6 +604,10 @@ void replaceComment(int offset);
 				       BEGIN(Scan);
 				     }
                                    }
+<CComment>"/"+"*"                  { /* nested C comment */
+                                     g_nestingCount++;
+                                     copyToOutput(yytext,(int)yyleng); 
+                                   }
 <CComment>"*"+"/"                  { /* end of C comment */
                                      if (g_lang==SrcLangExt_Python)
 				     {
@@ -597,8 +615,15 @@ void replaceComment(int offset);
 				     }
 				     else
 				     {
-				       copyToOutput(yytext,(int)yyleng);
-				       BEGIN(Scan);
+                                       if (g_nestingCount<=0)
+                                       {
+				         copyToOutput(yytext,(int)yyleng);
+				         BEGIN(Scan);
+                                       }
+                                       else
+                                       {
+                                         g_nestingCount--;
+                                       }
 				     }
                                    }
 <CComment>"\n"/[ \t]*[^#]	   { /* end of Python comment */
@@ -927,6 +952,7 @@ void convertCppComments(BufStr *inBuf,BufStr *outBuf,const char *fileName)
   g_condStack.clear();
   g_condStack.setAutoDelete(TRUE);
 
+  printlex(yy_flex_debug, TRUE, __FILE__, fileName);
   isFixedForm = FALSE;
   if (g_lang==SrcLangExt_Fortran)
   {
@@ -935,6 +961,7 @@ void convertCppComments(BufStr *inBuf,BufStr *outBuf,const char *fileName)
 
   if (g_lang==SrcLangExt_Markdown)
   {
+    g_nestingCount=0;
     BEGIN(CComment);
   }
   else
@@ -955,6 +982,7 @@ void convertCppComments(BufStr *inBuf,BufStr *outBuf,const char *fileName)
     g_outBuf->at(g_outBuf->curPos())='\0';
     msg("-------------\n%s\n-------------\n",g_outBuf->data());
   }
+  printlex(yy_flex_debug, FALSE, __FILE__, fileName);
 }
 
 

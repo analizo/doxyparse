@@ -3,8 +3,8 @@
  * Copyright (C) 1997-2013 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
- * documentation under the terms of the GNU General Public License is hereby 
- * granted. No representations are made about the suitability of this software 
+ * documentation under the terms of the GNU General Public License is hereby
+ * granted. No representations are made about the suitability of this software
  * for any purpose. It is provided "as is" without express or implied warranty.
  * See the GNU General Public License for more details.
  *
@@ -71,9 +71,9 @@ static QCString addTemplateNames(const QCString &s,const QCString &n,const QCStr
     if (s.length()==j || (s.at(j)!='<' && !isId(s.at(j))))
     { // add template names
       //printf("Adding %s+%s\n",clRealName.data(),t.data());
-      result+=clRealName+t; 
+      result+=clRealName+t;
     }
-    else 
+    else
     { // template names already present
       //printf("Adding %s\n",clRealName.data());
       result+=clRealName;
@@ -116,19 +116,18 @@ static QCString addTemplateNames(const QCString &s,const QCString &n,const QCStr
 //   --- leave writeDefArgumentList with return value FALSE
 //   ol.endMemberDocName
 //   ol.endMemberDoc(hasArgs=FALSE);
-//  
+//
 
 static bool writeDefArgumentList(OutputList &ol,ClassDef *cd,
                                  const QCString & /*scopeName*/,MemberDef *md)
 {
-  ArgumentList *defArgList=(md->isDocsForDefinition()) ? 
+  ArgumentList *defArgList=(md->isDocsForDefinition()) ?
                              md->argumentList() : md->declArgumentList();
   //printf("writeDefArgumentList `%s' isDocsForDefinition()=%d\n",md->name().data(),md->isDocsForDefinition());
-  if (defArgList==0 || md->isProperty()) 
+  if (defArgList==0 || md->isProperty())
   {
     return FALSE; // member has no function like argument list
   }
-  if (!md->isDefine()) ol.docify(" ");
 
   // simple argument list for tcl
   if (md->getLanguage()==SrcLangExt_Tcl)
@@ -140,7 +139,7 @@ static bool writeDefArgumentList(OutputList &ol,ClassDef *cd,
     ol.startParameterType(TRUE,0);
     ol.endParameterType();
     ol.startParameterName(FALSE);
-    while (a) 
+    while (a)
     {
       if (a->defval.isEmpty())
       {
@@ -156,6 +155,8 @@ static bool writeDefArgumentList(OutputList &ol,ClassDef *cd,
     return TRUE;
   }
 
+  if (!md->isDefine()) ol.docify(" ");
+
   //printf("writeDefArgList(%d)\n",defArgList->count());
   ol.pushGeneratorState();
   //ol.disableAllBut(OutputGenerator::Html);
@@ -167,7 +168,7 @@ static bool writeDefArgumentList(OutputList &ol,ClassDef *cd,
     if (latexOn) ol.enable(OutputGenerator::Latex);
 
     ol.endMemberDocName();
-    ol.startParameterList(!md->isObjCMethod()); 
+    ol.startParameterList(!md->isObjCMethod());
   }
   ol.enableAll();
   ol.disable(OutputGenerator::Html);
@@ -194,7 +195,7 @@ static bool writeDefArgumentList(OutputList &ol,ClassDef *cd,
     }
     else if (cd->templateArguments())
     {
-      cName=tempArgListToString(cd->templateArguments()); 
+      cName=tempArgListToString(cd->templateArguments());
       //printf("2. cName=%s\n",cName.data());
     }
     else // no template specifier
@@ -209,7 +210,7 @@ static bool writeDefArgumentList(OutputList &ol,ClassDef *cd,
   bool isDefine = md->isDefine();
   while (a)
   {
-    if (isDefine || first) 
+    if (isDefine || first)
     {
       ol.startParameterType(first,0);
       paramTypeStarted=TRUE;
@@ -224,7 +225,7 @@ static bool writeDefArgumentList(OutputList &ol,ClassDef *cd,
     int wp=a->type.find(res);
 
     // use the following to put the function pointer type before the name
-    bool hasFuncPtrType=FALSE; 
+    bool hasFuncPtrType=FALSE;
 
     if (!a->attrib.isEmpty() && !md->isObjCMethod()) // argument has an IDL attribute
     {
@@ -251,7 +252,7 @@ static bool writeDefArgumentList(OutputList &ol,ClassDef *cd,
     }
     if (!isDefine)
     {
-      if (paramTypeStarted) 
+      if (paramTypeStarted)
       {
         ol.endParameterType();
         paramTypeStarted=FALSE;
@@ -260,10 +261,10 @@ static bool writeDefArgumentList(OutputList &ol,ClassDef *cd,
     }
     if (hasFuncPtrType)
     {
-      ol.docify(a->type.mid(wp,vp-wp)); 
+      ol.docify(a->type.mid(wp,vp-wp));
     }
-    if (!a->name.isEmpty() || (a->name.isEmpty() && a->type=="...")) // argument has a name
-    { 
+    if (!a->name.isEmpty() || a->type=="...") // argument has a name
+    {
       //if (!hasFuncPtrType)
       //{
       //  ol.docify(" ");
@@ -284,7 +285,7 @@ static bool writeDefArgumentList(OutputList &ol,ClassDef *cd,
     {
       ol.docify(a->array);
     }
-    if (hasFuncPtrType) // write the part of the argument type 
+    if (hasFuncPtrType) // write the part of the argument type
                         // that comes after the name
     {
       linkifyText(TextGeneratorOLImpl(ol),cd,md->getBodyDef(),
@@ -297,15 +298,15 @@ static bool writeDefArgumentList(OutputList &ol,ClassDef *cd,
       ol.docify(" = ");
 
       ol.startTypewriter();
-      linkifyText(TextGeneratorOLImpl(ol),cd,md->getBodyDef(),md,n,FALSE,TRUE,TRUE); 
+      linkifyText(TextGeneratorOLImpl(ol),cd,md->getBodyDef(),md,n,FALSE,TRUE,TRUE);
       ol.endTypewriter();
 
     }
     a=defArgList->next();
-    if (a) 
+    if (a)
     {
       if (!md->isObjCMethod()) ol.docify(", "); // there are more arguments
-      if (!isDefine) 
+      if (!isDefine)
       {
         QCString key;
         if (md->isObjCMethod() && a->attrib.length()>=2)
@@ -316,7 +317,7 @@ static bool writeDefArgumentList(OutputList &ol,ClassDef *cd,
           if (key!=",") key+=":"; // for normal keywords add colon
         }
         ol.endParameterName(FALSE,FALSE,!md->isObjCMethod());
-        if (paramTypeStarted) 
+        if (paramTypeStarted)
         {
           ol.endParameterType();
         }
@@ -360,7 +361,7 @@ static bool writeDefArgumentList(OutputList &ol,ClassDef *cd,
                 md,                      // self
                 defArgList->trailingReturnType, // text
                 FALSE                    // autoBreak
-               ); 
+               );
 
   }
   return TRUE;
@@ -370,12 +371,13 @@ static void writeExceptionListImpl(
         OutputList &ol, ClassDef *cd, MemberDef *md, QCString const& exception)
 {
   // this is ordinary exception spec - there must be a '('
+  //printf("exception='%s'\n",exception.data());
   int index = exception.find('(');
-  if (-1!=index)
+  if (index!=-1)
   {
     ol.exceptionEntry(exception.left(index),false);
     ++index; // paren in second column so skip it here
-    for (int comma = exception.find(',', index); -1!=comma; )
+    for (int comma = exception.find(',', index); comma!=-1; )
     {
       ++comma; // include comma
       linkifyText(TextGeneratorOLImpl(ol),cd,md->getBodyDef(),md,
@@ -385,21 +387,20 @@ static void writeExceptionListImpl(
       comma = exception.find(',', index);
     }
     int close = exception.find(')', index);
-    if (-1!=close)
+    if (close!=-1)
     {
       QCString type=removeRedundantWhiteSpace(exception.mid(index,close-index));
       linkifyText(TextGeneratorOLImpl(ol),cd,md->getBodyDef(),md,type);
       ol.exceptionEntry(0,true);
     }
     else
-        warn(md->getDefFileName(),md->getDefLine(),
-            "missing ) in exception list on member %s",qPrint(md->name()));
+    {
+      warn(md->getDefFileName(),md->getDefLine(),
+          "missing ) in exception list on member %s",qPrint(md->name()));
+    }
   }
-  else
+  else // Java Exception
   {
-    // fallback - is it possible to get here?
-    warn(md->getDefFileName(),md->getDefLine(),
-            "missing ( in exception list on member %s",qPrint(md->name()));
     ol.docify(" ");
     linkifyText(TextGeneratorOLImpl(ol),cd,md->getBodyDef(),md,exception);
   }
@@ -441,32 +442,11 @@ static void writeTemplatePrefix(OutputList &ol,ArgumentList *al)
     {
       ol.docify(" = ");
       ol.docify(a->defval);
-    } 
+    }
     a=al->next();
     if (a) ol.docify(", ");
   }
   ol.docify("> ");
-}
-
-QCString extractDirection(QCString &docs)
-{
-  QRegExp re("\\[[^\\]]+\\]"); // [...]
-  int l=0;
-  if (re.match(docs,0,&l)==0)
-  {
-    int  inPos  = docs.find("in", 1,FALSE);
-    int outPos  = docs.find("out",1,FALSE);
-    bool input  =  inPos!=-1 &&  inPos<l;
-    bool output = outPos!=-1 && outPos<l;
-    if (input || output) // in,out attributes
-    {
-      docs = docs.mid(l); // strip attributes
-      if (input && output) return "[in,out]";
-      else if (input)      return "[in]";
-      else if (output)     return "[out]";
-    }
-  }
-  return QCString();
 }
 
 //-----------------------------------------------------------------------------
@@ -484,16 +464,16 @@ class MemberDefImpl
               const ArgumentList *al
              );
 
-    ClassDef     *classDef;   // member of or related to 
-    FileDef      *fileDef;    // member of file definition 
+    ClassDef     *classDef;   // member of or related to
+    FileDef      *fileDef;    // member of file definition
     NamespaceDef *nspace;     // the namespace this member is in.
 
     MemberDef  *enumScope;    // the enclosing scope, if this is an enum field
-    bool        livesInsideEnum; 
+    bool        livesInsideEnum;
     MemberDef  *annEnumType;  // the anonymous enum that is the type of this member
     MemberList *enumFields;   // enumeration fields
 
-    MemberDef  *redefines;    // the members that this member redefines 
+    MemberDef  *redefines;    // the members that this member redefines
     MemberList *redefinedBy;  // the list of members that redefine this one
 
     MemberDef  *memDef;       // member definition for this declaration
@@ -523,7 +503,7 @@ class MemberDefImpl
 
     uint64  memSpec;          // The specifiers present for this member
     MemberType mtype;         // returns the kind of member
-    int maxInitLines;         // when the initializer will be displayed 
+    int maxInitLines;         // when the initializer will be displayed
     int userInitLines;        // result of explicit \hideinitializer or \showinitializer
     MemberDef  *annMemb;
 
@@ -533,13 +513,13 @@ class MemberDefImpl
     ArgumentList *tArgList;      // template argument list of function template
     ArgumentList *typeConstraints; // type constraints for template parameters
     MemberDef *templateMaster;
-    QList<ArgumentList> *defTmpArgLists; // lists of template argument lists 
+    QList<ArgumentList> *defTmpArgLists; // lists of template argument lists
                                          // (for template functions in nested template classes)
 
     ClassDef *cachedAnonymousType; // if the member has an anonymous compound
                                    // as its type then this is computed by
-                                   // getClassDefOfAnonymousType() and 
-                                   // cached here. 
+                                   // getClassDefOfAnonymousType() and
+                                   // cached here.
     SDict<MemberList> *classSectionSDict; // not accessible
 
     MemberDef *groupAlias;    // Member containing the definition
@@ -555,7 +535,7 @@ class MemberDefImpl
     ClassDef *cachedTypedefValue;
     QCString cachedTypedefTemplSpec;
     QCString cachedResolvedType;
-    
+
     // inbody documentation
     //int inbodyLine;
     //QCString inbodyFile;
@@ -568,7 +548,7 @@ class MemberDefImpl
     QCString explicitOutputFileBase;
 
     // objective-c
-    bool implOnly; // function found in implementation but not 
+    bool implOnly; // function found in implementation but not
                      // in the interface
     bool hasDocumentedParams;
     bool hasDocumentedReturnType;
@@ -578,7 +558,7 @@ class MemberDefImpl
     bool proto;               // is it a prototype;
     bool docEnumValues;       // is an enum with documented enum values.
     bool annScope;            // member is part of an annoymous scope
-    bool annUsed;             
+    bool annUsed;
     bool hasCallGraph;
     bool hasCallerGraph;
     bool explExt;             // member was explicitly declared external
@@ -743,10 +723,10 @@ void MemberDefImpl::init(Definition *def,
  *           \c Normal, \c Virtual, \c Pure.
  * \param s  A boolean that is true iff the member is static.
  * \param r  The relationship between the class and the member.
- * \param mt The kind of member. See #MemberType for a list of 
+ * \param mt The kind of member. See #MemberType for a list of
  *           all types.
  * \param tal The template arguments of this member.
- * \param al  The arguments of this member. This is a structured form of 
+ * \param al  The arguments of this member. This is a structured form of
  *            the string past as argument \a a.
  */
 
@@ -789,7 +769,7 @@ MemberDef *MemberDef::deepCopy() const
   result->m_impl->defTmpArgLists=0;
   result->m_impl->classSectionSDict=0;
   result->m_impl->declArgList=0;
-  // replace pointers owned by the object by deep copies 
+  // replace pointers owned by the object by deep copies
   if (m_impl->redefinedBy)
   {
     MemberListIterator mli(*m_impl->redefinedBy);
@@ -810,7 +790,7 @@ MemberDef *MemberDef::deepCopy() const
   }
   if (m_impl->enumFields)
   {
-    MemberListIterator mli(*m_impl->redefinedBy);
+    MemberListIterator mli(*m_impl->enumFields);
     MemberDef *md;
     for (mli.toFirst();(md=mli.current());++mli)
     {
@@ -862,8 +842,8 @@ void MemberDef::moveTo(Definition *scope)
    {
      m_impl->nspace = (NamespaceDef*)scope;
    }
-   m_isLinkableCached = 0; 
-   m_isConstructorCached = 0; 
+   m_isLinkableCached = 0;
+   m_isConstructorCached = 0;
 }
 
 
@@ -875,8 +855,8 @@ MemberDef::~MemberDef()
   m_impl=0;
 }
 
-void MemberDef::setReimplements(MemberDef *md)   
-{ 
+void MemberDef::setReimplements(MemberDef *md)
+{
   m_impl->redefines = md;
 }
 
@@ -887,20 +867,20 @@ void MemberDef::insertReimplementedBy(MemberDef *md)
     m_impl->templateMaster->insertReimplementedBy(md);
   }
   if (m_impl->redefinedBy==0) m_impl->redefinedBy = new MemberList(MemberListType_redefinedBy);
-  if (m_impl->redefinedBy->findRef(md)==-1) 
+  if (m_impl->redefinedBy->findRef(md)==-1)
   {
     m_impl->redefinedBy->inSort(md);
   }
 }
 
-MemberDef *MemberDef::reimplements() const      
-{ 
-  return m_impl->redefines; 
+MemberDef *MemberDef::reimplements() const
+{
+  return m_impl->redefines;
 }
 
-MemberList *MemberDef::reimplementedBy() const   
-{ 
-  return m_impl->redefinedBy; 
+MemberList *MemberDef::reimplementedBy() const
+{
+  return m_impl->redefinedBy;
 }
 
 bool MemberDef::isReimplementedBy(ClassDef *cd) const
@@ -935,7 +915,7 @@ bool MemberDef::addExample(const char *anchor,const char *nameStr,
 {
   //printf("%s::addExample(%s,%s,%s)\n",name().data(),anchor,nameStr,file);
   if (m_impl->exampleSDict==0) m_impl->exampleSDict = new ExampleSDict;
-  if (m_impl->exampleSDict->find(nameStr)==0) 
+  if (m_impl->exampleSDict->find(nameStr)==0)
   {
     //printf("Add reference to example %s to member %s\n",nameStr,name.data());
     Example *e=new Example;
@@ -945,12 +925,12 @@ bool MemberDef::addExample(const char *anchor,const char *nameStr,
     m_impl->exampleSDict->inSort(nameStr,e);
     return TRUE;
   }
-  return FALSE; 
+  return FALSE;
 }
 
 bool MemberDef::hasExamples()
 {
-  if (m_impl->exampleSDict==0) 
+  if (m_impl->exampleSDict==0)
     return FALSE;
   else
     return m_impl->exampleSDict->count()>0;
@@ -987,7 +967,7 @@ QCString MemberDef::getOutputFileBase() const
   {
     baseName=m_impl->fileDef->getOutputFileBase();
   }
-  
+
   if (baseName.isEmpty())
   {
     warn(getDefFileName(),getDefLine(),
@@ -1049,7 +1029,7 @@ QCString MemberDef::anchor() const
   {
     result.prepend(m_impl->enumScope->anchor());
   }
-  if (m_impl->group) 
+  if (m_impl->group)
   {
     if (m_impl->groupMember)
     {
@@ -1068,7 +1048,7 @@ void MemberDef::_computeLinkableInProject()
   static bool extractStatic  = Config_getBool("EXTRACT_STATIC");
   m_isLinkableCached = 2; // linkable
   //printf("MemberDef::isLinkableInProject(name=%s)\n",name().data());
-  if (isHidden()) 
+  if (isHidden())
   {
     //printf("is hidden\n");
     m_isLinkableCached = 1;
@@ -1080,51 +1060,51 @@ void MemberDef::_computeLinkableInProject()
     m_isLinkableCached = m_impl->templateMaster->isLinkableInProject() ? 2 : 1;
     return;
   }
-  if (name().isEmpty() || name().at(0)=='@') 
+  if (name().isEmpty() || name().at(0)=='@')
   {
     //printf("name invalid\n");
     m_isLinkableCached = 1; // not a valid or a dummy name
     return;
   }
-  if (!hasDocumentation() && !isReference()) 
+  if (!hasDocumentation() && !isReference())
   {
     //printf("no docs or reference\n");
     m_isLinkableCached = 1; // no documentation
     return;
   }
-  if (m_impl->group && !m_impl->group->isLinkableInProject()) 
+  if (m_impl->group && !m_impl->group->isLinkableInProject())
   {
     //printf("group but group not linkable!\n");
     m_isLinkableCached = 1; // group but group not linkable
     return;
   }
-  if (!m_impl->group && m_impl->classDef && !m_impl->classDef->isLinkableInProject()) 
+  if (!m_impl->group && m_impl->classDef && !m_impl->classDef->isLinkableInProject())
   {
     //printf("in a class but class not linkable!\n");
     m_isLinkableCached = 1; // in class but class not linkable
     return;
   }
-  if (!m_impl->group && m_impl->nspace && !m_impl->related && !m_impl->nspace->isLinkableInProject()) 
+  if (!m_impl->group && m_impl->nspace && !m_impl->related && !m_impl->nspace->isLinkableInProject())
   {
     //printf("in a namespace but namespace not linkable!\n");
     m_isLinkableCached = 1; // in namespace but namespace not linkable
     return;
   }
-  if (!m_impl->group && !m_impl->nspace && 
-      !m_impl->related && !m_impl->classDef && 
-      m_impl->fileDef && !m_impl->fileDef->isLinkableInProject()) 
+  if (!m_impl->group && !m_impl->nspace &&
+      !m_impl->related && !m_impl->classDef &&
+      m_impl->fileDef && !m_impl->fileDef->isLinkableInProject())
   {
     //printf("in a file but file not linkable!\n");
     m_isLinkableCached = 1; // in file (and not in namespace) but file not linkable
     return;
   }
-  if (!protectionLevelVisible(m_impl->prot) && m_impl->mtype!=MemberType_Friend) 
+  if (!protectionLevelVisible(m_impl->prot) && m_impl->mtype!=MemberType_Friend)
   {
     //printf("private and invisible!\n");
     m_isLinkableCached = 1; // hidden due to protection
     return;
   }
-  if (m_impl->stat && m_impl->classDef==0 && !extractStatic) 
+  if (m_impl->stat && m_impl->classDef==0 && !extractStatic)
   {
     //printf("static and invisible!\n");
     m_isLinkableCached = 1; // hidden due to staticness
@@ -1204,11 +1184,11 @@ void MemberDef::writeLink(OutputList &ol,ClassDef *,NamespaceDef *,
     {
       n.prepend(m_impl->enumScope->displayName()+sep);
     }
-    if (m_impl->classDef && gd && !isRelated()) 
+    if (m_impl->classDef && gd && !isRelated())
     {
       n.prepend(m_impl->classDef->displayName()+sep);
     }
-    else if (m_impl->nspace && (gd || fd)) 
+    else if (m_impl->nspace && (gd || fd))
     {
       n.prepend(m_impl->nspace->displayName()+sep);
     }
@@ -1244,12 +1224,12 @@ void MemberDef::writeLink(OutputList &ol,ClassDef *,NamespaceDef *,
 /*! If this member has an anonymous class/struct/union as its type, then
  *  this method will return the ClassDef that describes this return type.
  */
-ClassDef *MemberDef::getClassDefOfAnonymousType() 
+ClassDef *MemberDef::getClassDefOfAnonymousType()
 {
   if (m_impl->cachedAnonymousType) return m_impl->cachedAnonymousType;
 
   QCString cname;
-  if (getClassDef()!=0) 
+  if (getClassDef()!=0)
   {
     cname=getClassDef()->name().copy();
   }
@@ -1278,7 +1258,7 @@ ClassDef *MemberDef::getClassDefOfAnonymousType()
     QCString annName = ltype.mid(il,ir-il);
 
     // if inside a class or namespace try to prepend the scope name
-    if (!cname.isEmpty() && annName.left(cname.length()+2)!=cname+"::") 
+    if (!cname.isEmpty() && annName.left(cname.length()+2)!=cname+"::")
     {
       QCString ts=stripAnonymousNamespaceScope(cname+"::"+annName);
       annoClassDef=getClass(ts);
@@ -1293,7 +1273,7 @@ ClassDef *MemberDef::getClassDefOfAnonymousType()
   m_impl->cachedAnonymousType = annoClassDef;
   return annoClassDef;
 }
-    
+
 /*! This methods returns TRUE iff the brief section (also known as
  *  declaration section) is visible in the documentation.
  */
@@ -1314,51 +1294,51 @@ bool MemberDef::isBriefSectionVisible() const
   MemberGroupInfo *info = Doxygen::memGrpInfoDict[m_impl->grpId];
   //printf("name=%s m_impl->grpId=%d info=%p\n",name().data(),m_impl->grpId,info);
   //QCString *pMemGrp = Doxygen::memberDocDict[grpId];
-  bool hasDocs = hasDocumentation() || 
+  bool hasDocs = hasDocumentation() ||
                   // part of a documented member group
                  (m_impl->grpId!=-1 && info && !(info->doc.isEmpty() && info->header.isEmpty()));
 
-  // only include static members with file/namespace scope if 
+  // only include static members with file/namespace scope if
   // explicitly enabled in the config file
-  bool visibleIfStatic = !(getClassDef()==0 && 
-                           isStatic() && 
+  bool visibleIfStatic = !(getClassDef()==0 &&
+                           isStatic() &&
                            !extractStatic
                           );
 
-  // only include members is the are documented or 
+  // only include members is the are documented or
   // HIDE_UNDOC_MEMBERS is NO in the config file
-  bool visibleIfDocumented = (!hideUndocMembers || 
-                              hasDocs || 
+  bool visibleIfDocumented = (!hideUndocMembers ||
+                              hasDocs ||
                               isDocumentedFriendClass()
                              );
 
-  // hide members with no detailed description and brief descriptions 
+  // hide members with no detailed description and brief descriptions
   // explicitly disabled.
-  bool visibleIfEnabled = !(hideUndocMembers && 
+  bool visibleIfEnabled = !(hideUndocMembers &&
                             documentation().isEmpty() &&
-                            !briefMemberDesc && 
+                            !briefMemberDesc &&
                             !repeatBrief
                            );
 
   // Hide friend (class|struct|union) declarations if HIDE_FRIEND_COMPOUNDS is true
   bool visibleIfFriendCompound = !(hideFriendCompounds &&
                                    isFriend() &&
-                                   (m_impl->type=="friend class" || 
+                                   (m_impl->type=="friend class" ||
                                     m_impl->type=="friend struct" ||
                                     m_impl->type=="friend union"
                                    )
                                   );
-  
+
   // only include members that are non-private unless EXTRACT_PRIVATE is
   // set to YES or the member is part of a group
-  bool visibleIfPrivate = (protectionLevelVisible(protection()) || 
+  bool visibleIfPrivate = (protectionLevelVisible(protection()) ||
                            m_impl->mtype==MemberType_Friend
                           );
-  
+
   // hide member if it overrides a member in a superclass and has no
   // documentation of its own
-  //bool visibleIfDocVirtual = !reimplements() || 
-  //                           !Config_getBool("INHERIT_DOCS") ||  
+  //bool visibleIfDocVirtual = !reimplements() ||
+  //                           !Config_getBool("INHERIT_DOCS") ||
   //                           hasDocs;
 
   // true if this member is a constructor or destructor
@@ -1381,20 +1361,47 @@ bool MemberDef::isBriefSectionVisible() const
   //       visibleIfStatic,visibleIfDocumented,
   //       visibleIfEnabled,visibleIfPrivate,visibleIfNotDefaultCDTor,
   //       visibleIfFriendCompound,!m_impl->annScope);
-  
-  bool visible = visibleIfStatic     && visibleIfDocumented      && 
+
+  bool visible = visibleIfStatic     && visibleIfDocumented      &&
                  visibleIfEnabled    && visibleIfPrivate         &&
-                 /*visibleIfDocVirtual &&*/ visibleIfNotDefaultCDTor && 
-                 visibleIfFriendCompound && 
+                 /*visibleIfDocVirtual &&*/ visibleIfNotDefaultCDTor &&
+                 visibleIfFriendCompound &&
                  !m_impl->annScope && !isHidden();
   //printf("MemberDef::isBriefSectionVisible() %d\n",visible);
   return visible;
 }
 
+QCString MemberDef::getDeclType() const
+{
+  QCString ltype(m_impl->type);
+  if (m_impl->mtype==MemberType_Typedef)
+  {
+    ltype.prepend("typedef ");
+  }
+  if (isAlias())
+  {
+    ltype="using";
+  }
+  // strip `friend' keyword from ltype
+  ltype.stripPrefix("friend ");
+  if (ltype=="@") // rename type from enum values
+  {
+    ltype="";
+  }
+  else
+  {
+    if (isObjCMethod())
+    {
+      ltype.prepend("(");
+      ltype.append(")");
+    }
+  }
+  return ltype;
+}
 
 void MemberDef::writeDeclaration(OutputList &ol,
                ClassDef *cd,NamespaceDef *nd,FileDef *fd,GroupDef *gd,
-               bool inGroup, const DefType compoundType, 
+               bool inGroup, const DefType compoundType,
                ClassDef *inheritedFrom,const char *inheritId)
 {
   //printf("%s MemberDef::writeDeclaration() inGroup=%d\n",qualifiedName().data(),inGroup);
@@ -1402,9 +1409,6 @@ void MemberDef::writeDeclaration(OutputList &ol,
   // hide enum value, since they appear already as part of the enum, unless they
   // are explicitly grouped.
   if (!inGroup && m_impl->mtype==MemberType_EnumValue) return;
-
-  // hide members whose brief section should not be visible
-  //if (!isBriefSectionVisible()) return;
 
   Definition *d=0;
   ASSERT (cd!=0 || nd!=0 || fd!=0 || gd!=0); // member should belong to something
@@ -1415,14 +1419,6 @@ void MemberDef::writeDeclaration(OutputList &ol,
   QCString cname  = d->name();
   QCString cdname = d->displayName();
   QCString cfname = getOutputFileBase();
-  //QCString osname = cname;
-  // in case of class members that are put in a group the name of the outerscope
-  // differs from the cname.
-  //if (getOuterScope()) osname=getOuterScope()->name();
-
-  //HtmlHelp *htmlHelp=0;
-  //bool hasHtmlHelp = Config_getBool("GENERATE_HTML") && Config_getBool("GENERATE_HTMLHELP");
-  //if (hasHtmlHelp) htmlHelp = HtmlHelp::getInstance();
 
   // search for the last anonymous scope in the member type
   ClassDef *annoClassDef=getClassDefOfAnonymousType();
@@ -1432,22 +1428,34 @@ void MemberDef::writeDeclaration(OutputList &ol,
   // start a new member declaration
   bool isAnonymous = annoClassDef || m_impl->annMemb || m_impl->annEnumType;
   ///printf("startMemberItem for %s\n",name().data());
-  ol.startMemberItem(anchor(), 
+  ol.startMemberItem(anchor(),
                      isAnonymous ? 1 : m_impl->tArgList ? 3 : 0,
                      inheritId
                     );
 
   // If there is no detailed description we need to write the anchor here.
   bool detailsVisible = isDetailedSectionLinkable();
-  if (!detailsVisible && !m_impl->annMemb)
+  if (!detailsVisible)
   {
-    QCString doxyName=name().copy();
-    if (!cname.isEmpty()) 
-    {
-      doxyName.prepend(cdname+getLanguageSpecificSeparator(getLanguage()));
-    }
     QCString doxyArgs=argsString();
-    ol.startDoxyAnchor(cfname,cname,anchor(),doxyName,doxyArgs);
+    if (m_impl->annMemb)
+    {
+      QCString doxyName=m_impl->annMemb->name();
+      if (!cname.isEmpty())
+      {
+        doxyName.prepend(cdname+getLanguageSpecificSeparator(getLanguage()));
+      }
+      ol.startDoxyAnchor(cfname,cname,m_impl->annMemb->anchor(),doxyName,doxyArgs);
+    }
+    else
+    {
+      QCString doxyName=name();
+      if (!cname.isEmpty())
+      {
+        doxyName.prepend(cdname+getLanguageSpecificSeparator(getLanguage()));
+      }
+      ol.startDoxyAnchor(cfname,cname,anchor(),doxyName,doxyArgs);
+    }
 
     ol.pushGeneratorState();
     ol.disable(OutputGenerator::Man);
@@ -1459,7 +1467,7 @@ void MemberDef::writeDeclaration(OutputList &ol,
   if (annoClassDef || m_impl->annMemb)
   {
     int j;
-    for (j=0;j<s_indentLevel;j++) 
+    for (j=0;j<s_indentLevel;j++)
     {
       ol.writeNonBreakableSpace(3);
     }
@@ -1500,16 +1508,16 @@ void MemberDef::writeDeclaration(OutputList &ol,
       //printf(">>>>>>>>>>>>>> startMemberItem(2)\n");
       ol.startMemberItem(anchor(),2,inheritId);
       int j;
-      for (j=0;j< s_indentLevel-1;j++) 
+      for (j=0;j< s_indentLevel-1;j++)
       {
         ol.writeNonBreakableSpace(3);
       }
       QCString varName=ltype.right(ltype.length()-ir).stripWhiteSpace();
       //printf(">>>>>> indDepth=%d ltype=`%s' varName=`%s'\n",indDepth,ltype.data(),varName.data());
       ol.docify("}");
-      if (varName.isEmpty() && (name().isEmpty() || name().at(0)=='@')) 
+      if (varName.isEmpty() && (name().isEmpty() || name().at(0)=='@'))
       {
-        ol.docify(";"); 
+        ol.docify(";");
       }
       endAnonScopeNeeded=TRUE;
     }
@@ -1523,10 +1531,10 @@ void MemberDef::writeDeclaration(OutputList &ol,
                     this,                    // self
                     ltype.left(i),           // text
                     TRUE                     // autoBreak
-                   ); 
+                   );
         getAnonymousEnumType()->writeEnumDeclaration(ol,cd,nd,fd,gd,compoundType);
         //ol+=*getAnonymousEnumType()->enumDecl();
-        linkifyText(TextGeneratorOLImpl(ol),d,m_impl->fileDef,this,ltype.right(ltype.length()-i-l),TRUE); 
+        linkifyText(TextGeneratorOLImpl(ol),d,m_impl->fileDef,this,ltype.right(ltype.length()-i-l),TRUE);
       }
       else
       {
@@ -1537,7 +1545,7 @@ void MemberDef::writeDeclaration(OutputList &ol,
                     this,                    // self
                     ltype,                   // text
                     TRUE                     // autoBreak
-                   ); 
+                   );
       }
     }
   }
@@ -1566,12 +1574,12 @@ void MemberDef::writeDeclaration(OutputList &ol,
     ol.disable(OutputGenerator::Html);
   }
   if (!ltype.isEmpty()) ol.docify(" ");
-  if (htmlOn) 
+  if (htmlOn)
   {
     ol.enable(OutputGenerator::Html);
   }
 
-  if (m_impl->annMemb) 
+  if (m_impl->annMemb)
   {
     ol.pushGeneratorState();
     ol.disableAllBut(OutputGenerator::Html);
@@ -1584,7 +1592,7 @@ void MemberDef::writeDeclaration(OutputList &ol,
   }
 
   // *** write name
-  if (!name().isEmpty() && name().at(0)!='@') // hide anonymous stuff 
+  if (!name().isEmpty() && name().at(0)!='@') // hide anonymous stuff
   {
     //printf("Member name=`%s gd=%p md->groupDef=%p inGroup=%d isLinkable()=%d\n",name().data(),gd,getGroupDef(),inGroup,isLinkable());
     if (!(name().isEmpty() || name().at(0)=='@') && // name valid
@@ -1609,27 +1617,27 @@ void MemberDef::writeDeclaration(OutputList &ol,
       {
         //printf("writeLink %s->%d\n",name.data(),hasDocumentation());
         ClassDef *rcd = cd;
-        if (isReference() && m_impl->classDef) rcd = m_impl->classDef; 
+        if (isReference() && m_impl->classDef) rcd = m_impl->classDef;
         writeLink(ol,rcd,nd,fd,gd);
       }
     }
     else if (isDocumentedFriendClass())
-      // if the member is an undocumented friend declaration for some class, 
+      // if the member is an undocumented friend declaration for some class,
       // then maybe we can link to the class
     {
       writeLink(ol,getClass(name()),0,0,0);
     }
     else
-      // there is a brief member description and brief member 
+      // there is a brief member description and brief member
       // descriptions are enabled or there is no detailed description.
     {
-      if (m_impl->annMemb)  
+      if (m_impl->annMemb)
       {
         m_impl->annMemb->setAnonymousUsed();
         setAnonymousUsed();
       }
       ClassDef *rcd = cd;
-      if (isReference() && m_impl->classDef) rcd = m_impl->classDef; 
+      if (isReference() && m_impl->classDef) rcd = m_impl->classDef;
       writeLink(ol,rcd,nd,fd,gd,TRUE);
     }
   }
@@ -1655,7 +1663,7 @@ void MemberDef::writeDeclaration(OutputList &ol,
   }
 
   // *** write arguments
-  if (argsString() && !isObjCMethod()) 
+  if (argsString() && !isObjCMethod())
   {
     if (!isDefine()) ol.writeString(" ");
     linkifyText(TextGeneratorOLImpl(ol), // out
@@ -1679,20 +1687,20 @@ void MemberDef::writeDeclaration(OutputList &ol,
   // *** write bitfields
   if (!m_impl->bitfields.isEmpty()) // add bitfields
   {
-    linkifyText(TextGeneratorOLImpl(ol),d,getBodyDef(),this,m_impl->bitfields.simplifyWhiteSpace());
+    linkifyText(TextGeneratorOLImpl(ol),d,getBodyDef(),this,m_impl->bitfields);
   }
   else if (hasOneLineInitializer()
       //!init.isEmpty() && initLines==0 && // one line initializer
       //((maxInitLines>0 && userInitLines==-1) || userInitLines>0) // enabled by default or explicitly
           ) // add initializer
   {
-    if (!isDefine()) 
+    if (!isDefine())
     {
-      //ol.writeString(" = "); 
-      ol.writeString(" "); 
+      //ol.writeString(" = ");
+      ol.writeString(" ");
       linkifyText(TextGeneratorOLImpl(ol),d,getBodyDef(),this,m_impl->initializer.simplifyWhiteSpace());
     }
-    else 
+    else
     {
       ol.writeNonBreakableSpace(3);
       linkifyText(TextGeneratorOLImpl(ol),d,getBodyDef(),this,m_impl->initializer);
@@ -1700,7 +1708,7 @@ void MemberDef::writeDeclaration(OutputList &ol,
   }
   else if (isAlias()) // using template alias
   {
-    ol.writeString(" = "); 
+    ol.writeString(" = ");
     linkifyText(TextGeneratorOLImpl(ol),d,getBodyDef(),this,m_impl->type);
   }
 
@@ -1759,14 +1767,14 @@ void MemberDef::writeDeclaration(OutputList &ol,
   //printf("endMember %s annoClassDef=%p annEnumType=%p\n",
   //    name().data(),annoClassDef,annEnumType);
   ol.endMemberItem();
-  if (endAnonScopeNeeded) 
+  if (endAnonScopeNeeded)
   {
     ol.endAnonTypeScope(--s_indentLevel);
   }
 
   // write brief description
-  if (!briefDescription().isEmpty() && 
-      Config_getBool("BRIEF_MEMBER_DESC") 
+  if (!briefDescription().isEmpty() &&
+      Config_getBool("BRIEF_MEMBER_DESC")
       /* && !annMemb */
      )
   {
@@ -1778,7 +1786,7 @@ void MemberDef::writeDeclaration(OutputList &ol,
     {
       ol.startMemberDescription(anchor(),inheritId);
       ol.writeDoc(rootNode,getOuterScope()?getOuterScope():d,this);
-      if (detailsVisible) 
+      if (detailsVisible)
       {
         ol.pushGeneratorState();
         ol.disableAllBut(OutputGenerator::Html);
@@ -1813,8 +1821,8 @@ void MemberDef::writeDeclaration(OutputList &ol,
   warnIfUndocumented();
 }
 
-bool MemberDef::isDetailedSectionLinkable() const          
-{ 
+bool MemberDef::isDetailedSectionLinkable() const
+{
   static bool extractAll        = Config_getBool("EXTRACT_ALL");
   static bool alwaysDetailedSec = Config_getBool("ALWAYS_DETAILED_SEC");
   static bool repeatBrief       = Config_getBool("REPEAT_BRIEF");
@@ -1823,27 +1831,27 @@ bool MemberDef::isDetailedSectionLinkable() const
   static bool extractStatic     = Config_getBool("EXTRACT_STATIC");
 
   // the member has details documentation for any of the following reasons
-  bool docFilter = 
+  bool docFilter =
          // treat everything as documented
-         extractAll ||          
+         extractAll ||
          // has detailed docs
-         !documentation().isEmpty() ||             
+         !documentation().isEmpty() ||
          // has inbody docs
          !inbodyDocumentation().isEmpty() ||
          // is an enum with values that are documented
-         (m_impl->mtype==MemberType_Enumeration && m_impl->docEnumValues) ||  
+         (m_impl->mtype==MemberType_Enumeration && m_impl->docEnumValues) ||
          // is documented enum value
-         (m_impl->mtype==MemberType_EnumValue && !briefDescription().isEmpty()) || 
+         (m_impl->mtype==MemberType_EnumValue && !briefDescription().isEmpty()) ||
          // has brief description that is part of the detailed description
          (!briefDescription().isEmpty() &&           // has brief docs
           (alwaysDetailedSec &&                      // they are visible in
            (repeatBrief ||                           // detailed section or
             !briefMemberDesc                         // they are explicitly not
            )                                         // shown in brief section
-          )                                       
+          )
          ) ||
          // has a multi-line initialization block
-         //(initLines>0 && initLines<maxInitLines) || 
+         //(initLines>0 && initLines<maxInitLines) ||
          (hasMultiLineInitializer() && !hideUndocMembers) ||
          // has one or more documented arguments
          (m_impl->defArgList!=0 && m_impl->defArgList->hasDocumentation()) ||
@@ -1851,11 +1859,11 @@ bool MemberDef::isDetailedSectionLinkable() const
          (m_impl->memSpec & (Entry::Attribute|Entry::Property)) ||
          // has user comments
          Doxygen::userComments
-         ; 
-         
+         ;
+
   // this is not a global static or global statics should be extracted
-  bool staticFilter = getClassDef()!=0 || !isStatic() || extractStatic; 
-         
+  bool staticFilter = getClassDef()!=0 || !isStatic() || extractStatic;
+
   // only include members that are non-private unless EXTRACT_PRIVATE is
   // set to YES or the member is part of a   group
   bool privateFilter = protectionLevelVisible(protection()) || m_impl->mtype==MemberType_Friend;
@@ -1869,29 +1877,29 @@ bool MemberDef::isDetailedSectionLinkable() const
   // is true
   bool friendCompoundFilter = !(Config_getBool("HIDE_FRIEND_COMPOUNDS") &&
                                 isFriend() &&
-                                (m_impl->type=="friend class" || 
+                                (m_impl->type=="friend class" ||
                                  m_impl->type=="friend struct" ||
                                  m_impl->type=="friend union"
                                 )
                                );
- 
-  
+
+
   bool result = ((docFilter && staticFilter && privateFilter && friendCompoundFilter && !isHidden()));
   //printf("%s::isDetailedSectionLinkable: %d\n",name().data(),result);
   return result;
 }
 
-bool MemberDef::isDetailedSectionVisible(bool inGroup,bool inFile) const          
-{ 
+bool MemberDef::isDetailedSectionVisible(bool inGroup,bool inFile) const
+{
   static bool separateMemPages = Config_getBool("SEPARATE_MEMBER_PAGES");
   static bool inlineSimpleStructs = Config_getBool("INLINE_SIMPLE_STRUCTS");
   static bool hideUndocMembers = Config_getBool("HIDE_UNDOC_MEMBERS");
-  bool groupFilter = getGroupDef()==0 || inGroup || separateMemPages; 
+  bool groupFilter = getGroupDef()==0 || inGroup || separateMemPages;
   bool fileFilter  = getNamespaceDef()==0 || !inFile;
-  bool simpleFilter = !hideUndocMembers && inlineSimpleStructs && 
+  bool simpleFilter = !hideUndocMembers && inlineSimpleStructs &&
                       getClassDef()!=0 && getClassDef()->isSimple();
 
-  bool visible = isDetailedSectionLinkable() && groupFilter && fileFilter && 
+  bool visible = isDetailedSectionLinkable() && groupFilter && fileFilter &&
                  !isReference();
   bool result = visible || simpleFilter;
   //printf("%s::isDetailedSectionVisble: %d groupFilter=%d fileFilter=%d\n",
@@ -1899,19 +1907,19 @@ bool MemberDef::isDetailedSectionVisible(bool inGroup,bool inFile) const
   return result;
 }
 
-void MemberDef::_getLabels(QStrList &sl,Definition *container) const
+void MemberDef::getLabels(QStrList &sl,Definition *container) const
 {
   static bool inlineInfo = Config_getBool("INLINE_INFO");
 
   Specifier lvirt=virtualness();
   if ((!isObjCMethod() || isOptional() || isRequired()) &&
       (protection()!=Public || lvirt!=Normal ||
-       isFriend() || isRelated() || 
+       isFriend() || isRelated() ||
        (isInline() && inlineInfo) ||
        isSignal() || isSlot() ||
-       isStatic() || 
+       isStatic() ||
        (m_impl->classDef && m_impl->classDef!=container && container->definitionType()==TypeClass) ||
-       (m_impl->memSpec & ~Entry::Inline)!=0 
+       (m_impl->memSpec & ~Entry::Inline)!=0
       )
      )
   {
@@ -1992,11 +2000,11 @@ void MemberDef::_getLabels(QStrList &sl,Definition *container) const
           sl.append("implementation");
         }
       }
-      if (m_impl->classDef && 
-          container->definitionType()==TypeClass && 
+      if (m_impl->classDef &&
+          container->definitionType()==TypeClass &&
           m_impl->classDef!=container &&
           !isRelated()
-         ) 
+         )
       {
         sl.append("inherited");
       }
@@ -2011,7 +2019,7 @@ void MemberDef::_getLabels(QStrList &sl,Definition *container) const
 void MemberDef::_writeCallGraph(OutputList &ol)
 {
   // write call graph
-  if ((m_impl->hasCallGraph || Config_getBool("CALL_GRAPH")) 
+  if ((m_impl->hasCallGraph || Config_getBool("CALL_GRAPH"))
       && (isFunction() || isSlot() || isSignal()) && Config_getBool("HAVE_DOT")
      )
   {
@@ -2028,7 +2036,7 @@ void MemberDef::_writeCallGraph(OutputList &ol)
       ol.startCallGraph();
       ol.parseText(theTranslator->trCallGraph());
       ol.endCallGraph(callGraph);
-      ol.endParagraph(); 
+      ol.endParagraph();
       ol.enableAll();
     }
   }
@@ -2036,7 +2044,7 @@ void MemberDef::_writeCallGraph(OutputList &ol)
 
 void MemberDef::_writeCallerGraph(OutputList &ol)
 {
-  if ((m_impl->hasCallerGraph || Config_getBool("CALLER_GRAPH")) 
+  if ((m_impl->hasCallerGraph || Config_getBool("CALLER_GRAPH"))
       && (isFunction() || isSlot() || isSignal()) && Config_getBool("HAVE_DOT")
      )
   {
@@ -2069,7 +2077,7 @@ void MemberDef::_writeReimplements(OutputList &ol)
     if (bcd->isLinkable())
     {
       ol.startParagraph();
-      QCString reimplFromLine; 
+      QCString reimplFromLine;
       if (bmd->virtualness()!=Pure && bcd->compoundType()!=ClassDef::Interface)
       {
         reimplFromLine = theTranslator->trReimplementedFromList(1);
@@ -2091,7 +2099,7 @@ void MemberDef::_writeReimplements(OutputList &ol)
 
           //ol.writeObjectLink(bcd->getReference(),bcd->getOutputFileBase(),
           //    bmd->anchor(),bcd->name());
-          if ( bmd->isLinkableInProject() ) 
+          if ( bmd->isLinkableInProject() )
           {
             writePageRef(ol,bmd->getOutputFileBase(),bmd->anchor());
           }
@@ -2131,7 +2139,7 @@ void MemberDef::_writeReimplementedBy(OutputList &ol)
     {
       // count the members that directly inherit from md and for
       // which the member and class are visible in the docs.
-      if ( bmd->isLinkable() && bcd->isLinkable() ) 
+      if ( bmd->isLinkable() && bcd->isLinkable() )
       {
         count++;
       }
@@ -2165,7 +2173,7 @@ void MemberDef::_writeReimplementedBy(OutputList &ol)
         // find the entryIndex-th documented entry in the inheritance list.
         for (mli.toLast();(bmd=mli.current()) && (bcd=bmd->getClassDef());--mli)
         {
-          if ( bmd->isLinkable() && bcd->isLinkable()) 
+          if ( bmd->isLinkable() && bcd->isLinkable())
           {
             if (count==entryIndex) break;
             count++;
@@ -2179,14 +2187,14 @@ void MemberDef::_writeReimplementedBy(OutputList &ol)
           ol.writeObjectLink(bmd->getReference(),bmd->getOutputFileBase(),
               bmd->anchor(),bcd->displayName());
 
-          if (bmd->isLinkableInProject() ) 
+          if (bmd->isLinkableInProject() )
           {
             writePageRef(ol,bmd->getOutputFileBase(),bmd->anchor());
           }
         }
         ++mli;
         index=newIndex+matchLen;
-      } 
+      }
       ol.parseText(reimplInLine.right(reimplInLine.length()-index));
       ol.endParagraph();
     }
@@ -2214,7 +2222,7 @@ void MemberDef::_writeCategoryRelation(OutputList &ol)
     {
       if (m_impl->category)
       {
-        // this member is in a normal class and implements method categoryRelation from category 
+        // this member is in a normal class and implements method categoryRelation from category
         // so link to method 'categoryRelation' with 'provided by category 'category' text.
         text = theTranslator->trProvidedByCategory();
         name = m_impl->category->displayName();
@@ -2323,19 +2331,19 @@ void MemberDef::_writeEnumValues(OutputList &ol,Definition *container,
           bool hasDetails = !fmd->documentation().isEmpty();
 
           if (hasBrief)
-          { 
+          {
             ol.generateDoc(fmd->briefFile(),fmd->briefLine(),
                 getOuterScope()?getOuterScope():container,
                 fmd,fmd->briefDescription(),TRUE,FALSE);
           }
           // FIXME:PARA
-          //if (!fmd->briefDescription().isEmpty() && 
+          //if (!fmd->briefDescription().isEmpty() &&
           //    !fmd->documentation().isEmpty())
           //{
           //  ol.newParagraph();
           //}
           if (hasDetails)
-          { 
+          {
             ol.generateDoc(fmd->docFile(),fmd->docLine(),
                 getOuterScope()?getOuterScope():container,
                 fmd,fmd->documentation()+"\n",TRUE,FALSE);
@@ -2345,17 +2353,136 @@ void MemberDef::_writeEnumValues(OutputList &ol,Definition *container,
         fmd=fmdl->next();
       }
     }
-    if (!first) 
-    { 
-      //ol.endItemList(); 
+    if (!first)
+    {
+      //ol.endItemList();
       ol.endDescTable();
       //ol.endDescForItem();
       //ol.endSimpleSect();
-      //ol.writeChar('\n'); 
+      //ol.writeChar('\n');
     }
   }
 }
 
+QCString MemberDef::displayDefinition() const
+{
+  QCString ldef = definition();
+  QCString title = name();
+  if (isEnumerate())
+  {
+    if (title.at(0)=='@')
+    {
+      ldef = title = "anonymous enum";
+      if (!m_impl->enumBaseType.isEmpty())
+      {
+        ldef+=" : "+m_impl->enumBaseType;
+      }
+    }
+    else
+    {
+      ldef.prepend("enum ");
+    }
+  }
+  else if (isEnumValue())
+  {
+    if (ldef.at(0)=='@')
+    {
+      ldef=ldef.mid(2);
+    }
+  }
+  static QRegExp r("@[0-9]+");
+  int l,i=r.match(ldef,0,&l);
+  if (i!=-1) // replace anonymous parts with { ... }
+  {
+    int si=ldef.find(' '),pi,ei=i+l;
+    if (si==-1) si=0;
+    while ((pi=r.match(ldef,i+l,&l))!=-1)
+    {
+      i=pi;
+      ei=i+l;
+    }
+    int ni=ldef.find("::",si);
+    if (ni>=ei) ei=ni+2;
+    ldef = ldef.left(si) + " { ... } " + ldef.right(ldef.length()-ei);
+  }
+  ClassDef *cd=getClassDef();
+  if (cd && cd->isObjectiveC())
+  {
+    // strip scope name
+    int ep = ldef.find("::");
+    if (ep!=-1)
+    {
+      int sp=ldef.findRev(' ',ep);
+      if (sp!=-1)
+      {
+        ldef=ldef.left(sp+1)+ldef.mid(ep+2);
+      }
+    }
+    // strip keywords
+    int dp = ldef.find(':');
+    if (dp!=-1)
+    {
+      ldef=ldef.left(dp+1);
+    }
+    l=ldef.length();
+    //printf("start >%s<\n",ldef.data());
+    i=l-1;
+    while (i>=0 && (isId(ldef.at(i)) || ldef.at(i)==':')) i--;
+    while (i>=0 && isspace((uchar)ldef.at(i))) i--;
+    if (i>0)
+    {
+      // insert braches around the type
+      QCString tmp("("+ldef.left(i+1)+")"+ldef.mid(i+1));
+      ldef=tmp;
+    }
+    //printf("end   >%s< i=%d\n",ldef.data(),i);
+    if (isStatic()) ldef.prepend("+ "); else ldef.prepend("- ");
+  }
+  SrcLangExt lang = getLanguage();
+  QCString sep = getLanguageSpecificSeparator(lang,TRUE);
+  return substitute(ldef,"::",sep);
+}
+
+void MemberDef::_writeGroupInclude(OutputList &ol,bool inGroup)
+{
+  // only write out the include file if this is not part of a class or file
+  // definition
+  static bool showGroupedMembInc = Config_getBool("SHOW_GROUPED_MEMB_INC");
+  FileDef *fd = getFileDef();
+  QCString nm;
+  if (fd) nm = getFileDef()->docName();
+  if (inGroup && fd && showGroupedMembInc && !nm.isEmpty())
+  {
+    ol.startParagraph();
+    ol.startTypewriter();
+    SrcLangExt lang = getLanguage();
+    bool isIDLorJava = lang==SrcLangExt_IDL || lang==SrcLangExt_Java;
+    if (isIDLorJava)
+    {
+      ol.docify("import ");
+    }
+    else
+    {
+      ol.docify("#include ");
+    }
+
+    if (isIDLorJava) ol.docify("\""); else ol.docify("<");
+
+    if (fd && fd->isLinkable())
+    {
+      ol.writeObjectLink(fd->getReference(),fd->getOutputFileBase(),fd->anchor(),nm);
+    }
+    else
+    {
+      ol.docify(nm);
+    }
+
+    if (isIDLorJava) ol.docify("\""); else ol.docify(">");
+
+    ol.endTypewriter();
+    ol.endParagraph();
+  }
+}
 
 /*! Writes the "detailed documentation" section of this member to
  *  all active output formats.
@@ -2373,8 +2500,8 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
   bool inFile = container->definitionType()==Definition::TypeFile;
   bool hasDocs = isDetailedSectionVisible(inGroup,inFile);
 
-  //printf("MemberDef::writeDocumentation(): name=`%s' hasDocs=`%d' containerType=%d inGroup=%d\n",
-  //    name().data(),hasDocs,container->definitionType(),inGroup);
+  //printf("MemberDef::writeDocumentation(): name=`%s' hasDocs=`%d' containerType=%d inGroup=%d sectionLinkable=%d\n",
+  //    name().data(),hasDocs,container->definitionType(),inGroup,isDetailedSectionLinkable());
 
   if ( !hasDocs ) return;
   if (isEnumValue() && !showEnumValues) return;
@@ -2416,7 +2543,7 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
   QCString ldef = definition();
   QCString title = name();
   //printf("member `%s' def=`%s'\n",name().data(),ldef.data());
-  if (isEnumerate()) 
+  if (isEnumerate())
   {
     if (title.at(0)=='@')
     {
@@ -2447,7 +2574,7 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
 
   bool htmlEndLabelTable=FALSE;
   QStrList sl;
-  _getLabels(sl,container);
+  getLabels(sl,container);
 
   if ((isVariable() || isTypedef()) && (i=r.match(ldef,0,&l))!=-1)
   {
@@ -2464,7 +2591,7 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
         linkifyText(TextGeneratorOLImpl(ol),container,getBodyDef(),this,ldef.left(i));
         vmd->writeEnumDeclaration(ol,getClassDef(),getNamespaceDef(),getFileDef(),getGroupDef(),definitionType());
         linkifyText(TextGeneratorOLImpl(ol),container,getBodyDef(),this,ldef.right(ldef.length()-i-l));
-        
+
         found=TRUE;
       }
     }
@@ -2476,7 +2603,7 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
       // search for the last anonymous compound name in the definition
       int si=ldef.find(' '),pi,ei=i+l;
       if (si==-1) si=0;
-      while ((pi=r.match(ldef,i+l,&l))!=-1) 
+      while ((pi=r.match(ldef,i+l,&l))!=-1)
       {
         i=pi;
         ei=i+l;
@@ -2501,7 +2628,7 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
     {
       bool first=TRUE;
       SrcLangExt lang = getLanguage();
-      if (m_impl->defTmpArgLists && lang==SrcLangExt_Cpp) 
+      if (m_impl->defTmpArgLists && lang==SrcLangExt_Cpp)
         // definition has explicit template parameter declarations
       {
         QListIterator<ArgumentList> ali(*m_impl->defTmpArgLists);
@@ -2564,7 +2691,7 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
     {
       // strip scope name
       int ep = ldef.find("::");
-      if (ep!=-1) 
+      if (ep!=-1)
       {
         int sp=ldef.findRev(' ',ep);
         if (sp!=-1)
@@ -2610,14 +2737,14 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
 
     if (hasOneLineInitializer()) // add initializer
     {
-      if (!isDefine()) 
+      if (!isDefine())
       {
-        //ol.docify(" = "); 
-        ol.docify(" "); 
+        //ol.docify(" = ");
+        ol.docify(" ");
         QCString init = m_impl->initializer.simplifyWhiteSpace();
         linkifyText(TextGeneratorOLImpl(ol),container,getBodyDef(),this,init);
       }
-      else 
+      else
       {
         ol.writeNonBreakableSpace(3);
         linkifyText(TextGeneratorOLImpl(ol),container,getBodyDef(),this,m_impl->initializer);
@@ -2646,7 +2773,7 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
   }
   ol.popGeneratorState();
 
-  if (hasParameterList) 
+  if (hasParameterList)
   {
     ol.endParameterList();
     ol.endMemberDoc(TRUE);
@@ -2685,6 +2812,8 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
   ol.endDoxyAnchor(cfname,memAnchor);
   ol.startIndent();
 
+  _writeGroupInclude(ol,inGroup);
+
   /* write multi-line initializer (if any) */
   if (hasMultiLineInitializer()
       //initLines>0 && ((initLines<maxInitLines && userInitLines==-1) // implicitly enabled
@@ -2718,12 +2847,12 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
   }
 
   /* write brief description */
-  if (!brief.isEmpty() && 
-      (Config_getBool("REPEAT_BRIEF") || 
+  if (!brief.isEmpty() &&
+      (Config_getBool("REPEAT_BRIEF") ||
        !Config_getBool("BRIEF_MEMBER_DESC")
-      ) 
-     )  
-  { 
+      )
+     )
+  {
     ol.startParagraph();
     ol.generateDoc(briefFile(),briefLine(),
                 getOuterScope()?getOuterScope():container,this,
@@ -2732,11 +2861,11 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
   }
 
   /* write detailed description */
-  if (!detailed.isEmpty() || 
+  if (!detailed.isEmpty() ||
       !inbodyDocumentation().isEmpty())
-  { 
+  {
     // write vhdl inline code with or without option INLINE_SOURCE
-    if (optVhdl && VhdlDocGen::isMisc(this)) 
+    if (optVhdl && VhdlDocGen::isMisc(this))
     {
       VhdlDocGen::writeSource(this,ol,cname);
       return;
@@ -2745,7 +2874,7 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
     {
       ol.generateDoc(docFile(),docLine(),getOuterScope()?getOuterScope():container,this,detailed+"\n",TRUE,FALSE);
     }
-   
+
     if (!inbodyDocumentation().isEmpty())
     {
       ol.generateDoc(inbodyFile(),inbodyLine(),
@@ -2764,7 +2893,7 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
 
 
   //printf("***** defArgList=%p name=%s docs=%s hasDocs=%d\n",
-  //     defArgList, 
+  //     defArgList,
   //     defArgList?defArgList->hasDocumentation():-1);
   if (docArgList!=0 && docArgList->hasDocumentation())
   {
@@ -2819,7 +2948,7 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
   ol.endIndent();
 
   // enable LaTeX again
-  //if (Config_getBool("EXTRACT_ALL") && !hasDocs) ol.enable(OutputGenerator::Latex); 
+  //if (Config_getBool("EXTRACT_ALL") && !hasDocs) ol.enable(OutputGenerator::Latex);
   ol.popGeneratorState();
 
   //------------------------------------------------
@@ -2865,7 +2994,7 @@ static QCString simplifyTypeForTable(const QCString &s)
 }
 
 #if 0
-/** Returns the type definition corresponding to a member's return type. 
+/** Returns the type definition corresponding to a member's return type.
  *  @param[in]  scope The scope in which to search for the class definition.
  *  @param[in]  type  The string representing the member's return type.
  *  @param[in]  lang  The programming language in which the class is defined.
@@ -2888,7 +3017,7 @@ static Definition *getClassFromType(Definition *scope,const QCString &type,SrcLa
       cd = getResolvedClass(scope,0,name+templSpec,&md);
     }
     cd = getResolvedClass(scope,0,name);
-    if (cd) 
+    if (cd)
     {
       start=i;
       length=l;
@@ -2966,20 +3095,20 @@ void MemberDef::writeMemberDocSimple(OutputList &ol, Definition *container)
                 this,                    // self
                 ts,                      // text
                 TRUE                     // autoBreak
-               ); 
+               );
   }
   ol.endDoxyAnchor(cfname,memAnchor);
   ol.endInlineMemberType();
 
   ol.startInlineMemberName();
   ol.docify(doxyName);
-  if (isVariable() && argsString() && !isObjCMethod()) 
+  if (isVariable() && argsString() && !isObjCMethod())
   {
     linkifyText(TextGeneratorOLImpl(ol),getOuterScope(),getBodyDef(),this,argsString());
   }
   if (!m_impl->bitfields.isEmpty()) // add bitfields
   {
-    linkifyText(TextGeneratorOLImpl(ol),getOuterScope(),getBodyDef(),this,m_impl->bitfields.simplifyWhiteSpace());
+    linkifyText(TextGeneratorOLImpl(ol),getOuterScope(),getBodyDef(),this,m_impl->bitfields);
   }
   ol.endInlineMemberName();
 
@@ -2989,12 +3118,8 @@ void MemberDef::writeMemberDocSimple(OutputList &ol, Definition *container)
   QCString detailed        = documentation();
 
   /* write brief description */
-  if (!brief.isEmpty() && 
-      (Config_getBool("REPEAT_BRIEF") || 
-       !Config_getBool("BRIEF_MEMBER_DESC")
-      ) 
-     )  
-  { 
+  if (!brief.isEmpty())
+  {
     ol.generateDoc(briefFile(),briefLine(),
                 getOuterScope()?getOuterScope():container,this,
                 brief,FALSE,FALSE,0,TRUE,FALSE);
@@ -3002,11 +3127,11 @@ void MemberDef::writeMemberDocSimple(OutputList &ol, Definition *container)
 
   /* write detailed description */
   if (!detailed.isEmpty())
-  { 
+  {
     ol.generateDoc(docFile(),docLine(),
                 getOuterScope()?getOuterScope():container,this,
                 detailed+"\n",FALSE,FALSE,0,FALSE,FALSE);
-   
+
   }
 
   ol.endInlineMemberDoc();
@@ -3020,7 +3145,7 @@ QCString MemberDef::memberTypeName() const
     case MemberType_Function:    return "function";
     case MemberType_Variable:    return "variable";
     case MemberType_Typedef:     return "typedef";
-    case MemberType_Enumeration: return "enumeration"; 
+    case MemberType_Enumeration: return "enumeration";
     case MemberType_EnumValue:   return "enumvalue";
     case MemberType_Signal:      return "signal";
     case MemberType_Slot:        return "slot";
@@ -3043,10 +3168,10 @@ void MemberDef::warnIfUndocumented()
   GroupDef     *gd = getGroupDef();
   Definition *d=0;
   const char *t=0;
-  if (cd) 
-    t="class", d=cd; 
-  else if (nd) 
-    t="namespace", d=nd; 
+  if (cd)
+    t="class", d=cd;
+  else if (nd)
+    t="namespace", d=nd;
   else if (gd)
     t="group", d=gd;
   else
@@ -3058,7 +3183,7 @@ void MemberDef::warnIfUndocumented()
   //       d->isLinkable(),isLinkable(),isDocumentedFriendClass(),
   //       name().data(),prot);
   if ((!hasUserDocumentation() && !extractAll) &&
-      !isFriendClass() && 
+      !isFriendClass() &&
       name().find('@')==-1 && d && d->name().find('@')==-1 &&
       protectionLevelVisible(m_impl->prot) &&
       !isReference()
@@ -3073,8 +3198,8 @@ void MemberDef::warnIfUndocumented()
 
 bool MemberDef::isFriendClass() const
 {
-  return (isFriend() && 
-         (m_impl->type=="friend class" || m_impl->type=="friend struct" || 
+  return (isFriend() &&
+         (m_impl->type=="friend class" || m_impl->type=="friend struct" ||
           m_impl->type=="friend union"));
 }
 
@@ -3085,12 +3210,12 @@ bool MemberDef::isDocumentedFriendClass() const
   int i=baseName.find('<');
   if (i!=-1) baseName=baseName.left(i);
   return (isFriendClass() &&
-         (fcd=getClass(baseName)) && fcd->isLinkable()); 
+         (fcd=getClass(baseName)) && fcd->isLinkable());
 }
 
 bool MemberDef::hasDocumentation() const
-{ 
-  return Definition::hasDocumentation() || 
+{
+  return Definition::hasDocumentation() ||
          (m_impl->mtype==MemberType_Enumeration && m_impl->docEnumValues) ||  // has enum values
          (m_impl->defArgList!=0 && m_impl->defArgList->hasDocumentation()); // has doc arguments
 }
@@ -3109,10 +3234,10 @@ void MemberDef::setMemberGroup(MemberGroup *grp)
   m_impl->memberGroup = grp;
 }
 
-bool MemberDef::visibleMemberGroup(bool hideNoHeader) 
-{ 
-  return m_impl->memberGroup!=0 && 
-          (!hideNoHeader || m_impl->memberGroup->header()!="[NOHEADER]"); 
+bool MemberDef::visibleMemberGroup(bool hideNoHeader)
+{
+  return m_impl->memberGroup!=0 &&
+          (!hideNoHeader || m_impl->memberGroup->header()!="[NOHEADER]");
 }
 
 QCString MemberDef::getScopeString() const
@@ -3157,17 +3282,17 @@ void MemberDef::setAnchor()
             // twice, which is silly, but we keep it this way for backward
             // compatibility.
 
-  // include number of template arguments as well, 
+  // include number of template arguments as well,
   // to distinguish between two template
   // specializations that only differ in the template parameters.
-  if (m_impl->tArgList) 
+  if (m_impl->tArgList)
   {
     char buf[20];
     qsnprintf(buf,20,"%d:",m_impl->tArgList->count());
     buf[19]='\0';
     memAnchor.prepend(buf);
   }
-  
+
   // convert to md5 hash
   uchar md5_sig[16];
   QCString sigStr(33);
@@ -3188,12 +3313,12 @@ void MemberDef::setGroupDef(GroupDef *gd,Grouping::GroupPri_t pri,
   m_impl->groupStartLine=startLine;
   m_impl->groupHasDocs=hasDocs;
   m_impl->groupMember=member;
-  m_isLinkableCached = 0; 
+  m_isLinkableCached = 0;
 }
 
-void MemberDef::setEnumScope(MemberDef *md,bool livesInsideEnum) 
-{ 
-  m_impl->enumScope=md; 
+void MemberDef::setEnumScope(MemberDef *md,bool livesInsideEnum)
+{
+  m_impl->enumScope=md;
   m_impl->livesInsideEnum=livesInsideEnum;
   if (md->getGroupDef())
   {
@@ -3202,22 +3327,22 @@ void MemberDef::setEnumScope(MemberDef *md,bool livesInsideEnum)
     m_impl->groupFileName=md->getGroupFileName();
     m_impl->groupStartLine=md->getGroupStartLine();
     m_impl->groupHasDocs=md->getGroupHasDocs();
-    m_isLinkableCached = 0; 
+    m_isLinkableCached = 0;
   }
 }
 
-void MemberDef::setMemberClass(ClassDef *cd)     
-{ 
-  m_impl->classDef=cd; 
-  m_isLinkableCached = 0; 
-  m_isConstructorCached = 0; 
-  setOuterScope(cd); 
+void MemberDef::setMemberClass(ClassDef *cd)
+{
+  m_impl->classDef=cd;
+  m_isLinkableCached = 0;
+  m_isConstructorCached = 0;
+  setOuterScope(cd);
 }
 
-void MemberDef::setNamespace(NamespaceDef *nd) 
-{ 
-  m_impl->nspace=nd; 
-  setOuterScope(nd); 
+void MemberDef::setNamespace(NamespaceDef *nd)
+{
+  m_impl->nspace=nd;
+  setOuterScope(nd);
 }
 
 MemberDef *MemberDef::createTemplateInstanceMember(
@@ -3236,7 +3361,7 @@ MemberDef *MemberDef::createTemplateInstanceMember(
     {
       arg->type = substituteTemplateArgumentsInString(arg->type,formalArgs,actualArgs);
     }
-    actualArgList->trailingReturnType = 
+    actualArgList->trailingReturnType =
        substituteTemplateArgumentsInString(actualArgList->trailingReturnType,formalArgs,actualArgs);
   }
 
@@ -3248,9 +3373,9 @@ MemberDef *MemberDef::createTemplateInstanceMember(
 
   MemberDef *imd = new MemberDef(
                        getDefFileName(),getDefLine(),getDefColumn(),
-                       substituteTemplateArgumentsInString(m_impl->type,formalArgs,actualArgs), 
-                       methodName, 
-                       substituteTemplateArgumentsInString(m_impl->args,formalArgs,actualArgs), 
+                       substituteTemplateArgumentsInString(m_impl->type,formalArgs,actualArgs),
+                       methodName,
+                       substituteTemplateArgumentsInString(m_impl->args,formalArgs,actualArgs),
                        m_impl->exception, m_impl->prot,
                        m_impl->virt, m_impl->stat, m_impl->related, m_impl->mtype, 0, 0
                    );
@@ -3262,7 +3387,7 @@ MemberDef *MemberDef::createTemplateInstanceMember(
 
   // TODO: init other member variables (if needed).
   // TODO: reimplemented info
-  return imd; 
+  return imd;
 }
 
 bool MemberDef::hasOneLineInitializer() const
@@ -3278,15 +3403,15 @@ bool MemberDef::hasMultiLineInitializer() const
 {
   //printf("initLines=%d userInitLines=%d maxInitLines=%d\n",
   //    initLines,userInitLines,maxInitLines);
-  return m_impl->initLines>0 && 
+  return m_impl->initLines>0 &&
          ((m_impl->initLines<m_impl->maxInitLines && m_impl->userInitLines==-1) // implicitly enabled
           || m_impl->initLines<m_impl->userInitLines // explicitly enabled
          );
 }
 
-void MemberDef::setInitializer(const char *initializer)    
-{ 
-  m_impl->initializer=initializer; 
+void MemberDef::setInitializer(const char *initializer)
+{
+  m_impl->initializer=initializer;
   int l=m_impl->initializer.length();
   int p=l-1;
   while (p>=0 && isspace((uchar)m_impl->initializer.at(p))) p--;
@@ -3300,12 +3425,12 @@ void MemberDef::addListReference(Definition *)
   static bool optimizeOutputForC = Config_getBool("OPTIMIZE_OUTPUT_FOR_C");
   //static bool hideScopeNames     = Config_getBool("HIDE_SCOPE_NAMES");
   //static bool optimizeOutputJava = Config_getBool("OPTIMIZE_OUTPUT_JAVA");
-  //static bool fortranOpt = Config_getBool("OPTIMIZE_FOR_FORTRAN");  
+  //static bool fortranOpt = Config_getBool("OPTIMIZE_FOR_FORTRAN");
   SrcLangExt lang = getLanguage();
   visited=TRUE;
   if (!isLinkableInProject()) return;
   QCString memLabel;
-  if (optimizeOutputForC) 
+  if (optimizeOutputForC)
   {
     memLabel=theTranslator->trGlobal(TRUE,TRUE);
   }
@@ -3319,11 +3444,11 @@ void MemberDef::addListReference(Definition *)
   }
   QCString memName = name();
   Definition *pd=getOuterScope();
-  QCString pdName = pd->definitionType()==Definition::TypeClass ? 
+  QCString pdName = pd->definitionType()==Definition::TypeClass ?
                     ((ClassDef*)pd)->displayName() : pd->name();
   QCString sep = getLanguageSpecificSeparator(lang,TRUE);
   QCString memArgs;
-  if (!isRelated() 
+  if (!isRelated()
       /* && commented out as a result of bug 597016
       (
        (!hideScopeNames &&                    // there is a scope
@@ -3339,7 +3464,7 @@ void MemberDef::addListReference(Definition *)
     {
       memName = "[" + pd->name() + " " + name() + "]";
     }
-    else 
+    else
     {
       if (pd!=Doxygen::globalScope) memName.prepend(pdName+sep);
       memArgs = argsString();
@@ -3355,19 +3480,19 @@ void MemberDef::addListReference(Definition *)
   }
 }
 
-MemberList *MemberDef::getSectionList(Definition *d) const 
-{ 
+MemberList *MemberDef::getSectionList(Definition *d) const
+{
   char key[20];
   sprintf(key,"%p",d);
   return (d!=0 && m_impl->classSectionSDict) ? m_impl->classSectionSDict->find(key) : 0;
 }
 
-void MemberDef::setSectionList(Definition *d, MemberList *sl)   
-{ 
+void MemberDef::setSectionList(Definition *d, MemberList *sl)
+{
   //printf("MemberDef::setSectionList(%p,%p) name=%s\n",d,sl,name().data());
   char key[20];
   sprintf(key,"%p",d);
-  if (m_impl->classSectionSDict==0) 
+  if (m_impl->classSectionSDict==0)
   {
     m_impl->classSectionSDict = new SDict<MemberList>(7);
   }
@@ -3376,7 +3501,7 @@ void MemberDef::setSectionList(Definition *d, MemberList *sl)
 
 Specifier MemberDef::virtualness(int count) const
 {
-  if (count>25) 
+  if (count>25)
   {
      warn(getDefFileName(),getDefLine(),
        "Internal inconsistency: recursion detected in overload relation for member %s!"
@@ -3395,7 +3520,7 @@ Specifier MemberDef::virtualness(int count) const
 }
 
 void MemberDef::_writeTagData(const DefType compoundType)
-{ 
+{
   unsigned typeMask = 1 << compoundType;
   if ((m_impl->tagDataWritten) & typeMask) return; // member already written for this type
   if (m_impl->mtype==MemberType_EnumValue && m_impl->enumScope &&
@@ -3427,13 +3552,13 @@ void MemberDef::_writeTagData(const DefType compoundType)
       Doxygen::tagFile << "\" protection=\"";
       if (m_impl->prot==Protected)    Doxygen::tagFile << "protected";
       else if (m_impl->prot==Package) Doxygen::tagFile << "package";
-      else /* Private */              Doxygen::tagFile << "private"; 
+      else /* Private */              Doxygen::tagFile << "private";
     }
     if (m_impl->virt!=Normal)
     {
       Doxygen::tagFile << "\" virtualness=\"";
       if (m_impl->virt==Virtual) Doxygen::tagFile << "virtual";
-      else /* Pure */            Doxygen::tagFile << "pure"; 
+      else /* Pure */            Doxygen::tagFile << "pure";
     }
     if (isStatic())
     {
@@ -3464,11 +3589,11 @@ void MemberDef::_writeTagData(const DefType compoundType)
             Doxygen::tagFile << "      <enumvalue file=\"" << convertToXML(getOutputFileBase()+Doxygen::htmlFileExtension);
             Doxygen::tagFile << "\" anchor=\"" << convertToXML(fmd->anchor());
             QCString idStr = fmd->id();
-            if (!idStr.isEmpty()) 
+            if (!idStr.isEmpty())
             {
               Doxygen::tagFile << "\" clangid=\"" << convertToXML(idStr);
             }
-            Doxygen::tagFile  << "\">" << convertToXML(fmd->name()) << "</enumvalue>" << endl; 
+            Doxygen::tagFile  << "\">" << convertToXML(fmd->name()) << "</enumvalue>" << endl;
           }
         }
       }
@@ -3483,7 +3608,7 @@ void MemberDef::_writeTagData(const DefType compoundType)
 void MemberDef::_computeIsConstructor()
 {
   m_isConstructorCached=1; // FALSE
-  if (m_impl->classDef) 
+  if (m_impl->classDef)
   {
     if (m_impl->isDMember) // for D
     {
@@ -3491,11 +3616,11 @@ void MemberDef::_computeIsConstructor()
       return;
     }
     else if (getLanguage()==SrcLangExt_PHP) // for PHP
-    { 
+    {
       m_isConstructorCached = name()=="__construct" ? 2 : 1;
       return;
     }
-    else if (name()=="__init__" && 
+    else if (name()=="__init__" &&
              getLanguage()==SrcLangExt_Python) // for Python
     {
       m_isConstructorCached = 2; // TRUE
@@ -3523,8 +3648,8 @@ void MemberDef::_computeIsConstructor()
   }
 }
 
-bool MemberDef::isConstructor() const            
-{ 
+bool MemberDef::isConstructor() const
+{
   if (m_isConstructorCached==0)
   {
     MemberDef *that = (MemberDef*)this;
@@ -3543,14 +3668,14 @@ void MemberDef::_computeIsDestructor()
     isDestructor = name()=="~this";
   }
   else if (getLanguage()==SrcLangExt_PHP) // for PHP
-  {                
+  {
     isDestructor = name()=="__destruct";
   }
   else if (getLanguage()==SrcLangExt_Tcl) // for Tcl
-  { 
+  {
     isDestructor = name()=="destructor";
   }
-  else if (name()=="__del__" && 
+  else if (name()=="__del__" &&
            getLanguage()==SrcLangExt_Python) // for Python
   {
     isDestructor=TRUE;
@@ -3559,13 +3684,13 @@ void MemberDef::_computeIsDestructor()
   {
     isDestructor =
            (name().find('~')!=-1 || name().find('!')!=-1)  // The ! is for C++/CLI
-           && name().find("operator")==-1; 
+           && name().find("operator")==-1;
   }
   m_isDestructorCached = isDestructor ? 2 : 1;
 }
 
 bool MemberDef::isDestructor() const
-{ 
+{
   if (m_isDestructorCached==0)
   {
     MemberDef *that=(MemberDef*)this;
@@ -3576,7 +3701,7 @@ bool MemberDef::isDestructor() const
 }
 
 void MemberDef::writeEnumDeclaration(OutputList &typeDecl,
-     ClassDef *cd,NamespaceDef *nd,FileDef *fd,GroupDef *gd, 
+     ClassDef *cd,NamespaceDef *nd,FileDef *fd,GroupDef *gd,
      const DefType compoundType)
 {
   int enumMemCount=0;
@@ -3592,7 +3717,7 @@ void MemberDef::writeEnumDeclaration(OutputList &typeDecl,
       fmd=fmdl->next();
     }
   }
-  if (numVisibleEnumValues==0 && !isBriefSectionVisible()) 
+  if (numVisibleEnumValues==0 && !isBriefSectionVisible())
   {
     return;
   }
@@ -3643,7 +3768,7 @@ void MemberDef::writeEnumDeclaration(OutputList &typeDecl,
             typeDecl.pushGeneratorState();
             typeDecl.disableAllBut(OutputGenerator::Html);
             typeDecl.enable(OutputGenerator::Latex);
-            typeDecl.lineBreak(); 
+            typeDecl.lineBreak();
             typeDecl.disable(OutputGenerator::Latex);
             typeDecl.writeString("&#160;&#160;");
             typeDecl.popGeneratorState();
@@ -3670,7 +3795,7 @@ void MemberDef::writeEnumDeclaration(OutputList &typeDecl,
 
         bool prevVisible = fmdVisible;
         fmd=fmdl->next();
-        if (fmd && (fmdVisible=fmd->isBriefSectionVisible())) 
+        if (fmd && (fmdVisible=fmd->isBriefSectionVisible()))
         {
           typeDecl.writeString(", ");
         }
@@ -3686,7 +3811,7 @@ void MemberDef::writeEnumDeclaration(OutputList &typeDecl,
       {
         typeDecl.pushGeneratorState();
         typeDecl.disableAllBut(OutputGenerator::Html);
-        typeDecl.lineBreak(); 
+        typeDecl.lineBreak();
         typeDecl.popGeneratorState();
       }
     }
@@ -3694,8 +3819,8 @@ void MemberDef::writeEnumDeclaration(OutputList &typeDecl,
   }
 }
 
-void MemberDef::setArgumentList(ArgumentList *al) 
-{ 
+void MemberDef::setArgumentList(ArgumentList *al)
+{
   if (m_impl->defArgList) delete m_impl->defArgList;
   m_impl->defArgList = al;
 }
@@ -3733,25 +3858,25 @@ void MemberDef::setAccessorType(ClassDef *cd,const char *t)
 
 void MemberDef::findSectionsInDocumentation()
 {
-  docFindSections(documentation(),this,0,docFile());  
+  docFindSections(documentation(),this,0,docFile());
 }
 
-void MemberDef::enableCallGraph(bool e) 
-{ 
-  m_impl->hasCallGraph=e; 
+void MemberDef::enableCallGraph(bool e)
+{
+  m_impl->hasCallGraph=e;
   if (e) Doxygen::parseSourcesNeeded = TRUE;
 }
 
-void MemberDef::enableCallerGraph(bool e) 
-{ 
-  m_impl->hasCallerGraph=e; 
+void MemberDef::enableCallerGraph(bool e)
+{
+  m_impl->hasCallerGraph=e;
   if (e) Doxygen::parseSourcesNeeded = TRUE;
 }
 
 #if 0
 bool MemberDef::protectionVisible() const
 {
-  return m_impl->prot==Public || 
+  return m_impl->prot==Public ||
          (m_impl->prot==Private   && Config_getBool("EXTRACT_PRIVATE"))   ||
          (m_impl->prot==Protected && Config_getBool("EXTRACT_PROTECTED")) ||
          (m_impl->prot==Package   && Config_getBool("EXTRACT_PACKAGE"));
@@ -3772,13 +3897,13 @@ void MemberDef::setInbodyDocumentation(const char *docs,
 bool MemberDef::isObjCMethod() const
 {
   if (m_impl->classDef && m_impl->classDef->isObjectiveC() && isFunction()) return TRUE;
-  return FALSE; 
+  return FALSE;
 }
 
 bool MemberDef::isObjCProperty() const
 {
   if (m_impl->classDef && m_impl->classDef->isObjectiveC() && isProperty()) return TRUE;
-  return FALSE; 
+  return FALSE;
 }
 
 QCString MemberDef::qualifiedName() const
@@ -3802,7 +3927,7 @@ QCString MemberDef::qualifiedName() const
   else
   {
     return Definition::qualifiedName();
-  }  
+  }
 }
 
 void MemberDef::setTagInfo(TagInfo *ti)
@@ -3834,12 +3959,12 @@ QCString MemberDef::objCMethodName(bool localLink,bool showStatic) const
 }
 
 const char *MemberDef::declaration() const
-{ 
-  return m_impl->decl; 
+{
+  return m_impl->decl;
 }
 
 const char *MemberDef::definition() const
-{ 
+{
   return m_impl->def;
 }
 
@@ -3849,133 +3974,133 @@ const char *MemberDef::extraTypeChars() const
 }
 
 const char *MemberDef::typeString() const
-{ 
-  return m_impl->type; 
+{
+  return m_impl->type;
 }
 
 const char *MemberDef::argsString() const
-{ 
-  return m_impl->args; 
+{
+  return m_impl->args;
 }
 
 const char *MemberDef::excpString() const
-{ 
-  return m_impl->exception; 
+{
+  return m_impl->exception;
 }
 
 const char *MemberDef::bitfieldString() const
-{ 
-  return m_impl->bitfields; 
+{
+  return m_impl->bitfields;
 }
 
 const QCString &MemberDef::initializer() const
-{ 
-  return m_impl->initializer; 
+{
+  return m_impl->initializer;
 }
 
 int MemberDef::initializerLines() const
-{ 
-  return m_impl->initLines; 
+{
+  return m_impl->initLines;
 }
 
 uint64 MemberDef::getMemberSpecifiers() const
-{ 
-  return m_impl->memSpec; 
+{
+  return m_impl->memSpec;
 }
 
 ClassDef *MemberDef::getClassDef() const
-{ 
-  return m_impl->classDef; 
+{
+  return m_impl->classDef;
 }
 
 FileDef  *MemberDef::getFileDef() const
-{ 
-  return m_impl->fileDef; 
+{
+  return m_impl->fileDef;
 }
 
 NamespaceDef* MemberDef::getNamespaceDef() const
-{ 
-  return m_impl->nspace; 
+{
+  return m_impl->nspace;
 }
 
 const char *MemberDef::getReadAccessor() const
-{ 
-  return m_impl->read; 
+{
+  return m_impl->read;
 }
 
 const char *MemberDef::getWriteAccessor() const
-{ 
-  return m_impl->write; 
+{
+  return m_impl->write;
 }
 
 GroupDef *MemberDef::getGroupDef() const
-{ 
-  return m_impl->group; 
+{
+  return m_impl->group;
 }
 
 Grouping::GroupPri_t MemberDef::getGroupPri() const
-{ 
-  return m_impl->grouppri; 
+{
+  return m_impl->grouppri;
 }
 
 const char *MemberDef::getGroupFileName() const
-{ 
-  return m_impl->groupFileName; 
+{
+  return m_impl->groupFileName;
 }
 
 int MemberDef::getGroupStartLine() const
-{ 
-  return m_impl->groupStartLine; 
+{
+  return m_impl->groupStartLine;
 }
 
 bool MemberDef::getGroupHasDocs() const
-{ 
-  return m_impl->groupHasDocs; 
+{
+  return m_impl->groupHasDocs;
 }
 
 Protection MemberDef::protection() const
-{ 
-  return m_impl->prot; 
+{
+  return m_impl->prot;
 }
 
 MemberType MemberDef::memberType() const
-{ 
-  return m_impl->mtype; 
+{
+  return m_impl->mtype;
 }
 
 bool MemberDef::isSignal() const
-{ 
-  return m_impl->mtype==MemberType_Signal;      
+{
+  return m_impl->mtype==MemberType_Signal;
 }
 
 bool MemberDef::isSlot() const
-{ 
-  return m_impl->mtype==MemberType_Slot;        
+{
+  return m_impl->mtype==MemberType_Slot;
 }
 
 bool MemberDef::isVariable() const
-{ 
-  return m_impl->mtype==MemberType_Variable;    
+{
+  return m_impl->mtype==MemberType_Variable;
 }
 
 bool MemberDef::isEnumerate() const
-{ 
-  return m_impl->mtype==MemberType_Enumeration; 
+{
+  return m_impl->mtype==MemberType_Enumeration;
 }
 
 bool MemberDef::isEnumValue() const
-{ 
-  return m_impl->mtype==MemberType_EnumValue;   
+{
+  return m_impl->mtype==MemberType_EnumValue;
 }
 
 bool MemberDef::isTypedef() const
-{ 
-  return m_impl->mtype==MemberType_Typedef;     
+{
+  return m_impl->mtype==MemberType_Typedef;
 }
 
 bool MemberDef::isFunction() const
-{ 
-  return m_impl->mtype==MemberType_Function;    
+{
+  return m_impl->mtype==MemberType_Function;
 }
 
 bool MemberDef::isFunctionPtr() const
@@ -3984,175 +4109,175 @@ bool MemberDef::isFunctionPtr() const
 }
 
 bool MemberDef::isDefine() const
-{ 
-  return m_impl->mtype==MemberType_Define;      
+{
+  return m_impl->mtype==MemberType_Define;
 }
 
 bool MemberDef::isFriend() const
-{ 
-  return m_impl->mtype==MemberType_Friend;      
+{
+  return m_impl->mtype==MemberType_Friend;
 }
 
 bool MemberDef::isDCOP() const
-{ 
-  return m_impl->mtype==MemberType_DCOP;        
+{
+  return m_impl->mtype==MemberType_DCOP;
 }
 
 bool MemberDef::isProperty() const
-{ 
-  return m_impl->mtype==MemberType_Property;    
+{
+  return m_impl->mtype==MemberType_Property;
 }
 
 bool MemberDef::isEvent() const
-{ 
-  return m_impl->mtype==MemberType_Event;       
+{
+  return m_impl->mtype==MemberType_Event;
 }
 
 bool MemberDef::isRelated() const
-{ 
+{
   return m_impl->related == Related;
 }
 
 bool MemberDef::isForeign() const
-{ 
-  return m_impl->related == Foreign; 
+{
+  return m_impl->related == Foreign;
 }
 
 bool MemberDef::isStatic() const
-{ 
-  return m_impl->stat; 
+{
+  return m_impl->stat;
 }
 
 bool MemberDef::isInline() const
-{ 
-  return (m_impl->memSpec&Entry::Inline)!=0; 
+{
+  return (m_impl->memSpec&Entry::Inline)!=0;
 }
 
 bool MemberDef::isExplicit() const
-{ 
-  return (m_impl->memSpec&Entry::Explicit)!=0; 
+{
+  return (m_impl->memSpec&Entry::Explicit)!=0;
 }
 
 bool MemberDef::isMutable() const
-{ 
-  return (m_impl->memSpec&Entry::Mutable)!=0; 
+{
+  return (m_impl->memSpec&Entry::Mutable)!=0;
 }
 
 bool MemberDef::isGettable() const
-{ 
-  return (m_impl->memSpec&Entry::Gettable)!=0; 
+{
+  return (m_impl->memSpec&Entry::Gettable)!=0;
 }
 
 bool MemberDef::isSettable() const
-{ 
-  return (m_impl->memSpec&Entry::Settable)!=0; 
+{
+  return (m_impl->memSpec&Entry::Settable)!=0;
 }
 
 bool MemberDef::isAddable() const
-{ 
-  return (m_impl->memSpec&Entry::Addable)!=0; 
+{
+  return (m_impl->memSpec&Entry::Addable)!=0;
 }
 
 bool MemberDef::isRemovable() const
-{ 
-  return (m_impl->memSpec&Entry::Removable)!=0; 
+{
+  return (m_impl->memSpec&Entry::Removable)!=0;
 }
 
 bool MemberDef::isRaisable() const
-{ 
-  return (m_impl->memSpec&Entry::Raisable)!=0; 
+{
+  return (m_impl->memSpec&Entry::Raisable)!=0;
 }
 
 bool MemberDef::isReadable() const
-{ 
-  return (m_impl->memSpec&Entry::Readable)!=0; 
+{
+  return (m_impl->memSpec&Entry::Readable)!=0;
 }
 
 bool MemberDef::isWritable() const
-{ 
-  return (m_impl->memSpec&Entry::Writable)!=0; 
+{
+  return (m_impl->memSpec&Entry::Writable)!=0;
 }
 
 bool MemberDef::isFinal() const
-{ 
-  return (m_impl->memSpec&Entry::Final)!=0; 
+{
+  return (m_impl->memSpec&Entry::Final)!=0;
 }
 
 bool MemberDef::isNew() const
-{ 
-  return (m_impl->memSpec&Entry::New)!=0; 
+{
+  return (m_impl->memSpec&Entry::New)!=0;
 }
 
 bool MemberDef::isSealed() const
-{ 
-  return (m_impl->memSpec&Entry::Sealed)!=0; 
+{
+  return (m_impl->memSpec&Entry::Sealed)!=0;
 }
 
 bool MemberDef::isOverride() const
-{ 
-  return (m_impl->memSpec&Entry::Override)!=0; 
+{
+  return (m_impl->memSpec&Entry::Override)!=0;
 }
 
 bool MemberDef::isInitonly() const
-{ 
-  return (m_impl->memSpec&Entry::Initonly)!=0; 
+{
+  return (m_impl->memSpec&Entry::Initonly)!=0;
 }
 
 bool MemberDef::isAbstract() const
-{ 
-  return (m_impl->memSpec&Entry::Abstract)!=0; 
+{
+  return (m_impl->memSpec&Entry::Abstract)!=0;
 }
 
 bool MemberDef::isOptional() const
-{ 
-  return (m_impl->memSpec&Entry::Optional)!=0; 
+{
+  return (m_impl->memSpec&Entry::Optional)!=0;
 }
 
 bool MemberDef::isRequired() const
-{ 
-  return (m_impl->memSpec&Entry::Required)!=0; 
+{
+  return (m_impl->memSpec&Entry::Required)!=0;
 }
 
 bool MemberDef::isNonAtomic() const
-{ 
-  return (m_impl->memSpec&Entry::NonAtomic)!=0; 
+{
+  return (m_impl->memSpec&Entry::NonAtomic)!=0;
 }
 
 bool MemberDef::isCopy() const
-{ 
-  return (m_impl->memSpec&Entry::Copy)!=0; 
+{
+  return (m_impl->memSpec&Entry::Copy)!=0;
 }
 
 bool MemberDef::isAssign() const
-{ 
-  return (m_impl->memSpec&Entry::Assign)!=0; 
+{
+  return (m_impl->memSpec&Entry::Assign)!=0;
 }
 
 bool MemberDef::isRetain() const
-{ 
-  return (m_impl->memSpec&Entry::Retain)!=0; 
+{
+  return (m_impl->memSpec&Entry::Retain)!=0;
 }
 
 bool MemberDef::isWeak() const
 {
-  return (m_impl->memSpec&Entry::Weak)!=0; 
+  return (m_impl->memSpec&Entry::Weak)!=0;
 }
 
 bool MemberDef::isStrong() const
 {
-  return (m_impl->memSpec&Entry::Strong)!=0; 
+  return (m_impl->memSpec&Entry::Strong)!=0;
 }
 
 bool MemberDef::isStrongEnumValue() const
 {
   return m_impl->mtype==MemberType_EnumValue &&
-         m_impl->enumScope && 
+         m_impl->enumScope &&
          m_impl->enumScope->isStrong();
 }
 
 bool MemberDef::isUnretained() const
 {
-  return (m_impl->memSpec&Entry::Unretained)!=0; 
+  return (m_impl->memSpec&Entry::Unretained)!=0;
 }
 
 bool MemberDef::isAlias() const
@@ -4227,356 +4352,361 @@ bool MemberDef::isPublished() const
 
 
 bool MemberDef::isImplementation() const
-{ 
-  return m_impl->implOnly; 
+{
+  return m_impl->implOnly;
 }
 
 bool MemberDef::isExternal() const
-{ 
-  return m_impl->explExt; 
+{
+  return m_impl->explExt;
 }
 
 bool MemberDef::isTemplateSpecialization() const
-{ 
-  return m_impl->tspec; 
+{
+  return m_impl->tspec;
 }
 
 bool MemberDef::hasDocumentedParams() const
-{ 
-  return m_impl->hasDocumentedParams; 
+{
+  return m_impl->hasDocumentedParams;
 }
 
 bool MemberDef::hasDocumentedReturnType() const
-{ 
-  return m_impl->hasDocumentedReturnType; 
+{
+  return m_impl->hasDocumentedReturnType;
 }
 
 bool MemberDef::showInCallGraph() const
 {
-  return isFunction() || 
-         isSlot() || 
+  return isFunction() ||
+         isSlot() ||
          isConstructor() ||
-         isDestructor() || 
+         isDestructor() ||
          isObjCMethod();
 }
 
 ClassDef *MemberDef::relatedAlso() const
-{ 
-  return m_impl->relatedAlso; 
+{
+  return m_impl->relatedAlso;
 }
 
 bool MemberDef::hasDocumentedEnumValues() const
-{ 
-  return m_impl->docEnumValues; 
+{
+  return m_impl->docEnumValues;
 }
 
 MemberDef *MemberDef::getAnonymousEnumType() const
-{ 
-  return m_impl->annEnumType; 
+{
+  return m_impl->annEnumType;
 }
 
 bool MemberDef::isDocsForDefinition() const
-{ 
-  return m_impl->docsForDefinition; 
+{
+  return m_impl->docsForDefinition;
 }
 
 MemberDef *MemberDef::getEnumScope() const
-{ 
-  return m_impl->enumScope; 
+{
+  return m_impl->enumScope;
 }
 
 MemberList *MemberDef::enumFieldList() const
-{ 
-  return m_impl->enumFields; 
+{
+  return m_impl->enumFields;
 }
 
 ExampleSDict *MemberDef::getExamples() const
-{ 
-  return m_impl->exampleSDict; 
+{
+  return m_impl->exampleSDict;
 }
 
 bool MemberDef::isPrototype() const
-{ 
-  return m_impl->proto; 
+{
+  return m_impl->proto;
 }
 
 ArgumentList *MemberDef::argumentList() const
-{ 
-  return m_impl->defArgList; 
+{
+  return m_impl->defArgList;
 }
 
 ArgumentList *MemberDef::declArgumentList() const
-{ 
-  return m_impl->declArgList; 
+{
+  return m_impl->declArgList;
 }
 
 ArgumentList *MemberDef::templateArguments() const
-{ 
-  return m_impl->tArgList; 
+{
+  return m_impl->tArgList;
 }
 
 QList<ArgumentList> *MemberDef::definitionTemplateParameterLists() const
-{ 
-  return m_impl->defTmpArgLists; 
+{
+  return m_impl->defTmpArgLists;
 }
 
 int MemberDef::getMemberGroupId() const
-{ 
-  return m_impl->grpId; 
+{
+  return m_impl->grpId;
 }
 
 MemberGroup *MemberDef::getMemberGroup() const
-{ 
-  return m_impl->memberGroup; 
+{
+  return m_impl->memberGroup;
 }
 
 bool MemberDef::fromAnonymousScope() const
-{ 
-  return m_impl->annScope; 
+{
+  return m_impl->annScope;
 }
 
 bool MemberDef::anonymousDeclShown() const
-{ 
-  return m_impl->annUsed; 
+{
+  return m_impl->annUsed;
 }
 
-void MemberDef::setAnonymousUsed() 
+void MemberDef::setAnonymousUsed()
 {
   m_impl->annUsed = TRUE;
 }
 
 bool MemberDef::hasCallGraph() const
-{ 
-  return m_impl->hasCallGraph; 
+{
+  return m_impl->hasCallGraph;
 }
 
 bool MemberDef::hasCallerGraph() const
-{ 
-  return m_impl->hasCallerGraph; 
+{
+  return m_impl->hasCallerGraph;
 }
 
 MemberDef *MemberDef::templateMaster() const
-{ 
-  return m_impl->templateMaster; 
+{
+  return m_impl->templateMaster;
 }
 
 bool MemberDef::isTypedefValCached() const
-{ 
-  return m_impl->isTypedefValCached; 
+{
+  return m_impl->isTypedefValCached;
 }
 
 ClassDef *MemberDef::getCachedTypedefVal() const
-{ 
-  return m_impl->cachedTypedefValue; 
+{
+  return m_impl->cachedTypedefValue;
 }
 
 QCString MemberDef::getCachedTypedefTemplSpec() const
-{ 
-  return m_impl->cachedTypedefTemplSpec; 
+{
+  return m_impl->cachedTypedefTemplSpec;
 }
 
 QCString MemberDef::getCachedResolvedTypedef() const
-{ 
+{
   //printf("MemberDef::getCachedResolvedTypedef()=%s m_impl=%p\n",m_impl->cachedResolvedType.data(),m_impl);
-  return m_impl->cachedResolvedType; 
+  return m_impl->cachedResolvedType;
 }
 
 MemberDef *MemberDef::memberDefinition() const
-{ 
-  return m_impl->memDef; 
+{
+  return m_impl->memDef;
 }
 
 MemberDef *MemberDef::memberDeclaration() const
-{ 
-  return m_impl->memDec; 
+{
+  return m_impl->memDec;
 }
 
 MemberDef *MemberDef::inheritsDocsFrom() const
-{ 
-  return m_impl->docProvider; 
+{
+  return m_impl->docProvider;
 }
 
 MemberDef *MemberDef::getGroupAlias() const
-{ 
-  return m_impl->groupAlias; 
+{
+  return m_impl->groupAlias;
 }
 
 void MemberDef::setMemberType(MemberType t)
-{ 
-  m_impl->mtype=t; 
+{
+  m_impl->mtype=t;
   m_isLinkableCached = 0;
 }
 
 void MemberDef::setDefinition(const char *d)
-{ 
-  m_impl->def=d; 
+{
+  m_impl->def=d;
 }
 
 void MemberDef::setFileDef(FileDef *fd)
-{ 
-  m_impl->fileDef=fd; 
+{
+  m_impl->fileDef=fd;
   m_isLinkableCached = 0;
   m_isConstructorCached = 0;
   m_isDestructorCached = 0;
 }
 
 void MemberDef::setProtection(Protection p)
-{ 
-  m_impl->prot=p; 
+{
+  m_impl->prot=p;
   m_isLinkableCached = 0;
 }
 
 void MemberDef::setMemberSpecifiers(uint64 s)
-{ 
-  m_impl->memSpec=s; 
+{
+  m_impl->memSpec=s;
 }
 
 void MemberDef::mergeMemberSpecifiers(uint64 s)
-{ 
-  m_impl->memSpec|=s; 
+{
+  m_impl->memSpec|=s;
 }
 
 void MemberDef::setBitfields(const char *s)
-{ 
-  m_impl->bitfields = s; 
+{
+  m_impl->bitfields = QCString(s).simplifyWhiteSpace();
 }
 
 void MemberDef::setMaxInitLines(int lines)
-{ 
+{
   if (lines!=-1)
   {
-    m_impl->userInitLines=lines; 
+    m_impl->userInitLines=lines;
   }
 }
 
 void MemberDef::setExplicitExternal(bool b)
-{ 
-  m_impl->explExt=b; 
+{
+  m_impl->explExt=b;
 }
 
 void MemberDef::setReadAccessor(const char *r)
-{ 
-  m_impl->read=r; 
+{
+  m_impl->read=r;
 }
 
 void MemberDef::setWriteAccessor(const char *w)
-{ 
-  m_impl->write=w; 
+{
+  m_impl->write=w;
 }
 
 void MemberDef::setTemplateSpecialization(bool b)
-{ 
-  m_impl->tspec=b; 
+{
+  m_impl->tspec=b;
 }
 
 void MemberDef::makeRelated()
-{ 
-  m_impl->related = Related; 
+{
+  m_impl->related = Related;
   m_isLinkableCached = 0;
 }
 
 void MemberDef::makeForeign()
-{ 
-  m_impl->related = Foreign; 
+{
+  m_impl->related = Foreign;
   m_isLinkableCached = 0;
 }
 
 void MemberDef::setHasDocumentedParams(bool b)
-{ 
-  m_impl->hasDocumentedParams = b; 
+{
+  m_impl->hasDocumentedParams = b;
 }
 
 void MemberDef::setHasDocumentedReturnType(bool b)
-{ 
-  m_impl->hasDocumentedReturnType = b; 
+{
+  m_impl->hasDocumentedReturnType = b;
 }
 
 void MemberDef::setInheritsDocsFrom(MemberDef *md)
-{ 
-  m_impl->docProvider = md; 
+{
+  m_impl->docProvider = md;
 }
 
 void MemberDef::setArgsString(const char *as)
-{ 
-  m_impl->args = as; 
+{
+  m_impl->args = as;
 }
 
 void MemberDef::setRelatedAlso(ClassDef *cd)
-{ 
-  m_impl->relatedAlso=cd; 
+{
+  m_impl->relatedAlso=cd;
 }
 
 void MemberDef::setEnumClassScope(ClassDef *cd)
-{ 
-  m_impl->classDef = cd; 
-  m_isLinkableCached = 0; 
-  m_isConstructorCached = 0; 
+{
+  m_impl->classDef = cd;
+  m_isLinkableCached = 0;
+  m_isConstructorCached = 0;
 }
 
 void MemberDef::setDocumentedEnumValues(bool value)
-{ 
-  m_impl->docEnumValues=value; 
+{
+  m_impl->docEnumValues=value;
 }
 
 void MemberDef::setAnonymousEnumType(MemberDef *md)
-{ 
-  m_impl->annEnumType = md; 
+{
+  m_impl->annEnumType = md;
 }
 
 void MemberDef::setPrototype(bool p)
-{ 
-  m_impl->proto=p; 
+{
+  m_impl->proto=p;
 }
 
 void MemberDef::setMemberGroupId(int id)
-{ 
-  m_impl->grpId=id; 
+{
+  m_impl->grpId=id;
 }
 
 void MemberDef::makeImplementationDetail()
-{ 
-  m_impl->implOnly=TRUE; 
+{
+  m_impl->implOnly=TRUE;
 }
 
 void MemberDef::setFromAnonymousScope(bool b)
-{ 
-  m_impl->annScope=b; 
+{
+  m_impl->annScope=b;
 }
 
 void MemberDef::setFromAnonymousMember(MemberDef *m)
-{ 
-  m_impl->annMemb=m; 
+{
+  m_impl->annMemb=m;
+}
+
+MemberDef *MemberDef::fromAnonymousMember() const
+{
+  return m_impl->annMemb;
 }
 
 void MemberDef::setTemplateMaster(MemberDef *mt)
-{ 
-  m_impl->templateMaster=mt; 
-  m_isLinkableCached = 0; 
+{
+  m_impl->templateMaster=mt;
+  m_isLinkableCached = 0;
 }
 
 void MemberDef::setDocsForDefinition(bool b)
-{ 
-  m_impl->docsForDefinition = b; 
+{
+  m_impl->docsForDefinition = b;
 }
 
 void MemberDef::setGroupAlias(MemberDef *md)
-{ 
-  m_impl->groupAlias = md; 
+{
+  m_impl->groupAlias = md;
 }
 
 void MemberDef::invalidateTypedefValCache()
-{ 
-  m_impl->isTypedefValCached=FALSE; 
+{
+  m_impl->isTypedefValCached=FALSE;
 }
 
 void MemberDef::setMemberDefinition(MemberDef *md)
-{ 
-  m_impl->memDef=md; 
+{
+  m_impl->memDef=md;
 }
 
 void MemberDef::setMemberDeclaration(MemberDef *md)
-{ 
-  m_impl->memDec=md; 
+{
+  m_impl->memDec=md;
 }
 
 ClassDef *MemberDef::category() const
@@ -4612,9 +4742,9 @@ QCString MemberDef::enumBaseType() const
 
 void MemberDef::cacheTypedefVal(ClassDef*val, const QCString & templSpec, const QCString &resolvedType)
 {
-  m_impl->isTypedefValCached=TRUE; 
-  m_impl->cachedTypedefValue=val; 
-  m_impl->cachedTypedefTemplSpec=templSpec; 
+  m_impl->isTypedefValCached=TRUE;
+  m_impl->cachedTypedefValue=val;
+  m_impl->cachedTypedefTemplSpec=templSpec;
   m_impl->cachedResolvedType=resolvedType;
   //printf("MemberDef::cacheTypedefVal=%s m_impl=%p\n",m_impl->cachedResolvedType.data(),m_impl);
 }
@@ -4680,9 +4810,9 @@ int MemberDef::numberOfFlowKeyWords()
 
 //----------------
 
-QCString MemberDef::displayName(bool) const 
-{ 
-  return Definition::name(); 
+QCString MemberDef::displayName(bool) const
+{
+  return Definition::name();
 }
 
 void MemberDef::_addToSearchIndex()
@@ -4865,4 +4995,34 @@ void combineDeclarationAndDefinition(MemberDef *mdec,MemberDef *mdef)
     }
   }
 }
+
+QCString MemberDef::briefDescription(bool abbr) const
+{
+  if (m_impl->templateMaster)
+  {
+    return m_impl->templateMaster->briefDescription(abbr);
+  }
+  else
+  {
+    return Definition::briefDescription(abbr);
+  }
+}
+
+QCString MemberDef::documentation() const
+{
+  if (m_impl->templateMaster)
+  {
+    return m_impl->templateMaster->documentation();
+  }
+  else
+  {
+    return Definition::documentation();
+  }
+}
+
+const ArgumentList *MemberDef::typeConstraints() const
+{
+  return m_impl->typeConstraints;
+}
+
 

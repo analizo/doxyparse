@@ -65,6 +65,7 @@ documentation:
 \refitem cmddefgroup \\defgroup
 \refitem cmddeprecated \\deprecated
 \refitem cmddetails \\details
+\refitem cmddiafile \\diafile
 \refitem cmddir \\dir
 \refitem cmddocbookonly \\docbookonly
 \refitem cmddontinclude \\dontinclude
@@ -85,6 +86,7 @@ documentation:
 \refitem cmdendlink \\endlink
 \refitem cmdendmanonly \\endmanonly
 \refitem cmdendmsc \\endmsc
+\refitem cmdendparblock \\endparblock
 \refitem cmdendrtfonly \\endrtfonly
 \refitem cmdendsecreflist \\endsecreflist
 \refitem cmdendverbatim \\endverbatim
@@ -136,6 +138,7 @@ documentation:
 \refitem cmdpar \\par
 \refitem cmdparagraph \\paragraph
 \refitem cmdparam \\param
+\refitem cmdparblock \\parblock
 \refitem cmdpost \\post
 \refitem cmdpre \\pre
 \refitem cmdprivate \\private
@@ -227,7 +230,7 @@ Structural indicators
   any of the commands.
 
   The title is optional, so this command can also be used to add a number of
-  entities to an existing group using \@{ and \@} like this:
+  entities to an existing group using \c \@{ and \c \@} like this:
 
 \verbatim
   /*! \addtogroup mygrp
@@ -1473,6 +1476,35 @@ void setPosition(double x,double y,double z,double t)
 \endverbatim
 
 <hr>
+\section cmdparblock \\parblock
+  \addindex \\parblock
+  For commands that expect a single paragraph as argument
+  (such as \ref cmdpar "\\par", \ref cmdparam "\\param" and \ref cmdwarning "\\warning"),
+  the \ref cmdparblock "\\parblock" command allows to start a
+  description that covers multiple paragraphs, which then ends with
+  \ref cmdendparblock "\\endparblock".
+
+  Example:
+\verbatim
+/** Example of a param command with a description consisting of two paragraphs
+ *  \param p 
+ *  \parblock
+ *  First paragraph of the param description.
+ *
+ *  Second paragraph of the param description.
+ *  \endparblock
+ *  Rest of the comment block continues.
+ */
+\endverbatim
+  Note that the \\parblock command may also appear directly after
+  \\param's first argument.
+
+<hr>
+\section cmdendparblock \\endparblock
+  \addindex \\endparblock
+  This ends a block of paragraphs started with \\ref cmdparblock "\\parblock".
+
+<hr>
 \section cmdtparam \\tparam <template-parameter-name> { description }
 
   \addindex \\tparam
@@ -1707,6 +1739,26 @@ void setPosition(double x,double y,double z,double t)
  \verbatim ALIASES += "reminder=\xrefitem reminders \"Reminder\" \"Reminders\"" \endverbatim
  Note the use of escaped quotes for the second and third argument of the
  \c \\xrefitem command.
+
+ In case parameter "(heading)" is the empty string no heading is generated. This can be useful
+ when used in combination with the \ref cmdpage "\\page" command e.g.
+\verbatim
+/** @page my_errors My Errors
+ *  @brief Errors page
+ *
+ *  Errors page contents.
+ */
+
+/** \error ERROR 101: in case a file can not be opened.
+    Check about file system read/write access. */
+#define MY_ERR_CANNOT_OPEN_FILE                   101
+
+/** \error ERROR 102: in case a file can not be closed.
+    Check about file system read/write access. */
+#define MY_ERR_CANNOT_CLOSE_FILE                  102
+\endverbatim
+ with \c \\error defined as
+ \verbatim ALIASES += "error=\xrefitem my_errors \"\" \"\"" \endverbatim
 
 <hr>
 
@@ -2485,6 +2537,24 @@ class Receiver
   stripped before the caption is displayed.
 
   \sa section \ref cmdmsc "\\msc".
+
+<hr>
+\section cmddiafile \\diafile <file> ["caption"]
+
+  \addindex \\diafile
+  Inserts an image made in dia from \<file\> into the documentation.
+
+  The first argument specifies the file name of the image.
+  doxygen will look for files in the paths (or files) that you specified
+  after the \ref cfg_diafile_dirs "DIAFILE_DIRS" tag.
+  If the dia file is found it will be used as an input file dia.
+  The resulting image will be put into the correct output directory.
+  If the dia file name contains spaces you'll have to put quotes ("...") around it.
+
+  The second argument is optional and can be used to specify the caption
+  that is displayed below the image. This argument has to be specified
+  between quotes even if it does not contain any spaces. The quotes are
+  stripped before the caption is displayed.
 
 <hr>
 \section cmde \\e <word>

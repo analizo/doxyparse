@@ -109,6 +109,8 @@ class XmlDocVisitor : public DocVisitor
 
     void visitPre(DocMscFile *);
     void visitPost(DocMscFile *);
+    void visitPre(DocDiaFile *);
+    void visitPost(DocDiaFile *);
     void visitPre(DocLink *);
     void visitPost(DocLink *);
     void visitPre(DocRef *);
@@ -135,6 +137,8 @@ class XmlDocVisitor : public DocVisitor
     void visitPost(DocHtmlBlockQuote *);
     void visitPre(DocVhdlFlow *);
     void visitPost(DocVhdlFlow *);
+    void visitPre(DocParBlock *);
+    void visitPost(DocParBlock *);
 
   private:
 

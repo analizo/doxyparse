@@ -21,10 +21,11 @@
 	<Configurations>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
+			OutputDirectory="..\bin\Debug"
+			IntermediateDirectory=".\Debug"
 			ConfigurationType="1"
 			CharacterSet="1"
+			BuildLogFile="$(IntDir)\$(TargetName)BuildLog.htm"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -44,7 +45,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="&quot;S:\xapian\include&quot;"
+				AdditionalIncludeDirectories="&quot;$(XAPIAN_DIR)\include&quot;"
 				PreprocessorDefinitions="_CRT_SECURE_NO_WARNINGS"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -52,6 +53,7 @@
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				DebugInformationFormat="4"
+				ProgramDatabaseFileName=".\Debug\$(TargetName).pdb"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -65,9 +67,9 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="xapian.lib uuid.lib rpcrt4.lib ws2_32.lib"
-				OutputFile="..\bin\doxysearch.cgi"
-				LinkIncremental="2"
-				AdditionalLibraryDirectories="&quot;S:\xapian\Debug&quot;"
+				OutputFile="..\bin\Debug\doxysearch.cgi"
+				LinkIncremental="1"
+				AdditionalLibraryDirectories="&quot;$(XAPIAN_DIR)\Debug&quot;"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile=".\Debug\$(TargetName).pdb"
 				SubSystem="1"
@@ -97,10 +99,11 @@
 		</Configuration>
 		<Configuration
 			Name="Debug|x64"
-			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="..\bin\Debug64"
+			IntermediateDirectory=".\Debug64"
 			ConfigurationType="1"
 			CharacterSet="1"
+			BuildLogFile="$(IntDir)\$(TargetName)BuildLog.htm"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -121,7 +124,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="&quot;S:\xapian\include&quot;"
+				AdditionalIncludeDirectories="&quot;$(XAPIAN_DIR)\include&quot;"
 				PreprocessorDefinitions="_CRT_SECURE_NO_WARNINGS"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -129,6 +132,7 @@
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				DebugInformationFormat="3"
+				ProgramDatabaseFileName=".\Debug64\$(TargetName).pdb"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -142,9 +146,9 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="xapian.lib uuid.lib rpcrt4.lib ws2_32.lib"
-				OutputFile="..\bin\doxysearch.cgi"
+				OutputFile="..\bin\Debug64\doxysearch.cgi"
 				LinkIncremental="2"
-				AdditionalLibraryDirectories="&quot;S:\xapian\Release64&quot;"
+				AdditionalLibraryDirectories="&quot;$(XAPIAN_DIR)\Debug64&quot;"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile=".\Debug64\$(TargetName).pdb"
 				SubSystem="1"
@@ -174,10 +178,11 @@
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
+			OutputDirectory="..\bin\Release"
+			IntermediateDirectory=".\Release"
 			ConfigurationType="1"
 			CharacterSet="1"
+			BuildLogFile="$(IntDir)\$(TargetName)BuildLog.htm"
 			WholeProgramOptimization="1"
 			>
 			<Tool
@@ -199,13 +204,14 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				AdditionalIncludeDirectories="&quot;S:\xapian\include&quot;"
+				AdditionalIncludeDirectories="&quot;$(XAPIAN_DIR)\include&quot;"
 				PreprocessorDefinitions="_CRT_SECURE_NO_WARNINGS"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				DebugInformationFormat="3"
+				ProgramDatabaseFileName=".\Release\$(TargetName).pdb"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -221,7 +227,7 @@
 				AdditionalDependencies="xapian.lib uuid.lib rpcrt4.lib ws2_32.lib"
 				OutputFile="..\bin\Release\doxysearch.cgi"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="&quot;S:\xapian\Release&quot;"
+				AdditionalLibraryDirectories="&quot;$(XAPIAN_DIR)\Release&quot;"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile=".\Release\$(TargetName).pdb"
 				SubSystem="1"
@@ -253,10 +259,11 @@
 		</Configuration>
 		<Configuration
 			Name="Release|x64"
-			OutputDirectory="$(SolutionDir)$(PlatformName)\$(ConfigurationName)"
-			IntermediateDirectory="$(PlatformName)\$(ConfigurationName)"
+			OutputDirectory="..\bin\Release64"
+			IntermediateDirectory=".\Release64"
 			ConfigurationType="1"
 			CharacterSet="1"
+			BuildLogFile="$(IntDir)\$(TargetName)BuildLog.htm"
 			WholeProgramOptimization="1"
 			>
 			<Tool
@@ -279,13 +286,14 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				AdditionalIncludeDirectories="&quot;S:\xapian\include&quot;"
+				AdditionalIncludeDirectories="&quot;$(XAPIAN_DIR)\include&quot;"
 				PreprocessorDefinitions="_CRT_SECURE_NO_WARNINGS"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				DebugInformationFormat="3"
+				ProgramDatabaseFileName=".\Release64\$(TargetName).pdb"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -301,7 +309,7 @@
 				AdditionalDependencies="xapian.lib uuid.lib rpcrt4.lib ws2_32.lib"
 				OutputFile="..\bin\Release64\doxysearch.cgi"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="&quot;S:\xapian\Release64&quot;"
+				AdditionalLibraryDirectories="&quot;$(XAPIAN_DIR)\Release64&quot;"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile=".\Release64\$(TargetName).pdb"
 				SubSystem="1"

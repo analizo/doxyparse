@@ -31,6 +31,7 @@ class ClassList;
 class ClassSDict;
 class OutputList;
 class FileDef;
+class FileList;
 class BaseClassList;
 class NamespaceDef;
 class MemberDef;
@@ -75,7 +76,6 @@ class ClassDef : public Definition
      *  \param startColumn column number where the definition of this compound
      *                   starts.
      *  \param name      the name of this compound (including scope)
-     *  \param symId     unique Id for this symbol
      *  \param ct        the kind of Compound
      *  \param ref       the tag file from which this compound is extracted
      *                   or 0 if the compound doesn't come from a tag file
@@ -124,6 +124,9 @@ class ClassDef : public Definition
 
     /** returns TRUE if this class has documentation */
     bool hasDocumentation() const;
+
+    /** returns TRUE if this class has a non-empty detailed description */
+    bool hasDetailedDescription() const;
 
     /** Returns the name as it is appears in the documentation */
     QCString displayName(bool includeScope=TRUE) const;
@@ -301,6 +304,19 @@ class ClassDef : public Definition
     bool isJavaEnum() const;
 
     bool isGeneric() const;
+    const ClassSDict *innerClasses() const;
+    QCString title() const;
+
+    QCString generatedFromFiles() const;
+    const FileList &usedFiles() const;
+
+    QCString includeStatement() const;
+
+    const ArgumentList *typeConstraints() const;
+    const ExampleSDict *exampleList() const;
+    bool hasExamples() const;
+    QCString getMemberListFileName() const;
+    bool subGrouping() const;
 
     //-----------------------------------------------------------------------------------
     // --- setters ----
@@ -310,7 +326,7 @@ class ClassDef : public Definition
     void insertSubClass(ClassDef *,Protection p,Specifier s,const char *t=0);
     void setIncludeFile(FileDef *fd,const char *incName,bool local,bool force); 
     void insertMember(MemberDef *);
-    void insertUsedFile(const char *);
+    void insertUsedFile(FileDef *);
     bool addExample(const char *anchor,const char *name, const char *file);
     void mergeCategory(ClassDef *category);
     void setNamespace(NamespaceDef *nd);
@@ -367,12 +383,12 @@ class ClassDef : public Definition
     void addGroupedInheritedMembers(OutputList &ol,MemberListType lt,
                               ClassDef *inheritedFrom,const QCString &inheritId);
     int countMembersIncludingGrouped(MemberListType lt,ClassDef *inheritedFrom,bool additional);
+    int countInheritanceNodes();
     
     bool visited;
 
   protected:
     void addUsedInterfaceClasses(MemberDef *md,const char *typeStr);
-    bool hasExamples();
     bool hasNonReferenceSuperClass();
     void showUsedFiles(OutputList &ol);
 
@@ -380,7 +396,6 @@ class ClassDef : public Definition
     void writeTagFileMarker();
     void writeDocumentationContents(OutputList &ol,const QCString &pageTitle);
     void internalInsertMember(MemberDef *md,Protection prot,bool addToAllList);
-    QCString getMemberListFileName() const;
     void addMemberToList(MemberListType lt,MemberDef *md,bool isBrief);
     MemberList *createMemberList(MemberListType lt);
     void writeInheritedMemberDeclarations(OutputList &ol,MemberListType lt,int lt2,const QCString &title,ClassDef *inheritedFrom,bool invert,bool showAlways,QPtrDict<void> *visitedClasses);

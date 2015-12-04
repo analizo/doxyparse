@@ -97,6 +97,7 @@
 #include "docsets.h"
 #include "formula.h"
 #include "settings.h"
+#include "context.h"
 
 #define RECURSE_ENTRYTREE(func,var) \
   do { if (var->children()) { \
@@ -132,7 +133,8 @@ FileNameDict    *Doxygen::includeNameDict = 0;     // include names
 FileNameDict    *Doxygen::exampleNameDict = 0;     // examples
 FileNameDict    *Doxygen::imageNameDict = 0;       // images
 FileNameDict    *Doxygen::dotFileNameDict = 0;     // dot files
-FileNameDict    *Doxygen::mscFileNameDict = 0;     // dot files
+FileNameDict    *Doxygen::mscFileNameDict = 0;     // msc files
+FileNameDict    *Doxygen::diaFileNameDict = 0;     // dia files
 StringDict       Doxygen::namespaceAliasDict(257); // all namespace aliases
 StringDict       Doxygen::tagDestinationDict(257); // all tag locations
 QDict<void>      Doxygen::expandAsDefinedDict(257); // all macros that should be expanded
@@ -176,6 +178,7 @@ static QDict<FileDef>   g_usingDeclarations(1009); // used classes
 static FileStorage     *g_storage = 0;
 static bool             g_successfulRun = FALSE;
 static bool             g_dumpSymbolMap = FALSE;
+static bool             g_useOutputTemplate = FALSE; 
 
 void clearAll()
 {
@@ -196,6 +199,7 @@ void clearAll()
   Doxygen::imageNameDict->clear();
   Doxygen::dotFileNameDict->clear();
   Doxygen::mscFileNameDict->clear();
+  Doxygen::diaFileNameDict->clear();
   Doxygen::formulaDict->clear();
   Doxygen::formulaNameDict->clear();
   Doxygen::tagDestinationDict.clear();
@@ -262,6 +266,8 @@ void statistics()
   Doxygen::dotFileNameDict->statistics();
   fprintf(stderr,"--- mscFileNameDict stats ----\n");
   Doxygen::mscFileNameDict->statistics();
+  fprintf(stderr,"--- diaFileNameDict stats ----\n");
+  Doxygen::diaFileNameDict->statistics();
   //fprintf(stderr,"--- g_excludeNameDict stats ----\n");
   //g_excludeNameDict.statistics();
   fprintf(stderr,"--- aliasDict stats ----\n");
@@ -1330,8 +1336,7 @@ static void addClassToContext(EntryNav *rootNav)
     // see if the class is found inside a namespace     
     //bool found=addNamespace(root,cd);         
 
-    // the empty string test is needed for extract all case     
-    cd->insertUsedFile(root->fileName);
+    cd->insertUsedFile(fd);
 
     // add class to the list
     //printf("ClassDict.insert(%s)\n",resolveDefines(fullName).data());
@@ -1531,7 +1536,6 @@ static ClassDef *createTagLessInstance(ClassDef *rootCd,ClassDef *templ,const QC
       gd->addClass(cd);
     }
   }
-  //cd->insertUsedFile(root->fileName);
   //printf("** adding class %s based on %s\n",fullName.data(),templ->name().data());
   Doxygen::classSDict->append(fullName,cd);
 
@@ -1770,7 +1774,7 @@ static void buildNamespaceList(EntryNav *rootNav)
 
         // the empty string test is needed for extract all case
         nd->setBriefDescription(root->brief,root->briefFile,root->briefLine);
-        nd->insertUsedFile(root->fileName);
+        nd->insertUsedFile(fd);
         nd->setBodySegment(root->bodyLine,root->endBodyLine);
         nd->setBodyDef(fd);
         // add class to the list
@@ -1832,6 +1836,10 @@ static void findUsingDirectives(EntryNav *rootNav)
     //printf("Found using directive %s at line %d of %s\n",
     //    root->name.data(),root->startLine,root->fileName.data());
     QCString name=substitute(root->name,".","::");
+    if (name.right(2)=="::")
+    {
+      name=name.left(name.length()-2);
+    }
     if (!name.isEmpty())
     {
       NamespaceDef *usingNd = 0;
@@ -1948,7 +1956,7 @@ static void findUsingDirectives(EntryNav *rootNav)
 
         // the empty string test is needed for extract all case
         nd->setBriefDescription(root->brief,root->briefFile,root->briefLine);
-        nd->insertUsedFile(root->fileName);
+        nd->insertUsedFile(fd);
         // add class to the list
         Doxygen::namespaceSDict->inSort(name,nd);
         nd->setRefItems(root->sli);
@@ -2367,7 +2375,7 @@ static MemberDef *addVariableToClass(
   md->setRefItems(root->sli);
 
   //TODO: insert FileDef instead of filename strings.
-  cd->insertUsedFile(root->fileName);
+  cd->insertUsedFile(rootNav->fileDef());
   rootNav->changeSection(Entry::EMPTY_SEC);
   return md;
 }
@@ -2787,10 +2795,13 @@ static void addVariable(EntryNav *rootNav,int isFuncPtr=-1)
 
       root->type=root->name;
       static const QRegExp reName("[a-z_A-Z][a-z_A-Z0-9]*");
-      int l;
+      int l=0;
       int i=root->args.isEmpty() ? -1 : reName.match(root->args,0,&l);
-      root->name=root->args.mid(i,l);
-      root->args=root->args.mid(i+l,root->args.find(')',i+l)-i-l);
+      if (i!=-1)
+      {
+        root->name=root->args.mid(i,l);
+        root->args=root->args.mid(i+l,root->args.find(')',i+l)-i-l);
+      }
       //printf("new: type=`%s' name=`%s' args=`%s'\n",
       //    root->type.data(),root->name.data(),root->args.data());
     }
@@ -3105,7 +3116,7 @@ static void addInterfaceOrServiceToServiceOrSingleton(
   findClassRelation(rootNav,cd,cd,&base,0,DocumentedOnly,true)
   || findClassRelation(rootNav,cd,cd,&base,0,Undocumented,true);
   // add file to list of used files
-  cd->insertUsedFile(root->fileName);
+  cd->insertUsedFile(fd);
 
   addMemberToGroups(root,md);
   rootNav->changeSection(Entry::EMPTY_SEC);
@@ -3348,7 +3359,7 @@ static void addMethodToClass(EntryNav *rootNav,ClassDef *cd,
   // add member to the class cd
   cd->insertMember(md);
   // add file to list of used files
-  cd->insertUsedFile(root->fileName);
+  cd->insertUsedFile(fd);
 
   addMemberToGroups(root,md);
   rootNav->changeSection(Entry::EMPTY_SEC);
@@ -3569,7 +3580,7 @@ static void buildFunctionList(EntryNav *rootNav)
                 md->setDocumentation(root->doc,root->docFile,root->docLine);
                 md->setInbodyDocumentation(root->inbodyDocs,root->inbodyFile,root->inbodyLine);
                 md->setDocsForDefinition(!root->proto);
-                if (md->getStartBodyLine()!=-1 && md->getStartBodyLine()==-1)
+                if (md->getStartBodyLine()==-1 && root->bodyLine!=-1)
                 {
                   md->setBodySegment(root->bodyLine,root->endBodyLine);
                   md->setBodyDef(rfd);
@@ -4822,7 +4833,7 @@ static bool findClassRelation(
           // add this class as super class to the base class
           baseClass->insertSubClass(cd,bi->prot,bi->virt,templSpec);
           // the undocumented base was found in this file
-          baseClass->insertUsedFile(root->fileName);
+          baseClass->insertUsedFile(rootNav->fileDef());
           baseClass->setOuterScope(Doxygen::globalScope);
           if (baseClassName.right(2)=="-p")
           {
@@ -5335,7 +5346,7 @@ static void addMemberDocs(EntryNav *rootNav,
   md->mergeMemberSpecifiers(root->spec);
   md->addSectionsToDefinition(root->anchors);
   addMemberToGroups(root,md);
-  if (cd) cd->insertUsedFile(root->fileName);
+  if (cd) cd->insertUsedFile(rfd);
   //printf("root->mGrpId=%d\n",root->mGrpId);
   if (root->mGrpId!=-1)
   {
@@ -6125,6 +6136,21 @@ static void findMember(EntryNav *rootNav,
                   matching = FALSE;
                 }
               }
+              bool classIsTemplate = md->getClassDef() && md->getClassDef()->templateArguments();
+              bool mdIsTemplate    = md->templateArguments()!=0;
+              bool classOrMdIsTemplate = mdIsTemplate || classIsTemplate;
+              bool rootIsTemplate  = root->tArgLists!=0;
+              //printf("classIsTemplate=%d mdIsTemplate=%d rootIsTemplate=%d\n",classIsTemplate,mdIsTemplate,rootIsTemplate);
+              if ((mdIsTemplate || rootIsTemplate) && // either md or root is a template
+                  ((classOrMdIsTemplate && !rootIsTemplate) || (!classOrMdIsTemplate && rootIsTemplate))
+                 )
+              {
+                // Method with template return type does not match method without return type
+                // even if the parameters are the same. See also bug709052
+                Debug::print(Debug::FindMembers,0,
+                    "5b. Comparing return types: template v.s. non-template\n");
+                matching = FALSE;
+              }
 
 
               Debug::print(Debug::FindMembers,0,
@@ -6407,7 +6433,7 @@ static void findMember(EntryNav *rootNav,
           md->setMemberGroupId(root->mGrpId);
           mn->append(md);
           cd->insertMember(md);
-          cd->insertUsedFile(root->fileName);
+          cd->insertUsedFile(fd);
           md->setRefItems(root->sli);
         }
       }
@@ -6604,7 +6630,7 @@ static void findMember(EntryNav *rootNav,
           //md->setMemberDefTemplateArguments(root->mtArgList);
           mn->append(md);
           cd->insertMember(md);
-          cd->insertUsedFile(root->fileName);
+          cd->insertUsedFile(fd);
           md->setRefItems(root->sli);
           if (root->relatesType == Duplicate) md->setRelatedAlso(cd);
           if (!isDefine)
@@ -6676,7 +6702,7 @@ localObjCMethod:
         md->setMemberSpecifiers(root->spec);
         md->setMemberGroupId(root->mGrpId);
         cd->insertMember(md);
-        cd->insertUsedFile(root->fileName);
+        cd->insertUsedFile(fd);
         md->setRefItems(root->sli);
         if ((mn=Doxygen::memberNameSDict->find(root->name)))
         {
@@ -7060,7 +7086,7 @@ static void findEnums(EntryNav *rootNav)
           md->setDefinition(cd->name()+"::"+name+baseType);  
         }
         cd->insertMember(md);
-        cd->insertUsedFile(root->fileName);
+        cd->insertUsedFile(fd);
       }
       md->setDocumentation(root->doc,root->docFile,root->docLine);
       md->setDocsForDefinition(!root->proto);
@@ -8585,7 +8611,7 @@ static void findMainPage(EntryNav *rootNav)
                               indexName, root->brief+root->doc+root->inbodyDocs,title);
       //setFileNameForSections(root->anchors,"index",Doxygen::mainPage);
       Doxygen::mainPage->setBriefDescription(root->brief,root->briefFile,root->briefLine);
-      Doxygen::mainPage->setFileName(indexName);
+      Doxygen::mainPage->setFileName(indexName,TRUE);
       Doxygen::mainPage->setShowToc(root->stat);
       addPageToContext(Doxygen::mainPage,rootNav);
           
@@ -8783,7 +8809,7 @@ static void buildExampleList(EntryNav *rootNav)
       PageDef *pd=new PageDef(root->fileName,root->startLine,
           root->name,root->brief+root->doc+root->inbodyDocs,root->args);
       pd->setBriefDescription(root->brief,root->briefFile,root->briefLine);
-      pd->setFileName(convertNameToFile(pd->name()+"-example",FALSE,TRUE));
+      pd->setFileName(convertNameToFile(pd->name()+"-example",FALSE,TRUE),FALSE);
       pd->addSectionsToDefinition(root->anchors);
       pd->setLanguage(root->lang);
       //pi->addSections(root->anchors);
@@ -9128,7 +9154,7 @@ static void copyExtraFiles(const QCString& filesOption,const QCString &outputOpt
       QFileInfo fi(fileName);
       if (!fi.exists()) 
       {
-        err("Extra file '%s' specified in" + filesOption + " does not exist!\n", fileName.data());
+        err("Extra file '%s' specified in " + filesOption + " does not exist!\n", fileName.data());
       }
       else
       {
@@ -9757,6 +9783,18 @@ static void dumpSymbolMap()
   }
 }
 
+// print developer options of doxygen
+static void devUsage()
+{
+  msg("Developer parameters:\n");
+  msg("  -m          dump symbol map\n");
+  msg("  -b          output to wizard\n");
+  msg("  -T          activates output generation via Django like template\n");
+  msg("  -d <level>  enable a debug level, such as (multiple invocations of -d are possible):\n");
+  Debug::printFlags();
+}
+
+
 //----------------------------------------------------------------------------
 // print the usage of doxygen
 
@@ -9780,11 +9818,11 @@ static void usage(const char *name)
   msg("    RTF:        %s -w rtf styleSheetFile\n",name);
   msg("    HTML:       %s -w html headerFile footerFile styleSheetFile [configFile]\n",name);
   msg("    LaTeX:      %s -w latex headerFile footerFile styleSheetFile [configFile]\n\n",name);
-  msg("6) Use doxygen to generate an rtf extensions file\n");
+  msg("6) Use doxygen to generate a rtf extensions file\n");
   msg("    RTF:   %s -e rtf extensionsFile\n\n",name);
   msg("If -s is specified the comments of the configuration items in the config file will be omitted.\n");
   msg("If configName is omitted `Doxyfile' will be used as a default.\n\n");
-  exit(1);
+  msg("-v print version string\n");
 }
 
 //----------------------------------------------------------------------------
@@ -9863,6 +9901,7 @@ void initDoxygen()
   Doxygen::imageNameDict->setAutoDelete(TRUE);
   Doxygen::dotFileNameDict = new FileNameDict(257);
   Doxygen::mscFileNameDict = new FileNameDict(257);
+  Doxygen::diaFileNameDict = new FileNameDict(257);
   Doxygen::memGrpInfoDict.setAutoDelete(TRUE);
   Doxygen::tagDestinationDict.setAutoDelete(TRUE);
   Doxygen::dirRelations.setAutoDelete(TRUE);
@@ -9903,6 +9942,7 @@ void cleanUpDoxygen()
   delete Doxygen::imageNameDict;
   delete Doxygen::dotFileNameDict;
   delete Doxygen::mscFileNameDict;
+  delete Doxygen::diaFileNameDict;
   delete Doxygen::mainPage;
   delete Doxygen::pageSDict;  
   delete Doxygen::exampleSDict;
@@ -9977,6 +10017,7 @@ void readConfiguration(int argc, char **argv)
   bool shortList=FALSE;
   bool updateConfig=FALSE;
   bool genLayout=FALSE;
+  int retVal;
   while (optind<argc && argv[optind][0]=='-' && 
                (isalpha(argv[optind][1]) || argv[optind][1]=='?' || 
                 argv[optind][1]=='-')
@@ -10000,7 +10041,20 @@ void readConfiguration(int argc, char **argv)
         break;
       case 'd':
         debugLabel=getArg(argc,argv,optind);
-        Debug::setFlag(debugLabel);
+        if (!debugLabel)
+        {
+          err("option \"-d\" is missing debug specifier.\n");
+          devUsage();
+          cleanUpDoxygen();
+          exit(1);
+        }
+        retVal = Debug::setFlag(debugLabel);
+        if (!retVal)
+        {
+          err("option \"-d\" has unknown debug specifier: \"%s\".\n",debugLabel);
+          cleanUpDoxygen();
+          exit(1);
+        }
         break;
       case 's':
         shortList=TRUE;
@@ -10012,7 +10066,7 @@ void readConfiguration(int argc, char **argv)
         formatName=getArg(argc,argv,optind);
         if (!formatName)
         {
-          err("option -e is missing format specifier rtf.\n");
+          err("option \"-e\" is missing format specifier rtf.\n");
           cleanUpDoxygen();
           exit(1);
         }
@@ -10030,7 +10084,7 @@ void readConfiguration(int argc, char **argv)
             RTFGenerator::writeExtensionsFile(f);
           }
           cleanUpDoxygen();
-          exit(1);
+          exit(0);
         }
         err("option \"-e\" has invalid format specifier.\n");
         cleanUpDoxygen();
@@ -10040,7 +10094,7 @@ void readConfiguration(int argc, char **argv)
         formatName=getArg(argc,argv,optind);
         if (!formatName)
         {
-          err("option -w is missing format specifier rtf, html or latex\n");
+          err("option \"-w\" is missing format specifier rtf, html or latex\n");
           cleanUpDoxygen();
           exit(1);
         } 
@@ -10165,7 +10219,7 @@ void readConfiguration(int argc, char **argv)
         }
         else
         {
-          err("Illegal format specifier %s: should be one of rtf, html, latex, or bst\n",formatName);
+          err("Illegal format specifier \"%s\": should be one of rtf, html or latex\n",formatName);
           cleanUpDoxygen();
           exit(1);
         }
@@ -10182,6 +10236,7 @@ void readConfiguration(int argc, char **argv)
         if (qstrcmp(&argv[optind][2],"help")==0)
         {
           usage(argv[0]);
+          exit(0);
         }
         else if (qstrcmp(&argv[optind][2],"version")==0)
         {
@@ -10191,21 +10246,30 @@ void readConfiguration(int argc, char **argv)
         }
         else
         {
-          err("Unknown option -%s\n",&argv[optind][1]);
+          err("Unknown option \"-%s\"\n",&argv[optind][1]);
           usage(argv[0]);
+          exit(1);
         }
         break;
       case 'b':
         setvbuf(stdout,NULL,_IONBF,0);
         Doxygen::outputToWizard=TRUE;
         break;
+      case 'T':
+        msg("Warning: this option activates output generation via Django like template files. "
+            "This option is scheduled for doxygen 2.0, is currently incomplete and highly experimental! "
+            "Only use if you are a doxygen developer\n");
+        g_useOutputTemplate=TRUE;
+        break;
       case 'h':
       case '?':
         usage(argv[0]);
+        exit(0);
         break;
       default:
-        err("Unknown option -%c\n",argv[optind][1]);
+        err("Unknown option \"-%c\"\n",argv[optind][1]);
         usage(argv[0]);
+        exit(1);
     }
     optind++;
   }
@@ -10244,6 +10308,7 @@ void readConfiguration(int argc, char **argv)
     {
       err("Doxyfile not found and no input file specified!\n");
       usage(argv[0]);
+      exit(1);
     }
   }
   else
@@ -10257,6 +10322,7 @@ void readConfiguration(int argc, char **argv)
     {
       err("configuration file %s not found!\n",argv[optind]);
       usage(argv[0]);
+      exit(1);
     }
   }
 
@@ -10522,6 +10588,18 @@ void searchInputFiles()
                         0,0,0,
                         alwaysRecursive);
     s=mscFileList.next(); 
+  }
+  g_s.end();
+
+  g_s.begin("Searching for dia files...\n");
+  QStrList &diaFileList=Config_getList("DIAFILE_DIRS");
+  s=diaFileList.first();
+  while (s)
+  {
+    readFileOrDirectory(s,0,Doxygen::diaFileNameDict,0,0,
+                        0,0,0,
+                        alwaysRecursive);
+    s=diaFileList.next();
   }
   g_s.end();
 
@@ -11262,6 +11340,17 @@ void generateOutput()
     Doxygen::formulaList->generateBitmaps(Config_getString("HTML_OUTPUT"));
     g_s.end();
   }
+
+  if (Config_getBool("SORT_GROUP_NAMES"))
+  {
+    Doxygen::groupSDict->sort();
+    GroupSDict::Iterator gli(*Doxygen::groupSDict);
+    GroupDef *gd;
+    for (gli.toFirst();(gd=gli.current());++gli)
+    {
+      gd->sortSubGroups();
+    }
+  }
   
   writeMainPageTagFileData();
 
@@ -11349,6 +11438,8 @@ void generateOutput()
     g_s.end();
   }
 
+  if (g_useOutputTemplate) generateOutputViaTemplate();
+
   if (generateRtf)
   {
     g_s.begin("Combining RTF output...\n");
@@ -11427,6 +11518,7 @@ void generateOutput()
   {
     msg("finished...\n");
   }
+
 
   /**************************************************************************
    *                        Start cleaning up                               *

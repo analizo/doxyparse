@@ -29,6 +29,7 @@
 #include <qfileinfo.h> 
 #include "parserintf.h"
 #include "msc.h"
+#include "dia.h"
 #include "filedef.h"
 #include "config.h"
 
@@ -324,7 +325,7 @@ void RTFDocVisitor::visit(DocURL *u)
   {
     m_t << "{\\field "
              "{\\*\\fldinst "
-               "{ HYPERLINK  \\\\l \"";
+               "{ HYPERLINK \"";
     if (u->isEmail()) m_t << "mailto:";
     m_t << u->url();
     m_t <<  "\" }"
@@ -1129,7 +1130,7 @@ void RTFDocVisitor::visitPre(DocHRef *href)
   {
     m_t << "{\\field "
              "{\\*\\fldinst "
-               "{ HYPERLINK  \\\\l \"" << href->url() << "\" "
+               "{ HYPERLINK \"" << href->url() << "\" "
                "}{}"
              "}"
              "{\\fldrslt "
@@ -1242,6 +1243,22 @@ void RTFDocVisitor::visitPre(DocMscFile *df)
 void RTFDocVisitor::visitPost(DocMscFile *) 
 {
   DBG_RTF("{\\comment RTFDocVisitor::visitPost(DocMscFile)}\n");
+  popEnabled();
+}
+
+void RTFDocVisitor::visitPre(DocDiaFile *df)
+{
+  DBG_RTF("{\\comment RTFDocVisitor::visitPre(DocDiaFile)}\n");
+  writeDiaFile(df->file());
+
+  // hide caption since it is not supported at the moment
+  pushEnabled();
+  m_hide=TRUE;
+}
+
+void RTFDocVisitor::visitPost(DocDiaFile *)
+{
+  DBG_RTF("{\\comment RTFDocVisitor::visitPost(DocDiaFile)}\n");
   popEnabled();
 }
 
@@ -1562,6 +1579,7 @@ void RTFDocVisitor::visitPost(DocParamList *pl)
 void RTFDocVisitor::visitPre(DocXRefItem *x)
 {
   if (m_hide) return;
+  if (x->title().isEmpty()) return;
   bool anonymousEnum = x->file()=="@";
   DBG_RTF("{\\comment RTFDocVisitor::visitPre(DocXRefItem)}\n");
   m_t << "{"; // start param list
@@ -1607,9 +1625,10 @@ void RTFDocVisitor::visitPre(DocXRefItem *x)
   m_lastIsPara=FALSE;
 }
 
-void RTFDocVisitor::visitPost(DocXRefItem *)
+void RTFDocVisitor::visitPost(DocXRefItem *x)
 {
   if (m_hide) return;
+  if (x->title().isEmpty()) return;
   DBG_RTF("{\\comment RTFDocVisitor::visitPost(DocXRefItem)}\n");
   m_t << "\\par" << endl;
   decIndentLevel();
@@ -1682,6 +1701,16 @@ void RTFDocVisitor::visitPre(DocVhdlFlow *)
 }
 
 void RTFDocVisitor::visitPost(DocVhdlFlow *)
+{
+  if (m_hide) return;
+}
+
+void RTFDocVisitor::visitPre(DocParBlock *)
+{
+  if (m_hide) return;
+}
+
+void RTFDocVisitor::visitPost(DocParBlock *)
 {
   if (m_hide) return;
 }
@@ -1826,6 +1855,26 @@ void RTFDocVisitor::writeMscFile(const QCString &fileName)
   } 
   QCString outDir = Config_getString("RTF_OUTPUT");
   writeMscGraphFromFile(fileName+".msc",outDir,baseName,MSC_BITMAP);
+  if (!m_lastIsPara) m_t << "\\par" << endl;
+  m_t << "{" << endl;
+  m_t << rtf_Style_Reset;
+  m_t << "\\pard \\qc {\\field\\flddirty {\\*\\fldinst INCLUDEPICTURE \"";
+  m_t << baseName << ".png";
+  m_t << "\" \\\\d \\\\*MERGEFORMAT}{\\fldrslt IMAGE}}\\par" << endl;
+  m_t << "}" << endl;
+  m_lastIsPara=TRUE;
+}
+
+void RTFDocVisitor::writeDiaFile(const QCString &fileName)
+{
+  QCString baseName=fileName;
+  int i;
+  if ((i=baseName.findRev('/'))!=-1)
+  {
+    baseName=baseName.right(baseName.length()-i-1);
+  }
+  QCString outDir = Config_getString("RTF_OUTPUT");
+  writeDiaGraphFromFile(fileName+".dia",outDir,baseName,DIA_BITMAP);
   if (!m_lastIsPara) m_t << "\\par" << endl;
   m_t << "{" << endl;
   m_t << rtf_Style_Reset;

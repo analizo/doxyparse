@@ -38,7 +38,7 @@
 #include "filename.h"
 
 static const char doxygenLatexStyle[] =
-#include "doxygen_sty.h"
+#include "doxygen.sty.h"
 ;
 
 //static QCString filterTitle(const char *s)
@@ -126,7 +126,7 @@ static void writeLatexMakefile()
     }
     t << "\techo \"Rerunning latex....\"" << endl
       << "\t" << latex_command << " refman.tex" << endl
-      << "\tlatex_count=5 ; \\" << endl
+      << "\tlatex_count=8 ; \\" << endl
       << "\twhile egrep -s 'Rerun (LaTeX|to get cross-references right)' refman.log && [ $$latex_count -gt 0 ] ;\\" << endl
       << "\t    do \\" << endl
       << "\t      echo \"Rerunning latex....\" ;\\" << endl
@@ -154,7 +154,7 @@ static void writeLatexMakefile()
       t << "\tpdflatex refman" << endl;
     }
     t << "\tpdflatex refman" << endl
-      << "\tlatex_count=5 ; \\" << endl
+      << "\tlatex_count=8 ; \\" << endl
       << "\twhile egrep -s 'Rerun (LaTeX|to get cross-references right)' refman.log && [ $$latex_count -gt 0 ] ;\\" << endl
       << "\t    do \\" << endl
       << "\t      echo \"Rerunning latex....\" ;\\" << endl
@@ -199,7 +199,7 @@ static void writeMakeBat()
       t << latex_command << " refman.tex\n";
     }
     t << "setlocal enabledelayedexpansion\n";
-    t << "set count=5\n";
+    t << "set count=8\n";
     t << ":repeat\n";
     t << "set content=X\n";
     t << "for /F \"tokens=*\" %%T in ( 'findstr /C:\"Rerun LaTeX\" refman.log' ) do set content=\"%%~T\"\n";
@@ -231,7 +231,7 @@ static void writeMakeBat()
     t << "echo ----\n";
     t << "pdflatex refman\n\n";
     t << "setlocal enabledelayedexpansion\n";
-    t << "set count=5\n";
+    t << "set count=8\n";
     t << ":repeat\n";
     t << "set content=X\n";
     t << "for /F \"tokens=*\" %%T in ( 'findstr /C:\"Rerun LaTeX\" refman.log' ) do set content=\"%%~T\"\n";
@@ -525,10 +525,15 @@ static void writeDefaultFooter(FTextStream &t)
   Doxygen::citeDict->writeLatexBibliography(t);
 
   // Index
+  QCString unit;
+  if (Config_getBool("COMPACT_LATEX"))
+    unit = "section";
+  else
+    unit = "chapter";
   t << "% Index\n"
        "\\newpage\n"
        "\\phantomsection\n"
-       "\\addcontentsline{toc}{part}{" << theTranslator->trRTFGeneralIndex() << "}\n"
+       "\\addcontentsline{toc}{" << unit << "}{" << theTranslator->trRTFGeneralIndex() << "}\n"
        "\\printindex\n"
        "\n"
        "\\end{document}\n";

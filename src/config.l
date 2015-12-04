@@ -33,6 +33,7 @@
 #include "version.h"
 #include "portable.h"
 #include "util.h"
+#include "message.h"
 
 #include "lang_cfg.h"
 #include "configoptions.h"
@@ -856,7 +857,7 @@ void Config::writeTemplate(FTextStream &t,bool sl,bool upd)
   if (m_userComment)
   {
     t << "\n";
-    t << m_userComment;
+    t << takeUserComment();
   }
 }
 
@@ -1311,7 +1312,30 @@ void Config::check()
     mscgenPath="";
   }
 
-  
+  // check dia path
+  QCString &diaPath = Config_getString("DIA_PATH");
+  if (!diaPath.isEmpty())
+  {
+    QFileInfo dp(diaPath+"/dia"+portable_commandExtension());
+    if (!dp.exists() || !dp.isFile())
+    {
+      config_err("Warning: dia could not be found at %s\n",diaPath.data());
+      diaPath="";
+    }
+    else
+    {
+      diaPath=dp.dirPath(TRUE).utf8()+"/";
+#if defined(_WIN32) // convert slashes
+      uint i=0,l=diaPath.length();
+      for (i=0;i<l;i++) if (diaPath.at(i)=='/') diaPath.at(i)='\\';
+#endif
+    }
+  }
+  else // make sure the string is empty but not null!
+  {
+    diaPath="";
+  }
+
   // check input
   QStrList &inputSources=Config_getList("INPUT");
   if (inputSources.count()==0)
@@ -1663,8 +1687,12 @@ bool Config::parseString(const char *fn,const char *str)
 
 bool Config::parse(const char *fn)
 {
+  int retval;
   encoding = "UTF-8";
-  return parseString(fn,configFileToString(fn)); 
+  printlex(yy_flex_debug, TRUE, __FILE__, fn);
+  retval =  parseString(fn,configFileToString(fn)); 
+  printlex(yy_flex_debug, FALSE, __FILE__, fn);
+  return retval;
 }
 
 extern "C" { // some bogus code to keep the compiler happy
