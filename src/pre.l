@@ -886,8 +886,9 @@ static bool replaceFunctionMacro(const QCString &expr,QCString *rest,int pos,int
   }
 
   // PHASE 2: apply the macro function
-  if (argCount==def->nargs || 
-      (argCount>def->nargs && def->varArgs)) // matching parameters lists
+  if (argCount==def->nargs || // same number of arguments
+      (argCount>=def->nargs-1 && def->varArgs)) // variadic macro with at least as many
+                                                // params as the non-variadic part (see bug731985)
   {
     uint k=0;
     // substitution of all formal arguments
@@ -3024,8 +3025,15 @@ void preprocessFile(const char *fileName,BufStr &input,BufStr &output)
 	// gather the formal arguments in a dictionary 
 	while (i<i_cbrace && (p=reId.match(ds,i,&l)))
 	{
-	  argDict.insert(ds.mid(p,l),new int(count++));
-	  i=p+l;
+          if (l>0) // see bug375037
+          {
+	    argDict.insert(ds.mid(p,l),new int(count++));
+	    i=p+l;
+          }
+          else
+          {
+            i++;
+          }
 	}
 	// strip definition part
 	QCString tmp=ds.right(ds.length()-i_equals-1);

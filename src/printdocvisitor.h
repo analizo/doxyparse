@@ -134,6 +134,7 @@ class PrintDocVisitor : public DocVisitor
         case DocVerbatim::DocbookOnly: printf("<docbookonly>"); break;
         case DocVerbatim::Dot: printf("<dot>"); break;
         case DocVerbatim::Msc: printf("<msc>"); break;
+        case DocVerbatim::PlantUML: printf("<plantuml>"); break;
       }
       printf("%s",s->text().data());
       switch(s->type())
@@ -148,6 +149,7 @@ class PrintDocVisitor : public DocVisitor
         case DocVerbatim::DocbookOnly: printf("</docbookonly>"); break;
         case DocVerbatim::Dot: printf("</dot>"); break;
         case DocVerbatim::Msc: printf("</msc>"); break;
+        case DocVerbatim::PlantUML: printf("</plantuml>"); break;
       }
     }
     void visit(DocAnchor *a)
@@ -476,9 +478,10 @@ class PrintDocVisitor : public DocVisitor
       printf("<image src=\"%s\" type=\"",img->name().data());
       switch(img->type())
       {
-        case DocImage::Html: printf("html"); break;
-        case DocImage::Latex: printf("latex"); break;
-        case DocImage::Rtf: printf("rtf"); break;
+        case DocImage::Html:    printf("html"); break;
+        case DocImage::Latex:   printf("latex"); break;
+        case DocImage::Rtf:     printf("rtf"); break;
+        case DocImage::DocBook: printf("docbook"); break;
       }
       printf("\" width=%s height=%s>\n",img->width().data(),img->height().data());
     }

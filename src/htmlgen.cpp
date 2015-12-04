@@ -1061,7 +1061,7 @@ static QCString substituteHtmlKeywords(const QCString &s,
 {
   // Build CSS/Javascript tags depending on treeview, search engine settings
   QCString cssFile;
-  QCString extraCssFile;
+  QStrList extraCssFile;
   QCString generatedBy;
   QCString treeViewCssJs;
   QCString searchCssJs;
@@ -1100,10 +1100,20 @@ static QCString substituteHtmlKeywords(const QCString &s,
       cssFile = "doxygen.css";
     }
   }
-  extraCssFile = Config_getString("HTML_EXTRA_STYLESHEET");
-  if (!extraCssFile.isEmpty())
+
+  extraCssText = "";
+  extraCssFile = Config_getList("HTML_EXTRA_STYLESHEET");
+  for (uint i=0; i<extraCssFile.count(); ++i)
   {
-    extraCssText = "<link href=\"$relpath^"+stripPath(extraCssFile)+"\" rel=\"stylesheet\" type=\"text/css\"/>\n";
+    QCString fileName(extraCssFile.at(i));
+    if (!fileName.isEmpty())
+    {
+      QFileInfo fi(fileName);
+      if (fi.exists())
+      {
+        extraCssText += "<link href=\"$relpath^"+stripPath(fileName)+"\" rel=\"stylesheet\" type=\"text/css\"/>\n";
+      }
+    }
   }
 
   if (timeStamp) 
@@ -1823,13 +1833,17 @@ void HtmlGenerator::writeStyleInfo(int part)
       }
       Doxygen::indexList->addStyleSheetFile(cssfi.fileName().utf8());
     }
-    static QCString extraCssFile = Config_getString("HTML_EXTRA_STYLESHEET");
-    if (!extraCssFile.isEmpty())
+    static QStrList extraCssFile = Config_getList("HTML_EXTRA_STYLESHEET");
+    for (uint i=0; i<extraCssFile.count(); ++i)
     {
-      QFileInfo fi(extraCssFile);
-      if (fi.exists())
+      QCString fileName(extraCssFile.at(i));
+      if (!fileName.isEmpty())
       {
-        Doxygen::indexList->addStyleSheetFile(fi.fileName().utf8());
+        QFileInfo fi(fileName);
+        if (fi.exists())
+        {
+          Doxygen::indexList->addStyleSheetFile(fi.fileName().utf8());
+        }
       }
     }
   }
@@ -2516,7 +2530,7 @@ void HtmlGenerator::endDotGraph(const DotClassGraph &g)
   endSectionSummary(t);
   startSectionContent(t,m_sectionCount);
 
-  g.writeGraph(t,BITMAP,dir,fileName,relPath,TRUE,TRUE,m_sectionCount);
+  g.writeGraph(t,GOF_BITMAP,EOF_Html,dir,fileName,relPath,TRUE,TRUE,m_sectionCount);
   if (generateLegend && !umlLook)
   {
     t << "<center><span class=\"legend\">[";
@@ -2542,7 +2556,7 @@ void HtmlGenerator::endInclDepGraph(const DotInclDepGraph &g)
   endSectionSummary(t);
   startSectionContent(t,m_sectionCount);
 
-  g.writeGraph(t,BITMAP,dir,fileName,relPath,TRUE,m_sectionCount);
+  g.writeGraph(t,GOF_BITMAP,EOF_Html,dir,fileName,relPath,TRUE,m_sectionCount);
 
   endSectionContent(t);
   m_sectionCount++;
@@ -2560,7 +2574,7 @@ void HtmlGenerator::endGroupCollaboration(const DotGroupCollaboration &g)
   endSectionSummary(t);
   startSectionContent(t,m_sectionCount);
 
-  g.writeGraph(t,BITMAP,dir,fileName,relPath,TRUE,m_sectionCount);
+  g.writeGraph(t,GOF_BITMAP,EOF_Html,dir,fileName,relPath,TRUE,m_sectionCount);
 
   endSectionContent(t);
   m_sectionCount++;
@@ -2578,7 +2592,7 @@ void HtmlGenerator::endCallGraph(const DotCallGraph &g)
   endSectionSummary(t);
   startSectionContent(t,m_sectionCount);
 
-  g.writeGraph(t,BITMAP,dir,fileName,relPath,TRUE,m_sectionCount);
+  g.writeGraph(t,GOF_BITMAP,EOF_Html,dir,fileName,relPath,TRUE,m_sectionCount);
 
   endSectionContent(t);
   m_sectionCount++;
@@ -2596,7 +2610,7 @@ void HtmlGenerator::endDirDepGraph(const DotDirDeps &g)
   endSectionSummary(t);
   startSectionContent(t,m_sectionCount);
 
-  g.writeGraph(t,BITMAP,dir,fileName,relPath,TRUE,m_sectionCount);
+  g.writeGraph(t,GOF_BITMAP,EOF_Html,dir,fileName,relPath,TRUE,m_sectionCount);
 
   endSectionContent(t);
   m_sectionCount++;

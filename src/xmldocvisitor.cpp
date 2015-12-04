@@ -209,6 +209,11 @@ void XmlDocVisitor::visit(DocVerbatim *s)
       filter(s->text());
       m_t << "</msc>";
       break;
+    case DocVerbatim::PlantUML:
+      m_t << "<plantuml>";
+      filter(s->text());
+      m_t << "</plantuml>";
+      break;
   }
 }
 
@@ -651,7 +656,9 @@ void XmlDocVisitor::visitPost(DocInternal *)
 void XmlDocVisitor::visitPre(DocHRef *href)
 {
   if (m_hide) return;
-  m_t << "<ulink url=\"" << href->url() << "\">";
+  m_t << "<ulink url=\"";
+  filter(href->url());
+  m_t << "\">";
 }
 
 void XmlDocVisitor::visitPost(DocHRef *) 
@@ -678,9 +685,10 @@ void XmlDocVisitor::visitPre(DocImage *img)
   m_t << "<image type=\"";
   switch(img->type())
   {
-    case DocImage::Html:  m_t << "html"; break;
-    case DocImage::Latex: m_t << "latex"; break;
-    case DocImage::Rtf:   m_t << "rtf"; break;
+    case DocImage::Html:    m_t << "html"; break;
+    case DocImage::Latex:   m_t << "latex"; break;
+    case DocImage::Rtf:     m_t << "rtf"; break;
+    case DocImage::DocBook: m_t << "docbook"; break;
   }
   m_t << "\"";
 

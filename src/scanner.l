@@ -682,7 +682,6 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 %x      SkipCurlyBlock
 %x      SkipRoundBlock
 %x	Sharp
-%x      SkipSharp
 %x	SkipRound
 %x	SkipSquare
 %x	SkipRemainder
@@ -2246,7 +2245,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 <FindMembers>"Q_OBJECT"			{ // Qt object macro
   					}
 <FindMembers>"Q_PROPERTY"		{ // Qt property declaration
-					  current->protection = protection = Public ;
+					  //current->protection = protection = Public ; // see bug734245
   					  current->mtype = mtype = Property;
 					  current->type.resize(0);
   					  BEGIN(QtPropType);
@@ -3373,6 +3372,8 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  }
 					  else
 					  {
+                                            mtype = Method;
+                                            virt = Normal;
 					    if (needNewCurrent)
 					    {
 					      current = new Entry ;
@@ -5301,6 +5302,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					    {
 					      prependScope();
 					    }
+                                            current->spec|=Entry::ForwardDecl;
                                             current_root->addSubEntry(current);
                                             current = new Entry;
                                           }
@@ -5353,13 +5355,13 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
                                             BEGIN( ClassVar );
                                           }
 					}
-<AlignAs>"("                            { roundCount=1; 
+<AlignAs>"("                            { roundCount=0; 
                                           BEGIN( AlignAsEnd ); 
                                         }
 <AlignAs>\n                             { lineCount(); }
 <AlignAs>.
 <AlignAsEnd>"("                         { roundCount++; }
-<AlignAsEnd>")"                         { if (--roundCount<=0) 
+<AlignAsEnd>")"                         { if (--roundCount<0) 
                                           {
                                             BEGIN( lastAlignAsContext ); 
                                           }
@@ -5843,12 +5845,8 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 <Specialization>.			{
   					  *specName += *yytext;
   					}
-<SkipSharp>"<"				{ ++sharpCount; }
-<SkipSharp>">"				{ if (--sharpCount<=0)
-					    BEGIN ( lastSkipSharpContext );
-					}
 <SkipRound>"("				{ ++roundCount; }
-<SkipRound>")"				{ if (--roundCount<=0)
+<SkipRound>")"				{ if (--roundCount<0)
 					    BEGIN ( lastSkipRoundContext );
 					}
 <SkipRound>\"				{
@@ -6130,10 +6128,15 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  else
 					  {
   					    mtype = Method;
+                                            virt = Normal;
                                             unput(';');
 					    BEGIN(FindMembers);
 					  }
                                         }
+<CSAccessorDecl>"private "{BN}*"set"	{ if (curlyCount==0) current->spec |= Entry::PrivateSettable;   }
+<CSAccessorDecl>"protected "{BN}*"set"	{ if (curlyCount==0) current->spec |= Entry::ProtectedSettable; }
+<CSAccessorDecl>"private "{BN}*"get"	{ if (curlyCount==0) current->spec |= Entry::PrivateGettable;  	}
+<CSAccessorDecl>"protected "{BN}*"get"	{ if (curlyCount==0) current->spec |= Entry::ProtectedGettable; }
 <CSAccessorDecl>"set"			{ if (curlyCount==0) current->spec |= Entry::Settable;  }
 <CSAccessorDecl>"get"			{ if (curlyCount==0) current->spec |= Entry::Gettable;  }
 <CSAccessorDecl>"add"			{ if (curlyCount==0) current->spec |= Entry::Addable;   }
@@ -6680,6 +6683,18 @@ static void parseCompounds(Entry *rt)
       current = new Entry;
       gstat = FALSE;
       initEntry();
+
+      // deep copy group list from parent (see bug 727732)
+      if (rt->groups)
+      {
+        QListIterator<Grouping> gli(*rt->groups);
+        Grouping *g;
+        for (;(g=gli.current());++gli)
+        {
+          ce->groups->append(new Grouping(*g));
+        }
+      }
+
       int ni=ce->name.findRev("::"); if (ni==-1) ni=0; else ni+=2;
       // set default protection based on the compound type
       if( ce->section==Entry::CLASS_SEC ) // class

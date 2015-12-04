@@ -17,7 +17,7 @@
 
 doxygen_version_major=1
 doxygen_version_minor=8
-doxygen_version_revision=7
+doxygen_version_revision=8
 
 #NOTE: Setting version_mmn to "NO" will omit mmn info from the package.
 doxygen_version_mmn=NO
@@ -52,7 +52,7 @@ f_libclangstatic=NO
 # first setup the list with availabe languages, so we cannot forget any
 # list will be in case as specified (f_langs) and in uppercase (f_ulangs) as used in the internal perl script
 #
-f_langs=`ls -1 src/translator_??.h | sed -e 's%src/translator_%%g' | sed -e 's/\.h//' | tr '\012' ',' | sed -e 's/,$//'`
+f_langs=`ls -1 src/translator_??.h | sed -e 's%src/translator_%%g' | sed -e 's/\.h//' | tr '\012' ','`
 
 while test -n "$1";  do
   case $1 in
@@ -600,9 +600,10 @@ fi
 
 # - check for python ----------------------------------------------------------
 
+python_version=0
 printf "  Checking for python... "
 if test "$f_python" = NO; then
-  python_names="python2 python"
+  python_names="python3 python2 python"
   python_dirs="$bin_dirs /usr/bin /usr/local/bin /bin /sbin"
   python_prog=NO
   python_found=NO
@@ -610,26 +611,33 @@ if test "$f_python" = NO; then
     for j in $python_dirs; do
       if test -x "$j/$i"; then
         python_found=YES
-        if test `$j/$i -c "import sys; print sys.version_info[0]"` = 2; then
-          python_prog="$j/$i"
+        if test `$j/$i -c "import sys; print(sys.version_info[0])"` = 3; then
+          python_prog="$j/$i";
+          python_version=`$j/$i -c "import platform; print(platform.python_version())"`;
           break 2
+        elif test `$j/$i -c "import sys; print(sys.version_info[0])"` = 2; then
+          if test `$j/$i -c "import sys; print(sys.version_info[1])"` -ge 6; then
+            python_prog="$j/$i";
+            python_version=`$j/$i -c "import platform; print(platform.python_version())"`;
+            break 2
+          fi
         fi
       fi
     done
   done
-  f_python="$python_prog" 
+  f_python="$python_prog"
 fi
 
 if test "$f_python" = NO; then
   if test "$python_found" = YES; then
-    echo "version should be python 2."
+    echo "version should be python 2.6 or higher."
   else
     echo "not found!";
   fi
   echo
   exit 2
 fi
-echo "using $f_python";
+echo "using $f_python (version $python_version)";
 
 # - check for perl ------------------------------------------------------------
 
@@ -714,11 +722,11 @@ fi
 
 # -----------------------------------------------------------------------------
 
-if ! test -d "generated_src/doxygen"; then
+if test '!' -d "generated_src/doxygen"; then
   mkdir -p generated_src/doxygen
 fi
 if test "$f_wizard" = YES; then
-  if ! test -d "generated_src/doxywizard"; then
+  if test '!' -d "generated_src/doxywizard"; then
     mkdir -p generated_src/doxywizard
   fi
 fi
@@ -754,6 +762,7 @@ ENV       = env TMAKEPATH="\$(TMAKEPATH)"
 TMAKE     = $configPWD/tmake/bin/tmake
 MAKE      = $f_make
 PYTHON    = $f_python
+PERL      = $f_perl
 LEX       = $f_flex
 RM        = rm -f
 CP        = cp
@@ -865,7 +874,7 @@ INCLUDEPATH += $XAPIAN/include
 EOF
 fi
 
-f_inmakefiles="Makefile.in qtools/Makefile.in src/Makefile.in examples/Makefile.in doc/Makefile.in addon/doxywizard/Makefile.in addon/doxmlparser/src/Makefile.in addon/doxmlparser/test/Makefile.in addon/doxmlparser/examples/metrics/Makefile.in libmd5/Makefile.in addon/doxyapp/Makefile.in addon/doxysearch/Makefile.in addon/doxyparse/Makefile.in"
+f_inmakefiles="Makefile.in qtools/Makefile.in src/Makefile.in examples/Makefile.in doc/Makefile.in addon/doxywizard/Makefile.in addon/doxmlparser/src/Makefile.in addon/doxmlparser/test/Makefile.in addon/doxmlparser/examples/metrics/Makefile.in libmd5/Makefile.in addon/doxyapp/Makefile.in addon/doxysearch/Makefile.in vhdlparser/Makefile.in addon/doxyparse/Makefile.in"
 
 for i in $f_inmakefiles ; do
      SRC=$i
@@ -890,7 +899,9 @@ EOF
        echo "all: generated_src/doxygen/version.cpp $EXTRADEPS" >> $DST
        echo "	\$(MAKE) -C qtools" >> $DST
        echo "	\$(MAKE) -C libmd5" >> $DST
+       echo "	\$(MAKE) -C vhdlparser" >> $DST
        echo "	\$(MAKE) -C src" >> $DST
+
        if test $f_wizard = YES; then
          echo "	\$(MAKE) MAN1DIR=\$(MAN1DIR) -C addon/doxywizard" >> $DST
        fi
@@ -930,7 +941,7 @@ done
 cat src/libdoxycfg.t.in | sed -e "s|%%FLEX%%|$f_flex|g" -e "s|%%BISON%%|$f_bison|g" -e "s|%%PYTHON%%|$f_python|g" > src/libdoxycfg.t
 cat src/libdoxygen.t.in | sed -e "s|%%FLEX%%|$f_flex|g" -e "s|%%BISON%%|$f_bison|g" -e "s|%%PYTHON%%|$f_python|g" > src/libdoxygen.t
 
-f_inprofiles="qtools/qtools.pro.in src/libdoxygen.pro.in src/libdoxycfg.pro.in src/doxygen.pro.in addon/doxywizard/doxywizard.pro.in addon/doxmlparser/src/doxmlparser.pro.in addon/doxmlparser/test/xmlparse.pro.in addon/doxmlparser/examples/metrics/metrics.pro.in libmd5/libmd5.pro.in addon/doxyapp/doxyapp.pro.in addon/doxysearch/doxysearch.pro.in addon/doxysearch/doxyindexer.pro.in addon/doxyparse/doxyparse.pro.in" 
+f_inprofiles="qtools/qtools.pro.in src/libdoxygen.pro.in src/libdoxycfg.pro.in src/doxygen.pro.in addon/doxywizard/doxywizard.pro.in addon/doxmlparser/src/doxmlparser.pro.in addon/doxmlparser/test/xmlparse.pro.in addon/doxmlparser/examples/metrics/metrics.pro.in libmd5/libmd5.pro.in addon/doxyapp/doxyapp.pro.in addon/doxysearch/doxysearch.pro.in addon/doxysearch/doxyindexer.pro.in vhdlparser/vhdlparser.pro.in addon/doxyparse/doxyparse.pro.in"
 
 for i in $f_inprofiles ; do
      SRC=$i
@@ -964,7 +975,7 @@ echo "  Generating generated_src/doxygen/lang_cfg.h..."
 if test "$f_english" = YES; then
    $f_python src/lang_cfg.py ENONLY > generated_src/doxygen/lang_cfg.h
 else
-   f_ulangs=`echo $f_langs | tr '[a-z,]' '[A-Z ]'`
+   f_ulangs=`echo $f_langs | tr '[a-z]' '[A-Z]' | tr ',' ' '`
    $f_python src/lang_cfg.py $f_ulangs > generated_src/doxygen/lang_cfg.h
 fi
 
