@@ -48,10 +48,6 @@
 #define START_MARKER 0x4D454D5B // MEM[
 #define END_MARKER   0x4D454D5D // MEM]
 
-#if defined(_OS_WIN32_)
-#define snprintf _snprintf
-#endif
-
 // Put this macro at the start of any method of MemberDef that can directly
 // or indirectly access other MemberDefs. It prevents that the content 
 // pointed to by m_impl gets flushed to disk in the middle of the method call!
@@ -540,7 +536,7 @@ class MemberDefImpl
     ClassDef *category;
     MemberDef *categoryRelation;
 
-    bool tagDataWritten;
+    unsigned tagDataWritten;
 };
 
 MemberDefImpl::MemberDefImpl() :
@@ -670,7 +666,7 @@ void MemberDefImpl::init(Definition *def,
   hasDocumentedReturnType = FALSE;
   docProvider = 0;
   isDMember = def->getDefFileName().right(2).lower()==".d";
-  tagDataWritten = FALSE;
+  tagDataWritten = 0; // save separate written status for file, group, class, etc.
 }
 
 
@@ -1383,8 +1379,8 @@ bool MemberDef::isBriefSectionVisible() const
 
 void MemberDef::writeDeclaration(OutputList &ol,
                ClassDef *cd,NamespaceDef *nd,FileDef *fd,GroupDef *gd,
-               bool inGroup,ClassDef *inheritedFrom,const char *inheritId
-               )
+               bool inGroup, const DefType compoundType, 
+               ClassDef *inheritedFrom,const char *inheritId)
 {
   //printf("%s MemberDef::writeDeclaration() inGroup=%d\n",qualifiedName().data(),inGroup);
 
@@ -1400,7 +1396,7 @@ void MemberDef::writeDeclaration(OutputList &ol,
   ASSERT (cd!=0 || nd!=0 || fd!=0 || gd!=0); // member should belong to something
   if (cd) d=cd; else if (nd) d=nd; else if (fd) d=fd; else d=gd;
 
-  _writeTagData();
+  _writeTagData(compoundType);
 
   QCString cname  = d->name();
   QCString cdname = d->displayName();
@@ -1514,7 +1510,7 @@ void MemberDef::writeDeclaration(OutputList &ol,
                     ltype.left(i),           // text
                     TRUE                     // autoBreak
                    ); 
-        getAnonymousEnumType()->writeEnumDeclaration(ol,cd,nd,fd,gd);
+        getAnonymousEnumType()->writeEnumDeclaration(ol,cd,nd,fd,gd,compoundType);
         //ol+=*getAnonymousEnumType()->enumDecl();
         linkifyText(TextGeneratorOLImpl(ol),d,m_impl->fileDef,this,ltype.right(ltype.length()-i-l),TRUE); 
       }
@@ -2437,7 +2433,7 @@ void MemberDef::writeDocumentation(MemberList *ml,OutputList &ol,
         ol.startDoxyAnchor(cfname,cname,memAnchor,doxyName,doxyArgs);
         ol.startMemberDoc(ciname,name(),memAnchor,name(),showInline);
         linkifyText(TextGeneratorOLImpl(ol),container,getBodyDef(),this,ldef.left(i));
-        vmd->writeEnumDeclaration(ol,getClassDef(),getNamespaceDef(),getFileDef(),getGroupDef());
+        vmd->writeEnumDeclaration(ol,getClassDef(),getNamespaceDef(),getFileDef(),getGroupDef(),definitionType());
         linkifyText(TextGeneratorOLImpl(ol),container,getBodyDef(),this,ldef.right(ldef.length()-i-l));
         
         found=TRUE;
@@ -3147,7 +3143,7 @@ void MemberDef::setAnchor()
   if (m_impl->tArgList) 
   {
     char buf[20];
-    snprintf(buf,20,"%d:",m_impl->tArgList->count());
+    qsnprintf(buf,20,"%d:",m_impl->tArgList->count());
     buf[19]='\0';
     memAnchor.prepend(buf);
   }
@@ -3391,9 +3387,10 @@ Specifier MemberDef::virtualness(int count) const
   return v;
 }
 
-void MemberDef::_writeTagData()
-{
-  if (m_impl->tagDataWritten) return;
+void MemberDef::_writeTagData(const DefType compoundType)
+{ 
+  unsigned typeMask = 1 << compoundType;
+  if ((m_impl->tagDataWritten) & typeMask) return; // member already written for this type
   static bool generateTagFile = !Config_getString("GENERATE_TAGFILE").isEmpty();
   // write tag file information of this member
   if (generateTagFile && isLinkableInProject())
@@ -3458,12 +3455,13 @@ void MemberDef::_writeTagData()
           Doxygen::tagFile << "      <anchor>" << convertToXML(fmd->anchor()) << "</anchor>" << endl; 
           Doxygen::tagFile << "      <arglist>" << convertToXML(fmd->argsString()) << "</arglist>" << endl; 
           Doxygen::tagFile << "    </member>" << endl;
+          fmd->m_impl->tagDataWritten |= typeMask;
           fmd->_addToSearchIndex();
         }
       }
     }
   }
-  m_impl->tagDataWritten=TRUE;
+  m_impl->tagDataWritten |= typeMask;
 }
 
 void MemberDef::_computeIsConstructor()
@@ -3564,7 +3562,8 @@ bool MemberDef::isDestructor() const
 }
 
 void MemberDef::writeEnumDeclaration(OutputList &typeDecl,
-     ClassDef *cd,NamespaceDef *nd,FileDef *fd,GroupDef *gd)
+     ClassDef *cd,NamespaceDef *nd,FileDef *fd,GroupDef *gd, 
+     const DefType compoundType)
 {
   KEEP_RESIDENT_DURING_CALL;
 
@@ -3593,7 +3592,7 @@ void MemberDef::writeEnumDeclaration(OutputList &typeDecl,
   {
     if (isLinkableInProject() || hasDocumentedEnumValues())
     {
-      _writeTagData();
+      _writeTagData(compoundType);
       writeLink(typeDecl,cd,nd,fd,gd);
     }
     else
@@ -3640,7 +3639,7 @@ void MemberDef::writeEnumDeclaration(OutputList &typeDecl,
 
           if (fmd->hasDocumentation()) // enum value has docs
           {
-            fmd->_writeTagData();
+            fmd->_writeTagData(compoundType);
             fmd->writeLink(typeDecl,cd,nd,fd,gd);
           }
           else // no docs for this enum value
@@ -4834,7 +4833,7 @@ void MemberDef::flushToDisk() const
   marshalBool         (Doxygen::symbolStorage,m_impl->docsForDefinition);
   marshalObjPointer   (Doxygen::symbolStorage,m_impl->category);
   marshalObjPointer   (Doxygen::symbolStorage,m_impl->categoryRelation);
-  marshalBool         (Doxygen::symbolStorage,m_impl->tagDataWritten);
+  marshalUInt         (Doxygen::symbolStorage,m_impl->tagDataWritten);
   marshalUInt(Doxygen::symbolStorage,END_MARKER);
 
   // function doesn't modify the object conceptually but compiler doesn't know this.
@@ -4939,7 +4938,7 @@ void MemberDef::loadFromDisk() const
   m_impl->docsForDefinition       = unmarshalBool         (Doxygen::symbolStorage);
   m_impl->category                = (ClassDef*)unmarshalObjPointer   (Doxygen::symbolStorage);
   m_impl->categoryRelation        = (MemberDef*)unmarshalObjPointer  (Doxygen::symbolStorage);
-  m_impl->tagDataWritten          = unmarshalBool         (Doxygen::symbolStorage);
+  m_impl->tagDataWritten          = unmarshalUInt         (Doxygen::symbolStorage);
   marker = unmarshalUInt(Doxygen::symbolStorage);
   assert(marker==END_MARKER);
 
