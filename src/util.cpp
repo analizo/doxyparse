@@ -305,7 +305,8 @@ int guessSection(const char *name)
       n.right(4)==".ixx"  ||
       n.right(4)==".ipp"  ||
       n.right(4)==".i++"  ||
-      n.right(4)==".inl"
+      n.right(4)==".inl"  ||
+      n.right(4)==".xml"
      ) return Entry::SOURCE_SEC;
   if (n.right(2)==".h"   || // header
       n.right(3)==".hh"  ||
@@ -3134,7 +3135,12 @@ static QCString getCanonicalTypeForIdentifier(
 
   //printf("  mtype=%s\n",mType?mType->name().data():"<none>");
 
-  if (cd) // resolves to a known class type
+  if (cd && cd==d)
+  {
+    *tSpec="";
+    return "";
+  }
+  else if (cd) // resolves to a known class type
   {
     if (mType && mType->isTypedef()) // but via a typedef
     {
@@ -3216,9 +3222,10 @@ static QCString extractCanonicalType(Definition *d,FileDef *fs,QCString type)
   //printf("extractCanonicalType(type=%s) start: def=%s file=%s\n",type.data(),
   //    d ? d->name().data() : "<null>",fs ? fs->name().data() : "<null>");
 
-  static QRegExp id("[a-z_A-Z\\x80-\\xFF][:a-z_A-Z0-9\\x80-\\xFF]*");
+  //static QRegExp id("[a-z_A-Z\\x80-\\xFF][:a-z_A-Z0-9\\x80-\\xFF]*");
 
-  QCString canType,templSpec,word;
+  QCString canType;
+  QCString templSpec,word;
   int i,p=0,pp=0;
   while ((i=extractClassNameFromType(type,p,word,templSpec))!=-1)
     // foreach identifier in the type
@@ -3227,7 +3234,19 @@ static QCString extractCanonicalType(Definition *d,FileDef *fs,QCString type)
     if (i>pp) canType += type.mid(pp,i-pp);
 
 
-    canType += getCanonicalTypeForIdentifier(d,fs,word,&templSpec);
+    QCString ct = getCanonicalTypeForIdentifier(d,fs,word,&templSpec);
+
+    // in case the ct is empty it means that "word" represents scope "d"
+    // and this does not need to be added to the canonical 
+    // type (it is redundant), so/ we skip it. This solves problem 589616.
+    if (ct.isEmpty() && type.mid(p,2)=="::")
+    {
+      p+=2;
+    }
+    else
+    {
+      canType += ct;
+    }
     //printf(" word=%s templSpec=%s canType=%s\n",word.data(),templSpec.data(),canType.data());
     if (!templSpec.isEmpty()) // if we didn't use up the templSpec already
                               // (i.e. type is not a template specialization)
@@ -3258,7 +3277,7 @@ static QCString extractCanonicalArgType(Definition *d,FileDef *fs,const Argument
 {
   QCString type = arg->type.stripWhiteSpace();
   QCString name = arg->name;
-  //printf("extractCanonicalArgType(type=%s,name=%s)\n",type.data(),name.data());
+  //printf("----- extractCanonicalArgType(type=%s,name=%s)\n",type.data(),name.data());
   if ((type=="const" || type=="volatile") && !name.isEmpty()) 
   { // name is part of type => correct
     type+=" ";
@@ -4251,7 +4270,7 @@ QCString linkToText(const char *link,bool isFileName)
   return result;
 }
 
-/*!
+/*
  * generate a reference to a class, namespace or member.
  * `scName' is the name of the scope that contains the documentation 
  * string that is returned.
@@ -5613,10 +5632,10 @@ QCString stripTemplateSpecifiersFromScope(const QCString &fullName,
 
     result+=fullName.mid(p,i-p);
     //printf("  trying %s\n",(result+fullName.mid(i,e-i)).data());
-    if (getClass(result+fullName.mid(i,e-i))!=0) 
+    if (getClass(result+fullName.mid(i,e-i))!=0)
     {
       result+=fullName.mid(i,e-i);
-      //printf("2:result+=%s\n",fullName.mid(i,e-i-1).data());
+      //printf("  2:result+=%s cd=%s\n",fullName.mid(i,e-i-1).data(),cd->name().data());
     }
     else if (pLastScopeStripped)
     {
@@ -5826,8 +5845,8 @@ void addRefItem(const QList<ListItemInfo> *sli,
       {
         RefItem *item = refList->getRefItem(lii->itemId);
         ASSERT(item!=0);
-        //printf("anchor=%s written=%d\n",item->listAnchor.data(),item->written);
-        if (item->written) return;
+        printf("anchor=%s written=%d\n",item->listAnchor.data(),item->written);
+        //if (item->written) return;
 
         QCString doc(1000);
         doc =  "\\anchor ";
@@ -5844,7 +5863,7 @@ void addRefItem(const QList<ListItemInfo> *sli,
         doc += item->text;
         doc += "</dd></dl>\n";
         addRelatedPage(refList->listName(),refList->pageTitle(),doc,0,refList->listName(),1,0,0,0);
-        item->written=TRUE;
+        //item->written=TRUE;
       }
     }
   }
@@ -6069,22 +6088,6 @@ static void latin2ToLatex(QTextStream &t,unsigned char c)
 void filterLatexString(QTextStream &t,const char *str,
     bool insideTabbing,bool insidePre,bool insideItem)
 {
-#if 0
-  static bool isCzech         = theTranslator->idLanguage()=="czech";
-  static bool isSerbian       = theTranslator->idLanguage()=="serbian";
-  static bool isJapanese      = theTranslator->idLanguage()=="japanese" ||
-    theTranslator->idLanguage()=="japanese-en";
-  static bool isKorean        = theTranslator->idLanguage()=="korean" ||
-    theTranslator->idLanguage()=="korean-en";
-  static bool isRussian       = theTranslator->idLanguage()=="russian";
-  static bool isUkrainian     = theTranslator->idLanguage()=="ukrainian";
-  static bool isSlovene       = theTranslator->idLanguage()=="solvene";
-  static bool isChinese       = theTranslator->idLanguage()=="chinese" || 
-    theTranslator->idLanguage()=="chinese-traditional";
-  static bool isLatin2        = theTranslator->idLanguageCharset()=="iso-8859-2";
-  static bool isGreek         = theTranslator->idLanguage()=="greek";
-  //printf("filterLatexString(%s)\n",str);
-#endif
   if (str)
   {
     const unsigned char *p=(const unsigned char *)str;
@@ -6104,25 +6107,6 @@ void filterLatexString(QTextStream &t,const char *str,
           case '_':  t << "\\_"; break;
           default: 
                      t << (char)c;
-#if 0
-                     {
-                       // Some languages use wide characters
-                       if (c>=128 && (isJapanese || isKorean || isChinese || isSerbian))
-                       { 
-                         t << (char)c;
-                         if (*p)  
-                         {
-                           c = *p++;
-                           t << (char)c;
-                         }
-                       }
-                       else
-                       {
-                         t << (char)c; 
-                       }
-                       break;
-                     }
-#endif
         }
       }
       else
@@ -6155,10 +6139,7 @@ void filterLatexString(QTextStream &t,const char *str,
                        else
                          t << "]";             
                      break;
-          case '-':  if (*p=='>') 
-                     { t << " $\\rightarrow$ "; p++; }
-                     else
-                     { t << (char)c; }
+          case '-':  t << "-\\/";
                      break;
           case '\\': if (*p=='<') 
                      { t << "$<$"; p++; }
@@ -6445,6 +6426,7 @@ g_lang2extMap[] =
   { "python",      "python",  SrcLangExt_Python },
   { "fortran",     "fortran", SrcLangExt_F90    },
   { "vhdl",        "vhdl",    SrcLangExt_VHDL   },
+  { "dbusxml",     "dbusxml", SrcLangExt_XML    },
   { 0,             0,        (SrcLangExt)0      }
 };
 
@@ -6507,6 +6489,7 @@ void initDefaultExtensionMapping()
   updateLanguageMapping(".f90",   "fortran");
   updateLanguageMapping(".vhd",   "vhdl");
   updateLanguageMapping(".vhdl",  "vhdl");
+  updateLanguageMapping(".xml",   "dbusxml");
 }
 
 SrcLangExt getLanguageFromFileName(const QCString fileName)

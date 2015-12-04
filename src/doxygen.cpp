@@ -71,6 +71,7 @@
 #include "htags.h"
 #include "pyscanner.h"
 #include "fortranscanner.h"
+#include "dbusxmlscanner.h"
 #include "code.h"
 #include "objcache.h"
 #include "store.h"
@@ -122,7 +123,6 @@ QTextStream      Doxygen::tagFile;
 NamespaceDef    *Doxygen::globalScope = 0;
 QDict<RefList>  *Doxygen::xrefLists = new QDict<RefList>; // dictionary of cross-referenced item lists
 bool             Doxygen::parseSourcesNeeded = FALSE;
-double           Doxygen::sysElapsedTime = 0.0;
 QTime            Doxygen::runningTime;
 //SearchIndex *    Doxygen::searchIndex=0;
 QDict<DefinitionIntf> *Doxygen::symbolMap;
@@ -1065,19 +1065,20 @@ static void addClassToContext(EntryNav *rootNav)
   {
      scName=rootNav->parent()->name();
   }
-  // name without parent's scope: TODO: is this still true?
+  // name without parent's scope
   QCString fullName = root->name;
 
   // strip off any template parameters (but not those for specializations)
   fullName=stripTemplateSpecifiersFromScope(fullName);
 
-  // name with scope
+  // name with scope (if not present already)
   QCString qualifiedName = fullName;
   if (!scName.isEmpty() && !leftScopeMatch(fullName,scName))
   {
     qualifiedName.prepend(scName+"::");
   }
 
+  // see if we already found the class before
   ClassDef *cd = getClass(qualifiedName);
 
   Debug::print(Debug::Classes,0, "  Found class with name %s (qualifiedName=%s -> cd=%p)\n",
@@ -1092,50 +1093,16 @@ static void addClassToContext(EntryNav *rootNav)
     //  //printf("existing ClassDef tempArgList=%p specScope=%s\n",root->tArgList,root->scopeSpec.data());
     //  cd->setTemplateArguments(tArgList);
     //}
-#if 0
-    if (!root->doc.isEmpty() || !root->brief.isEmpty() || 
-        (root->bodyLine!=-1 && Config_getBool("SOURCE_BROWSER"))
-       ) 
-      // block contains something that ends up in the docs
-    { 
-      if (!root->doc.isEmpty() && !cd->documentation().isEmpty())
-      {
-        warn(
-            root->fileName,root->startLine,
-            "Warning: class %s already has a detailed description found in file %s at line %d. "
-            "Skipping the one found here.",
-            fullName.data(),cd->docFile().data(),cd->docLine()
-            );
-      }
-      else if (!root->doc.isEmpty())
-#endif
-      {
-        cd->setDocumentation(root->doc,root->docFile,root->docLine);
-      }
-#if 0
-      if (!root->brief.isEmpty() && !cd->briefDescription().isEmpty())
-      {
-        warn(
-            root->fileName,root->startLine,
-            "Warning: class %s already has a brief description found in file %s at line %d\n"
-            "         skipping the one found here.",
-            fullName.data(),cd->briefFile().data(),cd->briefLine()
-            );
-      }
-      else if (!root->brief.isEmpty())
-#endif
-      {
-        cd->setBriefDescription(root->brief,root->briefFile,root->briefLine);
-      }
-      if (root->bodyLine!=-1 && cd->getStartBodyLine()==-1)
-      {
-        cd->setBodySegment(root->bodyLine,root->endBodyLine);
-        cd->setBodyDef(fd);
-      }
-      //cd->setName(fullName); // change name to match docs
-#if 0
+
+    cd->setDocumentation(root->doc,root->docFile,root->docLine);
+    cd->setBriefDescription(root->brief,root->briefFile,root->briefLine);
+
+    if (root->bodyLine!=-1 && cd->getStartBodyLine()==-1)
+    {
+      cd->setBodySegment(root->bodyLine,root->endBodyLine);
+      cd->setBodyDef(fd);
     }
-#endif
+    //cd->setName(fullName); // change name to match docs
 
     if (cd->templateArguments()==0) 
     {
@@ -2924,10 +2891,23 @@ static void buildFunctionList(EntryNav *rootNav)
             //printf("matching arguments for %s%s %s%s\n",
             //    md->name().data(),md->argsString(),rname.data(),argListToString(root->argList).data());
             LockingPtr<ArgumentList> mdAl = md->argumentList();
+            LockingPtr<ArgumentList> mdTempl = md->templateArguments();
+
+            // in case of template functions, we need to check if the
+            // functions have the same number of template parameters
+            bool sameNumTemplateArgs = TRUE;
+            if (mdTempl!=0 && root->tArgLists)
+            {
+              if (mdTempl->count()!=root->tArgLists->getLast()->count())
+              {
+                sameNumTemplateArgs = FALSE;
+              }
+            }
             if ( 
                 matchArguments2(md->getOuterScope(),mfd,mdAl.pointer(),
                                 rnd ? rnd : Doxygen::globalScope,rfd,root->argList,
-                                FALSE)
+                                FALSE) &&
+                sameNumTemplateArgs
                )
             {
               GroupDef *gd=0;
@@ -3908,7 +3888,9 @@ static bool findTemplateInstanceRelation(Entry *root,
   //}
   //printf("\n");
   
-  bool existingClass = (templSpec==tempArgListToString(templateClass->templateArguments()));
+  bool existingClass = (templSpec ==
+                        tempArgListToString(templateClass->templateArguments())
+                       );
   if (existingClass) return TRUE;
 
   bool freshInstance=FALSE;
@@ -4162,7 +4144,7 @@ static bool findClassRelation(
           //printf("baseClass==0 i=%d e=%d\n",i,e);
           if (e!=-1) // end of template was found at e
           {
-            templSpec=baseClassName.mid(i,e-i);
+            templSpec=removeRedundantWhiteSpace(baseClassName.mid(i,e-i));
             baseClassName=baseClassName.left(i)+baseClassName.right(baseClassName.length()-e);
             baseClass=getResolvedClass(cd,
                                        cd->getFileDef(),
@@ -4931,6 +4913,22 @@ static bool findGlobalMember(EntryNav *rootNav,
                           rnd ? rnd : Doxygen::globalScope,fd,root->argList,
                           FALSE);
 
+        // for template members we need to check if the number of
+        // template arguments is the same, otherwise we are dealing with
+        // different functions.
+        if (matching && root->tArgLists)
+        {
+          LockingPtr<ArgumentList> mdTempl = md->templateArguments();
+          if (mdTempl!=0)
+          {
+            if (root->tArgLists->getLast()->count()!=mdTempl->count())
+            {
+              matching=FALSE;
+            }
+          }
+        }
+
+
         //printf("%s<->%s\n",
         //    argListToString(md->argumentList()).data(),
         //    argListToString(root->argList).data());
@@ -5482,6 +5480,9 @@ static void findMember(EntryNav *rootNav,
             FileDef *fd=rootNav->fileDef();
             NamespaceDef *nd=0;
             if (!namespaceName.isEmpty()) nd=getResolvedNamespace(namespaceName);
+
+            //printf("scopeName %s->%s\n",scopeName.data(),
+            //       stripTemplateSpecifiersFromScope(scopeName,FALSE).data());
 
             ClassDef *tcd=findClassDefinition(fd,nd,scopeName);
             if (tcd==0 && stripAnonymousNamespaceScope(cd->name())==scopeName)
@@ -6572,7 +6573,7 @@ static void addEnumValuesToEnums(EntryNav *rootNav)
               SrcLangExt sle;
               if (rootNav->fileDef() &&
                   ( (sle=getLanguageFromFileName(rootNav->fileDef()->name()))==SrcLangExt_CSharp
-                  || sle==SrcLangExt_Java
+                  || sle==SrcLangExt_Java || sle==SrcLangExt_XML
                   )
                  )
               {
@@ -9128,6 +9129,7 @@ void initDoxygen()
   Doxygen::parserManager->registerParser("python",  new PythonLanguageScanner);
   Doxygen::parserManager->registerParser("fortran", new FortranLanguageScanner);
   Doxygen::parserManager->registerParser("vhdl",    new VHDLLanguageScanner);
+  Doxygen::parserManager->registerParser("dbusxml", new DBusXMLScanner);
 
   // register any additional parsers here...
 
@@ -10539,7 +10541,7 @@ void generateOutput()
   {
     msg("Total elapsed time: %.3f seconds\n(of which %.3f seconds waiting for external tools to finish)\n",
          ((double)Doxygen::runningTime.elapsed())/1000.0,
-         Doxygen::sysElapsedTime
+         portable_getSysElapsedTime()
         );
   }
 

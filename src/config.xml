@@ -393,6 +393,14 @@ brief documentation of file, namespace and class members alphabetically
 by member name. If set to NO (the default) the members will appear in 
 declaration order. 
 ' defval='0'/>
+    <option type='bool' id='SORT_MEMBERS_CTORS_1ST' docs='
+If the SORT_MEMBERS_CTORS_1ST tag is set to YES then doxygen
+will sort the (brief and detailed) documentation of class members so that
+constructors and destructors are listed first. If set to NO (the default)
+the constructors will appear in the respective orders defined by
+SORT_MEMBER_DOCS and SORT_BRIEF_DOCS.
+This tag will be ignored for brief docs if SORT_BRIEF_DOCS is set to NO
+and ignored for detailed docs if SORT_MEMBER_DOCS is set to NO.' defval='0'/>
     <option type='bool' id='SORT_GROUP_NAMES' docs='
 If the SORT_GROUP_NAMES tag is set to YES then doxygen will sort the 
 hierarchy of group names into alphabetical order. If set to NO (the default) 
@@ -898,6 +906,14 @@ when you change the font size after a successful doxygen run you need
 to manually remove any form_*.png images from the HTML output directory 
 to force them to be regenerated. 
 ' minval='8' maxval='50' defval='10' depends='GENERATE_HTML'/>
+    <option type='bool' id='SEARCHENGINE' docs='
+When the SEARCHENGINE tag is enable doxygen will generate a search box
+for the HTML output. The underlying search engine uses javascript 
+and DHTML and should work on any modern browser. Note that when using
+HTML help (GENERATE_HTMLHELP) or Qt help (GENERATE_QHP) 
+there is already a search function so this one should typically 
+be disabled.
+' defval='1' depends='GENERATE_HTML'/>
   </group>
   <group name='LaTeX' docs='configuration options related to the LaTeX output'>
     <option type='bool' id='GENERATE_LATEX' docs='
@@ -1093,7 +1109,7 @@ are prefixed with the string contained in PERLMOD_MAKEVAR_PREFIX.
 This is useful so different doxyrules.make files included by the same 
 Makefile don&apos;t overwrite each other&apos;s variables.' defval='' depends='GENERATE_PERLMOD'/>
   </group>
-  <group name='Preprocessor' docs='Configuration options related to the preprocessor   '>
+  <group name='Preprocessor' docs='Configuration options related to the preprocessor'>
     <option type='bool' id='ENABLE_PREPROCESSING' docs='
 If the ENABLE_PREPROCESSING tag is set to YES (the default) Doxygen will 
 evaluate all C-preprocessor directives found in the sources and include 
@@ -1152,7 +1168,7 @@ function macros are typically used for boiler-plate code, and will confuse
 the parser if not removed. 
 ' defval='1' depends='ENABLE_PREPROCESSING'/>
   </group>
-  <group name='External' docs='Configuration::additions related to external references   '>
+  <group name='External' docs='Configuration::additions related to external references'>
     <option type='list' id='TAGFILES' format='file' docs='
 The TAGFILES option can be used to specify one or more tagfiles. 
 Optionally an initial location of the external documentation 
@@ -1189,7 +1205,7 @@ The PERL_PATH should be the absolute path and name of the perl script
 interpreter (i.e. the result of `which perl&apos;). 
 ' defval='/usr/bin/perl'/>
   </group>
-  <group name='Dot' docs='Configuration options related to the dot tool   '>
+  <group name='Dot' docs='Configuration options related to the dot tool'>
     <option type='bool' id='CLASS_DIAGRAMS' docs='
 If the CLASS_DIAGRAMS tag is set to YES (the default) Doxygen will 
 generate a inheritance diagram (in HTML, RTF and LaTeX) for classes with base 
@@ -1358,12 +1374,6 @@ If the DOT_CLEANUP tag is set to YES (the default) Doxygen will
 remove the intermediate dot files that are used to generate 
 the various graphs. 
 ' defval='1' depends='HAVE_DOT'/>
-  </group>
-  <group name='Search' docs='Options related to the search engine'>
-    <option type='bool' id='SEARCHENGINE' docs='
-The SEARCHENGINE tag specifies whether or not a search engine should be 
-used. If set to NO the values of all tags below this one will be ignored. 
-' defval='0'/>
     <option type='obsolete' id='SHOW_USED_FILES'/>
     <option type='obsolete' id='USE_WINDOWS_ENCODING'/>
     <option type='obsolete' id='DETAILS_AT_TOP'/>
