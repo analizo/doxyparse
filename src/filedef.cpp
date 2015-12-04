@@ -457,6 +457,41 @@ void FileDef::writeAuthorSection(OutputList &ol)
   ol.popGeneratorState();
 }
 
+void FileDef::writeSummaryLinks(OutputList &ol)
+{
+  ol.pushGeneratorState();
+  ol.disableAllBut(OutputGenerator::Html);
+  QListIterator<LayoutDocEntry> eli(
+      LayoutDocManager::instance().docEntries(LayoutDocManager::File));
+  LayoutDocEntry *lde;
+  bool first=TRUE;
+  for (eli.toFirst();(lde=eli.current());++eli)
+  {
+    if ((lde->kind()==LayoutDocEntry::FileClasses && classSDict && classSDict->declVisible()) || 
+        (lde->kind()==LayoutDocEntry::FileNamespaces && namespaceSDict && namespaceSDict->declVisible())
+       )
+    {
+      LayoutDocEntrySection *ls = (LayoutDocEntrySection*)lde;
+      QCString label = lde->kind()==LayoutDocEntry::FileClasses ? "nested-classes" : "namespaces";
+      writeSummaryLink(ol,label,ls->title,first);
+    }
+    else if (lde->kind()==LayoutDocEntry::MemberDecl)
+    {
+      LayoutDocEntryMemberDecl *lmd = (LayoutDocEntryMemberDecl*)lde;
+      MemberList * ml = getMemberList(lmd->type);
+      if (ml && ml->declVisible())
+      {
+        writeSummaryLink(ol,ml->listTypeAsString(),lmd->title,first);
+      }
+    }
+  }
+  if (!first)
+  {
+    ol.writeString("  </div>\n");
+  }
+  ol.popGeneratorState();
+}
+
 /*! Write the documentation page for this file to the file of output
     generators \a ol. 
 */
@@ -485,9 +520,8 @@ void FileDef::writeDocumentation(OutputList &ol)
     startFile(ol,getOutputFileBase(),name(),pageTitle,HLI_FileVisible,TRUE);
     getDirDef()->writeNavigationPath(ol);
     ol.endQuickIndices();
-    ol.startContents();
     QCString pageTitleShort=theTranslator->trFileReference(name());
-    startTitle(ol,getOutputFileBase());
+    startTitle(ol,getOutputFileBase(),this);
     ol.pushGeneratorState();
       ol.disableAllBut(OutputGenerator::Html);
       ol.parseText(pageTitleShort); // Html only
@@ -501,11 +535,14 @@ void FileDef::writeDocumentation(OutputList &ol)
   else
   {
     startFile(ol,getOutputFileBase(),name(),pageTitle,HLI_FileVisible);
-    startTitle(ol,getOutputFileBase());
+    startTitle(ol,getOutputFileBase(),this);
     ol.parseText(pageTitle);
     addGroupListToTitle(ol,this);
     endTitle(ol,getOutputFileBase(),title);
   }
+
+  ol.startContents();
+
   if (!fileVersion.isEmpty())
   {
     ol.disableAllBut(OutputGenerator::Html);
@@ -726,7 +763,6 @@ void FileDef::writeSource(OutputList &ol)
     startFile(ol,getSourceFileBase(),0,pageTitle,HLI_FileVisible,TRUE);
     getDirDef()->writeNavigationPath(ol);
     ol.endQuickIndices();
-    ol.startContents();
     startTitle(ol,getOutputFileBase());
     ol.parseText(name());
     endTitle(ol,getOutputFileBase(),title);
@@ -738,6 +774,8 @@ void FileDef::writeSource(OutputList &ol)
     ol.parseText(title);
     endTitle(ol,getSourceFileBase(),0);
   }
+
+  ol.startContents();
 
   if (isLinkable())
   {
@@ -756,6 +794,7 @@ void FileDef::writeSource(OutputList &ol)
             FALSE,0,this
            );
   ol.endCodeFragment();
+  ol.endContents();
   endFile(ol);
   ol.enableAll();
 }
@@ -1494,17 +1533,31 @@ void FileDef::addMemberToList(MemberList::ListType lt,MemberDef *md)
   static bool sortBriefDocs = Config_getBool("SORT_BRIEF_DOCS");
   static bool sortMemberDocs = Config_getBool("SORT_MEMBER_DOCS");
   MemberList *ml = createMemberList(lt);
-  if (((ml->listType()&MemberList::declarationLists) && sortBriefDocs) ||
-      ((ml->listType()&MemberList::documentationLists) && sortMemberDocs)
-     )
+  ml->setNeedsSorting(
+       ((ml->listType()&MemberList::declarationLists) && sortBriefDocs) ||
+       ((ml->listType()&MemberList::documentationLists) && sortMemberDocs));
+  ml->append(md);
+#if 0
+  if (ml->needsSorting())
     ml->inSort(md);
   else
     ml->append(md);
+#endif
   if (lt&MemberList::documentationLists)
   {
     ml->setInFile(TRUE);
   }
   if (ml->listType()&MemberList::declarationLists) md->setSectionList(this,ml);
+}
+
+void FileDef::sortMemberLists()
+{
+  MemberList *ml = m_memberLists.first();
+  while (ml)
+  {
+    if (ml->needsSorting()) { ml->sort(); ml->setNeedsSorting(FALSE); }
+    ml = m_memberLists.next();
+  }
 }
 
 MemberList *FileDef::getMemberList(MemberList::ListType lt) const

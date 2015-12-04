@@ -160,7 +160,7 @@ static QCString         briefBackup;
 static bool             g_inputFromFile;
 
 static int              docBlockContext;
-static QCString         docBlock;
+static QGString         docBlock;
 static QCString         docBlockName;
 static bool             docBlockInBody;
 static bool             docBlockAutoBrief;
@@ -566,7 +566,6 @@ ID        "$"?[a-z_A-Z\x80-\xFF][a-z_A-Z0-9\x80-\xFF]*
 SCOPEID   {ID}({ID}*{BN}*"::"{BN}*)*({ID}?)
 SCOPENAME "$"?(({ID}?{BN}*"::"{BN}*)*)(((~|!){BN}*)?{ID})
 TSCOPE    {ID}("<"[a-z_A-Z0-9 \t\*\&,]*">")?
-FTSCOPE   {ID}("<"[a-z_A-Z0-9\*\&,]*">")?
 CSSCOPENAME (({ID}?{BN}*"."{BN}*)*)((~{BN}*)?{ID})
 PRE       [pP][rR][eE]
 CODE      [cC][oO][dD][eE]
@@ -1603,7 +1602,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					    current->tArgLists->setAutoDelete(TRUE);
 					  }
 					  ArgumentList *al = new ArgumentList;
-					  current->spec |= (yytext[0]=='g') ? Entry::Generic : Entry::Template;
+					  //current->spec |= (yytext[0]=='g') ? Entry::Generic : Entry::Template;
 					  current->tArgLists->append(al);
 					  currentArgumentList = al;
 					  templateStr="<";
@@ -1832,7 +1831,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 <QtPropType>{B}+			{
   				          current->type+=yytext;
   					}
-<QtPropType>({FTSCOPE}"::")*{FTSCOPE}	{
+<QtPropType>({TSCOPE}"::")*{TSCOPE}	{
   					  current->type+=yytext;
                                           BEGIN(QtPropName);
   					}
@@ -2001,8 +2000,9 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
   					  BEGIN( SkipCurly );
 					}
 <TryFunctionBlock>.
-<TryFunctionBlockEnd>"catch"		{ BEGIN(TryFunctionBlock); }
-<TryFunctionBlockEnd>\n			{ unput(*yytext); // added to fix bug id 601138
+<TryFunctionBlockEnd>{BN}*"catch"	{ lineCount(); BEGIN(TryFunctionBlock); // {BN}* added to fix bug 611193
+					}
+<TryFunctionBlockEnd>\n			{ unput(*yytext); // rule added to fix bug id 601138
   					  BEGIN( FindMembers );
 					}
 <TryFunctionBlockEnd>.			{ unput(*yytext);
@@ -2311,7 +2311,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					  else
 					  {
                                             lastStringContext=YY_START;
-  					    current->initializer+=*yytext; 
+  					    current->initializer=yytext; 
   					    pCopyQuotedGString=&current->initializer;
 					    BEGIN(CopyGString);
 					  }
@@ -3172,8 +3172,8 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
   					  if (msName.isEmpty() && !current->name.isEmpty())
 					  { 
 					    // see if the compound does not have a name or is inside another
-					    // annonymous compound. If so we insert a 
-					    // special `annonymous' variable.
+					    // anonymous compound. If so we insert a 
+					    // special `anonymous' variable.
 					    //Entry *p=current_root;
 					    Entry *p=current;
 					    while (p)
@@ -3186,8 +3186,8 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 						int pi = (i==-1) ? 0 : i+2;
 						if (p->name.at(pi)=='@')
 						{
-						  // annonymous compound inside -> insert dummy variable name
-						  //printf("Adding annonymous variable for scope %s\n",p->name.data());
+						  // anonymous compound inside -> insert dummy variable name
+						  //printf("Adding anonymous variable for scope %s\n",p->name.data());
 						  msName.sprintf("@%d",anonCount++); 
 						  break;
 						}
@@ -4330,6 +4330,10 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
   					  yyLineNr++;
   					}
 <SkipString,SkipPHPString>.		{ }
+<CompoundName>":"			{ // for "class : public base {} var;" construct, see bug 608359
+  					  unput(':');
+					  BEGIN(ClassVar);
+  					}
 <Bases,CompoundName>";"			{ 
 					  current->section = Entry::EMPTY_SEC ;
 					  current->type.resize(0) ;
@@ -4368,7 +4372,8 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					    current->tArgLists->setAutoDelete(TRUE);
 					  }
 					  ArgumentList *al = new ArgumentList;
-					  current->spec |= Entry::Template;
+					  // check bug 612858 before enabling the next line
+					  //current->spec |= Entry::Template;
 					  current->tArgLists->append(al);
 					  currentArgumentList = al;
 					  templateStr="<";
@@ -4564,7 +4569,7 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 					  else
 					    BEGIN( CopyArgComment );
 					}
-<CSConstraintType,CSConstraintName>"#"	{ // artifically inserted token to signal end of comment block
+<CSConstraintType,CSConstraintName>"#"	{ // artificially inserted token to signal end of comment block
                                           current->typeConstr->last()->docs = fullArgString;
   					}
 <CSConstraintType>"{"			{ // end of type constraint reached
@@ -4846,6 +4851,10 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
 <SkipRound>")"				{ if (--roundCount<=0)
 					    BEGIN ( lastSkipRoundContext );
 					}
+<SkipRound>\"				{
+  					  lastStringContext=SkipRound;
+					  BEGIN(SkipString);
+  					}
 <Bases>","|(">"({BN}*"{")?)|({BN}+"implements"{BN}*)	{ lineCount();
                                           if (insideProtocolList)
 					  {
@@ -5117,14 +5126,14 @@ TYPEDEFPREFIX (("typedef"{BN}+)?)((("volatile"|"const"){BN}+)?)
                                         }
 <DocLine>[^\n]*/"\n"			{ // whole line
   					  docBlock+=yytext;
-					  handleCommentBlock(docBlock,current->brief.isEmpty());
+					  handleCommentBlock(docBlock.data(),current->brief.isEmpty());
 					  BEGIN( docBlockContext );
   					}
 
  /* ---- Comments blocks ------ */
 
 <DocBlock>"*"*"*/"			{ // end of comment block
-  				          handleCommentBlock(docBlock,FALSE);
+  				          handleCommentBlock(docBlock.data(),FALSE);
 					  BEGIN(docBlockContext);
   					}
 <DocBlock>^{B}*("//")?{B}*"*"+/[^//]	{ // start of a comment line
@@ -5750,11 +5759,13 @@ void CLanguageScanner::parseCode(CodeOutputInterface & codeOutIntf,
                    int startLine,
                    int endLine,
                    bool inlineFragment,
-		   MemberDef *memberDef
+		   MemberDef *memberDef,
+		   bool showLineNumbers
                   )
 {
   ::parseCCode(codeOutIntf,scopeName,input,isExampleBlock,exampleName,
-               fileDef,startLine,endLine,inlineFragment,memberDef);
+               fileDef,startLine,endLine,inlineFragment,memberDef,
+	       showLineNumbers);
 }
 
 bool CLanguageScanner::needsPreprocessing(const QCString &extension)

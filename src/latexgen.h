@@ -97,7 +97,9 @@ class LatexGenerator : public OutputGenerator
 
     void startMemberSections() {}
     void endMemberSections() {} 
-    void startMemberHeader();
+    void startHeaderSection() {}
+    void endHeaderSection() {}
+    void startMemberHeader(const char *);
     void endMemberHeader();
     void startMemberSubtitle() {}
     void endMemberSubtitle() {}
@@ -215,11 +217,11 @@ class LatexGenerator : public OutputGenerator
     void startMemberDocName(bool) {}
     void endMemberDocName() {}
     void startParameterType(bool,const char *);
-    void endParameterType() {}
-    void startParameterName(bool) {}
-    void endParameterName(bool,bool,bool) {}
-    void startParameterList(bool) {}
-    void endParameterList() {}
+    void endParameterType();
+    void startParameterName(bool);
+    void endParameterName(bool,bool,bool);
+    void startParameterList(bool);
+    void endParameterList();
 
     void startConstraintList(const char *);
     void startConstraintParam();

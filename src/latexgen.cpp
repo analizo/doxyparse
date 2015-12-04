@@ -92,7 +92,7 @@ void LatexGenerator::init()
   QCString latex_command = Config_getString("LATEX_CMD_NAME");
   QCString mkidx_command = Config_getString("MAKEINDEX_CMD_NAME");
   // end insertion by KONNO Akihisa <konno@researchers.jp> 2002-03-05
-  QTextStream t(&file);
+  FTextStream t(&file);
   if (!Config_getBool("USE_PDFLATEX")) // use plain old latex
   {
     t << "all: clean refman.dvi" << endl
@@ -166,7 +166,7 @@ void LatexGenerator::init()
   createSubDirs(d);
 }
 
-static void writeDefaultHeaderPart1(QTextStream &t)
+static void writeDefaultHeaderPart1(FTextStream &t)
 {
   // part 1
 
@@ -267,7 +267,7 @@ static void writeDefaultHeaderPart1(QTextStream &t)
 
 }
 
-static void writeDefaultHeaderPart2(QTextStream &t)
+static void writeDefaultHeaderPart2(FTextStream &t)
 {
   // part 2
   t << "}\\\\" << endl
@@ -275,7 +275,7 @@ static void writeDefaultHeaderPart2(QTextStream &t)
     << "{\\large ";
 }
 
-static void writeDefaultHeaderPart3(QTextStream &t)
+static void writeDefaultHeaderPart3(FTextStream &t)
 {
   // part 3
   t << " Doxygen " << versionString << "}\\\\" << endl
@@ -296,7 +296,7 @@ static void writeDefaultHeaderPart3(QTextStream &t)
   }
 }
 
-static void writeDefaultStyleSheetPart1(QTextStream &t)
+static void writeDefaultStyleSheetPart1(FTextStream &t)
 {
   // part 1
   t << "\\NeedsTeXFormat{LaTeX2e}\n"
@@ -329,13 +329,14 @@ static void writeDefaultStyleSheetPart1(QTextStream &t)
   t << "\\rfoot[\\fancyplain{}{\\bfseries\\scriptsize%\n  ";
 }
 
-static void writeDefaultStyleSheetPart2(QTextStream &t)
+static void writeDefaultStyleSheetPart2(FTextStream &t)
 {
   t << "\\lfoot[]{\\fancyplain{}{\\bfseries\\scriptsize%\n  ";
 }
 
-static void writeDefaultStyleSheetPart3(QTextStream &t)
+static void writeDefaultStyleSheetPart3(FTextStream &t)
 {
+  static bool latexSourceCode = Config_getBool("LATEX_SOURCE_CODE");
   t << "}}\n";
   t << "\\cfoot{}\n\n";
   t << "%---------- Internal commands used in this style file ----------------\n\n";
@@ -365,13 +366,27 @@ static void writeDefaultStyleSheetPart3(QTextStream &t)
        "  \\normalsize%\n"
        "}\n\n";
   t << "% Used by @code ... @endcode\n"
-       "\\newenvironment{DoxyCode}{%\n"
-       "  \\footnotesize%\n"
-       "  \\verbatim%\n"
-       "}{%\n"
-       "  \\endverbatim%\n"
-       "  \\normalsize%\n"
-       "}\n\n";
+       "\\newenvironment{DoxyCode}{%\n";
+  if (latexSourceCode)
+  {
+    t << "\n\n\\begin{footnotesize}\\begin{alltt}%" << endl;
+  }
+  else
+  {
+    t << "  \\footnotesize%\n"
+         "  \\verbatim%\n";
+  }
+  t << "}{%\n";
+  if (latexSourceCode)
+  {
+    t << "\\end{alltt}\\end{footnotesize}%" << endl; 
+  }
+  else
+  {
+    t << "  \\endverbatim%\n"
+         "  \\normalsize%\n";
+  }
+  t << "}\n\n";
   t << "% Used by @example, @include, @includelineno and @dontinclude\n"
        "\\newenvironment{DoxyCodeInclude}{%\n"
        "  \\DoxyCode%\n"
@@ -529,6 +544,11 @@ static void writeDefaultStyleSheetPart3(QTextStream &t)
        "    \\end{description}%\n"
        "  \\end{DoxyDesc}%\n"
        "}\n\n";
+  t << "% is used for parameters within a detailed function description\n"
+       "\\newenvironment{DoxyParamCaption}{%\n"
+       "  \\renewcommand{\\item}[2][]{##1 {\\em ##2}}%\n"
+       "  }{%\n"
+       "}\n\n";
   t << "% Used by return value lists\n"
        "\\newenvironment{DoxyRetVals}[1]{%\n"
        "  \\begin{DoxyDesc}{#1}%\n"
@@ -628,7 +648,7 @@ static void writeDefaultStyleSheetPart3(QTextStream &t)
 
 void LatexGenerator::writeHeaderFile(QFile &f)
 {
-  QTextStream t(&f);
+  FTextStream t(&f);
   writeDefaultHeaderPart1(t);
   t << "Your title here";
   writeDefaultHeaderPart2(t);
@@ -638,8 +658,8 @@ void LatexGenerator::writeHeaderFile(QFile &f)
 
 void LatexGenerator::writeStyleSheetFile(QFile &f)
 {
-  QTextStream t(&f);
-  t.setEncoding(QTextStream::UnicodeUTF8);
+  FTextStream t(&f);
+  //t.setEncoding(QTextStream::UnicodeUTF8);
 
   writeDefaultStyleSheetPart1(t);
   QCString &projectName = Config_getString("PROJECT_NAME");
@@ -855,7 +875,7 @@ void LatexGenerator::startIndexSection(IndexSections is)
 
 void LatexGenerator::endIndexSection(IndexSections is)
 {
-  static bool compactLatex = Config_getBool("COMPACT_LATEX");
+  //static bool compactLatex = Config_getBool("COMPACT_LATEX");
   static bool sourceBrowser = Config_getBool("SOURCE_BROWSER");
   static QCString latexHeader = Config_getString("LATEX_HEADER");
   switch (is)
@@ -914,7 +934,8 @@ void LatexGenerator::endIndexSection(IndexSections is)
         {
           if (!gd->isReference())
           {
-            if (compactLatex) t << "\\input"; else t << "\\include";
+            //if (compactLatex) t << "\\input"; else t << "\\include";
+            t << "\\input"; 
             t << "{" << gd->getOutputFileBase() << "}\n";
           }
         }
@@ -937,7 +958,8 @@ void LatexGenerator::endIndexSection(IndexSections is)
         {
           if (dd->isLinkableInProject())
           {
-            if (compactLatex) t << "\\input"; else t << "\\include";
+            //if (compactLatex) t << "\\input"; else t << "\\include";
+            t << "\\input"; 
             t << "{" << dd->getOutputFileBase() << "}\n";
           }
         }
@@ -960,7 +982,8 @@ void LatexGenerator::endIndexSection(IndexSections is)
         {
           if (nd->isLinkableInProject())
           {
-            if (compactLatex) t << "\\input"; else t << "\\include";
+            //if (compactLatex) t << "\\input"; else t << "\\include";
+            t << "\\input"; 
             t << "{" << nd->getOutputFileBase() << "}\n";
           }
           ++nli;
@@ -984,7 +1007,8 @@ void LatexGenerator::endIndexSection(IndexSections is)
         {
           if (cd->isLinkableInProject() && cd->templateMaster()==0)
           {
-            if (compactLatex) t << "\\input"; else t << "\\include";
+            //if (compactLatex) t << "\\input"; else t << "\\include";
+            t << "\\input"; 
             t << "{" << cd->getOutputFileBase() << "}\n";
           } 
         }
@@ -1006,17 +1030,20 @@ void LatexGenerator::endIndexSection(IndexSections is)
                 t << "}\n\\input{" << fd->getOutputFileBase() << "}\n";
                 if (sourceBrowser && m_prettyCode && fd->generateSourceFile())
                 {
-                  t << "\\include{" << fd->getSourceFileBase() << "}\n";
+                  //t << "\\include{" << fd->getSourceFileBase() << "}\n";
+                  t << "\\input{" << fd->getSourceFileBase() << "}\n";
                 }
                 isFirst=FALSE;
               }
               else
               {
-                if (compactLatex) t << "\\input" ; else t << "\\include";
+                //if (compactLatex) t << "\\input" ; else t << "\\include";
+                t << "\\input" ; 
                 t << "{" << fd->getOutputFileBase() << "}\n";
                 if (sourceBrowser && m_prettyCode && fd->generateSourceFile())
                 {
-                  t << "\\include{" << fd->getSourceFileBase() << "}\n";
+                  //t << "\\include{" << fd->getSourceFileBase() << "}\n";
+                  t << "\\input{" << fd->getSourceFileBase() << "}\n";
                 }
               }
             }
@@ -1037,7 +1064,8 @@ void LatexGenerator::endIndexSection(IndexSections is)
         }
         for (++pdi;(pd=pdi.current());++pdi)
         {
-          if (compactLatex) t << "\\input" ; else t << "\\include";
+          //if (compactLatex) t << "\\input" ; else t << "\\include";
+          t << "\\input"; 
           t << "{" << pd->getOutputFileBase() << "}\n";
         }
       }
@@ -1074,10 +1102,12 @@ void LatexGenerator::endIndexSection(IndexSections is)
   }
 }
 
-void LatexGenerator::writePageLink(const char *name, bool first)
+void LatexGenerator::writePageLink(const char *name, bool /*first*/)
 {
-  bool &compactLatex = Config_getBool("COMPACT_LATEX");
-  if (compactLatex || first) t << "\\input" ; else t << "\\include";
+  //bool &compactLatex = Config_getBool("COMPACT_LATEX");
+  // next is remove for bug615957
+  //if (compactLatex || first) t << "\\input" ; else t << "\\include";
+  t << "\\input" ; 
   t << "{" << name << "}\n";
 }
 
@@ -1380,7 +1410,7 @@ void LatexGenerator::endGroupHeader()
   t << "}" << endl;
 }
 
-void LatexGenerator::startMemberHeader()
+void LatexGenerator::startMemberHeader(const char *)
 {
   if (Config_getBool("COMPACT_LATEX")) 
   {
@@ -1817,7 +1847,7 @@ void LatexGenerator::startDotGraph()
 
 void LatexGenerator::endDotGraph(const DotClassGraph &g) 
 {
-  g.writeGraph(t,EPS,Config_getString("LATEX_OUTPUT"),relPath);
+  g.writeGraph(t,EPS,Config_getString("LATEX_OUTPUT"),fileName,relPath);
 }
 
 void LatexGenerator::startInclDepGraph() 
@@ -1826,7 +1856,7 @@ void LatexGenerator::startInclDepGraph()
 
 void LatexGenerator::endInclDepGraph(const DotInclDepGraph &g) 
 {
-  g.writeGraph(t,EPS,Config_getString("LATEX_OUTPUT"),relPath);
+  g.writeGraph(t,EPS,Config_getString("LATEX_OUTPUT"),fileName,relPath);
 }
 
 void LatexGenerator::startGroupCollaboration() 
@@ -1835,7 +1865,7 @@ void LatexGenerator::startGroupCollaboration()
 
 void LatexGenerator::endGroupCollaboration(const DotGroupCollaboration &g) 
 {
-  g.writeGraph(t,EPS,Config_getString("LATEX_OUTPUT"),relPath);
+  g.writeGraph(t,EPS,Config_getString("LATEX_OUTPUT"),fileName,relPath);
 }
 
 void LatexGenerator::startCallGraph() 
@@ -1844,7 +1874,7 @@ void LatexGenerator::startCallGraph()
 
 void LatexGenerator::endCallGraph(const DotCallGraph &g) 
 {
-  g.writeGraph(t,EPS,Config_getString("LATEX_OUTPUT"),relPath);
+  g.writeGraph(t,EPS,Config_getString("LATEX_OUTPUT"),fileName,relPath);
 }
 
 void LatexGenerator::startDirDepGraph() 
@@ -1853,7 +1883,7 @@ void LatexGenerator::startDirDepGraph()
 
 void LatexGenerator::endDirDepGraph(const DotDirDeps &g) 
 {
-  g.writeGraph(t,EPS,Config_getString("LATEX_OUTPUT"),relPath);
+  g.writeGraph(t,EPS,Config_getString("LATEX_OUTPUT"),fileName,relPath);
 }
 
 void LatexGenerator::startDescription() 
@@ -1918,13 +1948,49 @@ void LatexGenerator::endParamList()
   t << "\\end{Desc}" << endl;
 }
 
-void LatexGenerator::startParameterType(bool first,const char *key)
+void LatexGenerator::startParameterList(bool openBracket)
 {
-  if (!first)
+  /* start of ParameterType ParameterName list */
+  if (openBracket) t << "(";
+  t << endl << "\\begin{DoxyParamCaption}" << endl;
+}
+
+void LatexGenerator::endParameterList()
+{
+}
+
+
+void LatexGenerator::startParameterType(bool /*first*/,const char *key)
+{
+  t << "\\item[{";
+  t << key;
+//  if (!first)
+//  {
+//    t << "\\/ " << key << " ";
+//  }
+}
+
+void LatexGenerator::endParameterType()
+{
+  t << "}]";
+}
+
+void LatexGenerator::startParameterName(bool /*oneArgOnly*/)
+{
+  t << "{";
+}
+
+void LatexGenerator::endParameterName(bool last,bool /* emptyList */,bool closeBracket)
+{
+  t << "}" << endl;
+
+  if (last)
   {
-    t << "\\/ " << key << " ";
+    t << "\\end{DoxyParamCaption}" << endl;
+    if (closeBracket) t << ")";
   }
 }
+
 
 void LatexGenerator::printDoc(DocNode *n,const char *langExt)
 {
@@ -2015,27 +2081,27 @@ void LatexGenerator::escapeMakeIndexChars(const char *s)
 
 void LatexGenerator::startCodeFragment()
 {
-  if (m_prettyCode)
-  {
-    t << endl << endl;
-    t << "\\begin{footnotesize}\\begin{alltt}\n";
-  }
-  else
-  {
+  //if (m_prettyCode)
+  //{
+  //  t << endl << endl;
+  //  t << "\\begin{footnotesize}\\begin{alltt}\n";
+  //}
+  //else
+  //{
     t << "\n\\begin{DoxyCode}\n";
-  }
+  //}
 }
 
 void LatexGenerator::endCodeFragment()
 {
-  if (m_prettyCode)
-  {
-    t << "\\end{alltt}\\end{footnotesize}" << endl; 
-  }
-  else
-  {
+  //if (m_prettyCode)
+  //{
+  //  t << "\\end{alltt}\\end{footnotesize}" << endl; 
+  //}
+  //else
+  //{
     t << "\\end{DoxyCode}\n";
-  }
+  //}
 }
 
 void LatexGenerator::writeLineNumber(const char *ref,const char *fileName,const char *anchor,int l)

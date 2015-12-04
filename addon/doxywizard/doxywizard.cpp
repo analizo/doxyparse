@@ -4,6 +4,12 @@
 #include "expert.h"
 #include "wizard.h"
 
+#ifdef WIN32
+#include <windows.h>
+#endif
+
+#define MAX_RECENT_FILES 10
+
 const int messageTimeout = 5000; //!< status bar message timeout in millisec.
 
 MainWindow &MainWindow::instance()
@@ -31,6 +37,8 @@ MainWindow::MainWindow()
                   this,SLOT(resetToDefaults()));
   settings->addAction(tr("Use current settings at startup"),
                   this,SLOT(makeDefaults()));
+  settings->addAction(tr("Clear recent list"),
+                  this,SLOT(clearRecent()));
 
   QMenu *help = menuBar()->addMenu(tr("Help"));
   help->addAction(tr("Online manual"), 
@@ -101,14 +109,10 @@ MainWindow::MainWindow()
 
   setCentralWidget(topPart);
   statusBar()->showMessage(tr("Welcome to Doxygen"),messageTimeout);
-  loadSettings();
 
   m_runProcess = new QProcess;
   m_running = false;
   m_timer = new QTimer;
-  updateLaunchButtonState();
-  m_modified = false;
-  updateTitle();
 
   // connect signals and slots
   connect(tabs,SIGNAL(currentChanged(int)),SLOT(selectTab(int)));
@@ -123,6 +127,12 @@ MainWindow::MainWindow()
   connect(m_saveLog,SIGNAL(clicked()),SLOT(saveLog()));
   connect(showSettings,SIGNAL(clicked()),SLOT(showSettings()));
   connect(m_expert,SIGNAL(changed()),SLOT(configChanged()));
+
+  loadSettings();
+  updateLaunchButtonState();
+  m_modified = false;
+  updateTitle();
+  m_wizard->refresh();
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -274,7 +284,27 @@ void MainWindow::makeDefaults()
     //printf("MainWindow:makeDefaults()\n");
     m_expert->saveSettings(&m_settings);
     m_settings.setValue(QString::fromAscii("wizard/loadsettings"), true);
+    m_settings.sync();
   }
+}
+
+void MainWindow::clearRecent()
+{
+  if (QMessageBox::question(this,tr("Clear the list of recent files?"),
+                        tr("Do you want to clear the list of recently "
+                           "loaded configuration files?"),
+                        QMessageBox::Yes|
+                        QMessageBox::Cancel)==QMessageBox::Yes)
+  {
+    m_recentMenu->clear();
+    m_recentFiles.clear();
+    for (int i=0;i<MAX_RECENT_FILES;i++)
+    {
+      m_settings.setValue(QString().sprintf("recent/config%d",i++),QString::fromAscii(""));
+    }
+    m_settings.sync();
+  }
+  
 }
 
 void MainWindow::resetToDefaults()
@@ -288,6 +318,7 @@ void MainWindow::resetToDefaults()
     //printf("MainWindow:resetToDefaults()\n");
     m_expert->resetToDefaults();
     m_settings.setValue(QString::fromAscii("wizard/loadsettings"), false);
+    m_settings.sync();
     m_wizard->refresh();
   }
 }
@@ -298,6 +329,7 @@ void MainWindow::loadSettings()
   QVariant state        = m_settings.value(QString::fromAscii("main/state"),    QVariant::Invalid);
   QVariant wizState     = m_settings.value(QString::fromAscii("wizard/state"),  QVariant::Invalid);
   QVariant loadSettings = m_settings.value(QString::fromAscii("wizard/loadsettings"),  QVariant::Invalid);
+  QVariant workingDir   = m_settings.value(QString::fromAscii("wizard/workingdir"), QVariant::Invalid);
 
   if (geometry  !=QVariant::Invalid) restoreGeometry(geometry.toByteArray());
   if (state     !=QVariant::Invalid) restoreState   (state.toByteArray());
@@ -305,12 +337,19 @@ void MainWindow::loadSettings()
   if (loadSettings!=QVariant::Invalid && loadSettings.toBool())
   {
     m_expert->loadSettings(&m_settings);
+    if (workingDir!=QVariant::Invalid && QDir(workingDir.toString()).exists())
+    {
+      setWorkingDir(workingDir.toString());
+    }
   }
 
-  for (int i=0;i<10;i++)
+  for (int i=0;i<MAX_RECENT_FILES;i++)
   {
     QString entry = m_settings.value(QString().sprintf("recent/config%d",i)).toString();
-    if (!entry.isEmpty()) addRecentFile(entry);
+    if (!entry.isEmpty() && QFileInfo(entry).exists())
+    {
+      addRecentFile(entry);
+    }
   }
 
 }
@@ -322,6 +361,7 @@ void MainWindow::saveSettings()
   m_settings.setValue(QString::fromAscii("main/geometry"), saveGeometry());
   m_settings.setValue(QString::fromAscii("main/state"),    saveState());
   m_settings.setValue(QString::fromAscii("wizard/state"),  m_wizard->saveState());
+  m_settings.setValue(QString::fromAscii("wizard/workingdir"), m_workingDir->text());
 }
 
 void MainWindow::selectTab(int id)
@@ -335,7 +375,7 @@ void MainWindow::addRecentFile(const QString &fileName)
   if (i!=-1) m_recentFiles.removeAt(i);
   
   // not found
-  if (m_recentFiles.count() < 10) // append
+  if (m_recentFiles.count() < MAX_RECENT_FILES) // append
   {
     m_recentFiles.prepend(fileName);
   }
@@ -350,6 +390,10 @@ void MainWindow::addRecentFile(const QString &fileName)
   {
     m_recentMenu->addAction(str);
     m_settings.setValue(QString().sprintf("recent/config%d",i++),str);
+  }
+  for (;i<MAX_RECENT_FILES;i++)
+  {
+    m_settings.setValue(QString().sprintf("recent/config%d",i++),QString::fromAscii(""));
   }
 }
 
@@ -478,13 +522,15 @@ void MainWindow::showHtmlOutput()
 {
   QString indexFile = m_expert->getHtmlOutputIndex(m_workingDir->text());
   QFileInfo fi(indexFile);
+  // TODO: the following doesn't seem to work with IE
 #ifdef WIN32
-  QString indexUrl(QString::fromAscii("file:///"));
+  //QString indexUrl(QString::fromAscii("file:///"));
+  ShellExecute(NULL, L"open", fi.absoluteFilePath().utf16(), NULL, NULL, SW_SHOWNORMAL);
 #else
   QString indexUrl(QString::fromAscii("file://"));
-#endif
   indexUrl+=fi.absoluteFilePath();
   QDesktopServices::openUrl(QUrl(indexUrl));
+#endif
 }
 
 void MainWindow::saveLog()

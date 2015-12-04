@@ -25,6 +25,7 @@
 #define PREFRAG_END   "</pre></div>"
 
 class QFile;
+class FTextStream;
 
 class HtmlGenerator : public OutputGenerator
 {
@@ -59,8 +60,8 @@ class HtmlGenerator : public OutputGenerator
     void startProjectNumber();
     void endProjectNumber();
     void writeStyleInfo(int part);
-    void startTitleHead(const char *) { startTitle(); }
-    void endTitleHead(const char *,const char *) { endTitle(); }
+    void startTitleHead(const char *);
+    void endTitleHead(const char *,const char *);
     void startTitle() { t << "<h1>"; }
     void endTitle() { t << "</h1>"; }
     
@@ -99,7 +100,9 @@ class HtmlGenerator : public OutputGenerator
 
     void startMemberSections();
     void endMemberSections();
-    void startMemberHeader();
+    void startHeaderSection();
+    void endHeaderSection();
+    void startMemberHeader(const char *);
     void endMemberHeader();
     void startMemberSubtitle();
     void endMemberSubtitle();
@@ -245,9 +248,9 @@ class HtmlGenerator : public OutputGenerator
     { t << "<a name=\"" << anchor << "\"></a>"; }
     void linkableSymbol(int,const char *,Definition *,Definition *) {}
 
-    static void writeSearchFooter(QTextStream &t,const QCString &relPath);
+    static void writeSearchFooter(FTextStream &t,const QCString &relPath);
     static void writeSearchData(const char *dir);
-    static void generateSectionImages();
+    //static void generateSectionImages();
 
   private:
     QCString lastTitle;
@@ -259,6 +262,7 @@ class HtmlGenerator : public OutputGenerator
     HtmlGenerator(const HtmlGenerator &g);
 
     int col;
+    int m_sectionCount;
 };
 
 #endif

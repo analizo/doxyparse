@@ -46,7 +46,7 @@ class RTFGenerator : public OutputGenerator
     void writeFooter() {}
     void endFile();
     void clearBuffer();
-    void postProcess(QByteArray &);
+    //void postProcess(QByteArray &);
     
     void startIndexSection(IndexSections);
     void endIndexSection(IndexSections);
@@ -96,7 +96,9 @@ class RTFGenerator : public OutputGenerator
 
     void startMemberSections() {}
     void endMemberSections() {} 
-    void startMemberHeader() { startGroupHeader(); }
+    void startHeaderSection() {}
+    void endHeaderSection() {}
+    void startMemberHeader(const char *) { startGroupHeader(); }
     void endMemberHeader() { endGroupHeader(); }
     void startMemberSubtitle(); 
     void endMemberSubtitle(); 

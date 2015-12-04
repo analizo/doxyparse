@@ -82,6 +82,7 @@ class GroupDef : public Definition
     void findSectionsInDocumentation();
 
     void addListReferences();
+    void sortMemberLists();
 
     bool visited;    // number of times accessed for output - KPW
 
@@ -129,6 +130,7 @@ class GroupDef : public Definition
     void startMemberDocumentation(OutputList &ol);
     void endMemberDocumentation(OutputList &ol);
     void writeAuthorSection(OutputList &ol);
+    void writeSummaryLinks(OutputList &ol);
 
     QCString title;                      // title of the group
     bool titleSet;                       // true if title is not the same as the name

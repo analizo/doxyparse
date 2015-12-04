@@ -57,6 +57,7 @@ NamespaceDef::NamespaceDef(const char *df,int dl,
   memberGroupSDict->setAutoDelete(TRUE);
   visited=FALSE;
   m_subGrouping=Config_getBool("SUBGROUPING");
+  m_isCSharp = df && getLanguageFromFileName(df)==SrcLangExt_CSharp;
 }
 
 NamespaceDef::~NamespaceDef()
@@ -372,6 +373,41 @@ void NamespaceDef::writeAuthorSection(OutputList &ol)
   ol.popGeneratorState();
 }
 
+void NamespaceDef::writeSummaryLinks(OutputList &ol)
+{
+  ol.pushGeneratorState();
+  ol.disableAllBut(OutputGenerator::Html);
+  QListIterator<LayoutDocEntry> eli(
+      LayoutDocManager::instance().docEntries(LayoutDocManager::Namespace));
+  LayoutDocEntry *lde;
+  bool first=TRUE;
+  for (eli.toFirst();(lde=eli.current());++eli)
+  {
+    if ((lde->kind()==LayoutDocEntry::NamespaceClasses && classSDict && classSDict->declVisible()) || 
+        (lde->kind()==LayoutDocEntry::NamespaceNestedNamespaces && namespaceSDict && namespaceSDict->declVisible())
+       )
+    {
+      LayoutDocEntrySection *ls = (LayoutDocEntrySection*)lde;
+      QCString label = lde->kind()==LayoutDocEntry::NamespaceClasses ? "nested-classes" : "namespaces";
+      writeSummaryLink(ol,label,ls->title,first);
+    }
+    else if (lde->kind()== LayoutDocEntry::MemberDecl)
+    {
+      LayoutDocEntryMemberDecl *lmd = (LayoutDocEntryMemberDecl*)lde;
+      MemberList * ml = getMemberList(lmd->type);
+      if (ml && ml->declVisible())
+      {
+        writeSummaryLink(ol,ml->listTypeAsString(),lmd->title,first);
+      }
+    }
+  }
+  if (!first)
+  {
+    ol.writeString("  </div>\n");
+  }
+  ol.popGeneratorState();
+}
+
 void NamespaceDef::writeDocumentation(OutputList &ol)
 {
   bool fortranOpt = Config_getBool("OPTIMIZE_FOR_FORTRAN");
@@ -395,11 +431,11 @@ void NamespaceDef::writeDocumentation(OutputList &ol)
     writeNavigationPath(ol);
   }
   ol.endQuickIndices();
-  ol.startContents();
-  startTitle(ol,getOutputFileBase());
+  startTitle(ol,getOutputFileBase(),this);
   ol.parseText(pageTitle);
   addGroupListToTitle(ol,this);
   endTitle(ol,getOutputFileBase(),displayName());
+  ol.startContents();
   
   if (Doxygen::searchIndex)
   {
@@ -730,6 +766,20 @@ void NamespaceDef::combineUsingRelations()
   }
 }
 
+bool NamespaceSDict::declVisible() const
+{
+  SDict<NamespaceDef>::Iterator ni(*this);
+  NamespaceDef *nd;
+  for (ni.toFirst();(nd=ni.current());++ni)
+  {
+    if (nd->isLinkable())
+    {
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
 void NamespaceSDict::writeDeclaration(OutputList &ol,const char *title,bool localName)
 {
   if (count()==0) return; // no namespaces in the list
@@ -744,7 +794,7 @@ void NamespaceSDict::writeDeclaration(OutputList &ol,const char *title,bool loca
   if (!found) return; // no linkable namespaces in the list
 
   // write list of namespaces
-  ol.startMemberHeader();
+  ol.startMemberHeader("namespaces");
   bool javaOpt    = Config_getBool("OPTIMIZE_OUTPUT_JAVA");
   bool fortranOpt = Config_getBool("OPTIMIZE_FOR_FORTRAN");
 #if 0
@@ -833,14 +883,32 @@ void NamespaceDef::addMemberToList(MemberList::ListType lt,MemberDef *md)
   static bool sortBriefDocs = Config_getBool("SORT_BRIEF_DOCS");
   static bool sortMemberDocs = Config_getBool("SORT_MEMBER_DOCS");
   MemberList *ml = createMemberList(lt);
-  if (((ml->listType()&MemberList::declarationLists) && sortBriefDocs) ||
-      ((ml->listType()&MemberList::documentationLists) && sortMemberDocs)
-     )
+  ml->setNeedsSorting(
+      ((ml->listType()&MemberList::declarationLists) && sortBriefDocs) ||
+      ((ml->listType()&MemberList::documentationLists) && sortMemberDocs));
+  ml->append(md);
+
+#if 0
+  if (ml->needsSorting())
     ml->inSort(md);
   else
     ml->append(md);
+#endif
+
   if (ml->listType()&MemberList::declarationLists) md->setSectionList(this,ml);
 }
+
+void NamespaceDef::sortMemberLists()
+{
+  MemberList *ml = m_memberLists.first();
+  while (ml)
+  {
+    if (ml->needsSorting()) { ml->sort(); ml->setNeedsSorting(FALSE); }
+    ml = m_memberLists.next();
+  }
+}
+
+
 
 MemberList *NamespaceDef::getMemberList(MemberList::ListType lt) const
 {
@@ -883,7 +951,7 @@ bool NamespaceDef::isLinkableInProject() const
     return TRUE;
   }
   return !name().isEmpty() && name().at(i)!='@' && // not anonymous
-    hasDocumentation() &&  // documented
+    (hasDocumentation() || m_isCSharp) &&  // documented
     !isReference() &&      // not an external reference
     !isHidden() &&         // not hidden
     !isArtificial() &&     // or artificial
@@ -894,7 +962,6 @@ bool NamespaceDef::isLinkable() const
 {
   return isLinkableInProject() || isReference();
 }
-
 
 MemberDef * NamespaceDef::getMemberByName(const QCString &n) const
 {

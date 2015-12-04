@@ -25,7 +25,7 @@
 class Definition;
 class MemberDef;
 class OutputList;
-class QTextStream;
+class FTextStream;
 
 /** \brief Abstract interface for index generators. */
 class IndexIntf
@@ -252,7 +252,7 @@ extern int documentedHtmlFiles;
 extern int documentedPages;
 extern int documentedDirs;
 
-void startTitle(OutputList &ol,const char *fileName);
+void startTitle(OutputList &ol,const char *fileName,Definition *def=0);
 void endTitle(OutputList &ol,const char *fileName,const char *name);
 void startFile(OutputList &ol,const char *name,const char *manName,
                const char *title,HighlightedItem hli=HLI_None,
@@ -268,7 +268,6 @@ void addNamespaceMemberNameToIndex(MemberDef *md);
 
 // search engine
 void writeJavascriptSearchIndex();
-void writeSearchCategories(QTextStream &t);
-void writeSearchStyleSheet();
+void writeSearchCategories(FTextStream &t);
 
 #endif

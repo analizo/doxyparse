@@ -67,6 +67,7 @@ class NamespaceDef : public Definition
     void addMembersToMemberGroup();
     void distributeMemberGroupDocumentation();
     void findSectionsInDocumentation();
+    void sortMemberLists();
 
     virtual Definition *findInnerCompound(const char *name);
     void addInnerCompound(Definition *d);
@@ -102,6 +103,7 @@ class NamespaceDef : public Definition
     void writeAuthorSection(OutputList &ol);
     void startMemberDocumentation(OutputList &ol);
     void endMemberDocumentation(OutputList &ol);
+    void writeSummaryLinks(OutputList &ol);
 
     QCString              fileName;
     QStrList              files;
@@ -116,6 +118,7 @@ class NamespaceDef : public Definition
     ClassSDict           *classSDict;
     NamespaceSDict       *namespaceSDict;
     bool                  m_subGrouping;
+    bool                  m_isCSharp;
 };
 
 class NamespaceList : public QList<NamespaceDef>
@@ -156,6 +159,7 @@ class NamespaceSDict : public SDict<NamespaceDef>
                    );
     }
     void writeDeclaration(OutputList &ol,const char *title,bool localName=FALSE);
+    bool declVisible() const;
 };
 
 

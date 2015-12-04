@@ -680,7 +680,7 @@ static void buildFileList(EntryNav *rootNav)
           "the second argument in the \\file statement ",
           root->name.data()
                   );
-      if (ambig) // name is ambigious
+      if (ambig) // name is ambiguous
       {
         text+="matches the following input files:\n";
         text+=showFileDefMatches(Doxygen::inputNameDict,root->name);
@@ -736,7 +736,7 @@ static void addIncludeFile(ClassDef *cd,FileDef *ifd,Entry *root)
                   "the argument of the \\class, \\struct, \\union, or \\include command ",
                   includeFile.data()
                  );
-      if (ambig) // name is ambigious
+      if (ambig) // name is ambiguous
       {
         text+="matches the following input files:\n";
         text+=showFileDefMatches(Doxygen::inputNameDict,root->includeFile);
@@ -2072,7 +2072,7 @@ static MemberDef *addVariableToFile(
   {
     if (!root->type.isEmpty() && !root->name.isEmpty())
     {
-      if (name.at(0)=='@') // dummy variable representing annonymous union
+      if (name.at(0)=='@') // dummy variable representing anonymous union
         def=root->type;
       else
         def=root->type+" "+name+root->args;
@@ -2479,8 +2479,8 @@ static void addVariable(EntryNav *rootNav,int isFuncPtr=-1)
     {
       MemberDef *md=0;
 
-      // if cd is an annonymous scope we insert the member 
-      // into a non-annonymous scope as well. This is needed to
+      // if cd is an anonymous scope we insert the member 
+      // into a non-anonymous scope as well. This is needed to
       // be able to refer to it using \var or \fn
 
       //int indentDepth=0;
@@ -4411,7 +4411,7 @@ static void findInheritedTemplateInstances()
   for (;(rootNav=edi.current());++edi)
   {
     ClassDef *cd;
-    // strip any annonymous scopes first 
+    // strip any anonymous scopes first 
     QCString bName=stripAnonymousNamespaceScope(rootNav->name());
     bName=stripTemplateSpecifiersFromScope(bName);
     Debug::print(Debug::Classes,0,"  Inheritance: Class %s : \n",bName.data());
@@ -4434,7 +4434,7 @@ static void findUsedTemplateInstances()
   for (;(rootNav=edi.current());++edi)
   {
     ClassDef *cd;
-    // strip any annonymous scopes first 
+    // strip any anonymous scopes first 
     QCString bName=stripAnonymousNamespaceScope(rootNav->name());
     bName=stripTemplateSpecifiersFromScope(bName);
     Debug::print(Debug::Classes,0,"  Usage: Class %s : \n",bName.data());
@@ -4460,7 +4460,7 @@ static void computeClassRelations()
     rootNav->loadEntry(g_storage);
     Entry *root = rootNav->entry();
 
-    // strip any annonymous scopes first 
+    // strip any anonymous scopes first 
     QCString bName=stripAnonymousNamespaceScope(rootNav->name());
     bName=stripTemplateSpecifiersFromScope(bName);
     Debug::print(Debug::Classes,0,"  Relations: Class %s : \n",bName.data());
@@ -4500,7 +4500,7 @@ static void computeTemplateClassRelations()
     QCString bName=stripAnonymousNamespaceScope(root->name);
     bName=stripTemplateSpecifiersFromScope(bName);
     ClassDef *cd=getClass(bName);
-    // strip any annonymous scopes first 
+    // strip any anonymous scopes first 
     QDict<ClassDef> *templInstances = 0;
     if (cd && (templInstances=cd->getTemplateInstances()))
     {
@@ -4968,16 +4968,19 @@ static bool findGlobalMember(EntryNav *rootNav,
     {
       QCString fullFuncDecl=decl;
       if (root->argList) fullFuncDecl+=argListToString(root->argList,TRUE);
-      warn(root->fileName,root->startLine,
-           "Warning: no matching file member found for \n%s",fullFuncDecl.data());   
+      QCString warnMsg =
+         QCString("Warning: no matching file member found for \n")+fullFuncDecl;
       if (mn->count()>0)
       {
-        warn_cont("Possible candidates:\n");
+        warnMsg+="Possible candidates:\n";
         for (mni.toFirst();(md=mni.current());++mni)
         {
-          warn_cont("  %s\n",md->declaration());
+          warnMsg+="  ";
+          warnMsg+=md->declaration();
+          warnMsg+='\n';
         }
       }
+      warn(root->fileName,root->startLine,warnMsg);
     }
   }
   else // got docs for an undefined member!
@@ -5638,10 +5641,9 @@ static void findMember(EntryNav *rootNav,
               }
             }
 
-            warn(root->fileName,root->startLine,
-                "Warning: no %smatching class member found for",
-                noMatchCount>1 ? "uniquely " : ""
-                );   
+            QCString warnMsg = "Warning: no ";
+            if (noMatchCount>1) warnMsg+="uniquely ";
+            warnMsg+="matching class member found for \n";
 
             if (root->tArgLists)
             {
@@ -5649,17 +5651,21 @@ static void findMember(EntryNav *rootNav,
               ArgumentList *al;
               for (;(al=alli.current());++alli)
               {
-                warn_cont("  template %s\n",tempArgListToString(al).data());
+                warnMsg+="  template ";
+                warnMsg+=tempArgListToString(al);
+                warnMsg+='\n';
               }
             }
             QCString fullFuncDecl=funcDecl.copy();
             if (isFunc) fullFuncDecl+=argListToString(root->argList,TRUE);
 
-            warn_cont("  %s\n",fullFuncDecl.data());
+            warnMsg+="  ";
+            warnMsg+=fullFuncDecl;
+            warnMsg+='\n';
 
             if (candidates>0)
             {
-              warn_cont("Possible candidates:\n");
+              warnMsg+="Possible candidates:\n";
               for (mni.toFirst();(md=mni.current());++mni)
               {
                 ClassDef *cd=md->getClassDef();
@@ -5668,32 +5674,57 @@ static void findMember(EntryNav *rootNav,
                   LockingPtr<ArgumentList> templAl = md->templateArguments();
                   if (templAl!=0)
                   {
-                    warn_cont("  template %s\n",tempArgListToString(templAl.pointer()).data());
+                    warnMsg+="  template ";
+                    warnMsg+=tempArgListToString(templAl.pointer());
+                    warnMsg+='\n';
                   }
-                  warn_cont("  ");
+                  warnMsg+="  ";
                   if (md->typeString()) 
                   {
-                    warn_cont("%s ",md->typeString());
+                    warnMsg+=md->typeString();
+                    warnMsg+=' ';
                   }
                   QCString qScope = cd->qualifiedNameWithTemplateParameters();
-                  if (!qScope.isEmpty()) warn_cont("%s::%s",qScope.data(),md->name().data());
-                  if (md->argsString()) warn_cont("%s",md->argsString());
-                  if (noMatchCount>1) warn_cont(" at line %d of file %s",md->getDefLine(),md->getDefFileName().data());
-                  warn_cont("\n");
+                  if (!qScope.isEmpty()) 
+                    warnMsg+=qScope+"::"+md->name();
+                  if (md->argsString()) 
+                    warnMsg+=md->argsString();
+                  if (noMatchCount>1) 
+                  {
+                    QCString lineFile;
+                    lineFile.sprintf(" at line %d of file ",md->getDefLine());
+                    warnMsg+=lineFile+md->getDefFileName();
+                  }
+
+                  warnMsg+='\n';
                 }
               }
             }
+            warn(root->fileName,root->startLine,warnMsg);
           }
         }
         else if (cd) // member specialization
         {
+          MemberNameIterator mni(*mn);
+          MemberDef *declMd=0;
+          MemberDef *md=0;
+          for (mni.toFirst();(md=mni.current());++mni)
+          {
+            if (md->getClassDef()==cd) 
+            {
+              // TODO: we should probably also check for matching arguments
+              declMd = md;
+              break;
+            }
+          }
           MemberDef::MemberType mtype=MemberDef::Function;
           ArgumentList *tArgList = new ArgumentList;
           //  getTemplateArgumentsFromName(cd->name()+"::"+funcName,root->tArgLists);
-          MemberDef *md=new MemberDef(
+          md=new MemberDef(
               root->fileName,root->startLine,
               funcType,funcName,funcArgs,exceptions,
-              root->protection,root->virt,root->stat,Member,
+              declMd ? declMd->protection() : root->protection,
+              root->virt,root->stat,Member,
               mtype,tArgList,root->argList);
           //printf("new specialized member %s args=`%s'\n",md->name().data(),funcArgs.data());
           md->setTagInfo(rootNav->tagInfo());
@@ -7207,6 +7238,48 @@ static void addSourceReferences()
 }
 
 //----------------------------------------------------------------------------
+
+static void sortMemberLists()
+{
+  // sort class member lists
+  ClassSDict::Iterator cli(*Doxygen::classSDict);
+  ClassDef *cd=0;
+  for (cli.toFirst();(cd=cli.current());++cli)
+  {
+    cd->sortMemberLists();
+  }
+
+  // sort namespace member lists
+  NamespaceSDict::Iterator nli(*Doxygen::namespaceSDict);
+  NamespaceDef *nd=0;
+  for (nli.toFirst();(nd=nli.current());++nli)
+  {
+    nd->sortMemberLists();
+  }
+
+  // sort file member lists
+  FileNameListIterator fnli(*Doxygen::inputNameList); 
+  FileName *fn;
+  for (;(fn=fnli.current());++fnli)
+  {
+    FileNameIterator fni(*fn);
+    FileDef *fd;
+    for (;(fd=fni.current());++fni)
+    {
+      fd->sortMemberLists();
+    }
+  }
+
+  // sort group member lists
+  GroupSDict::Iterator gli(*Doxygen::groupSDict);
+  GroupDef *gd;
+  for (gli.toFirst();(gd=gli.current());++gli)
+  {
+    gd->sortMemberLists();
+  }
+}
+
+//----------------------------------------------------------------------------
 // generate the documentation of all classes
   
 static void generateClassList(ClassSDict &classSDict)
@@ -8040,7 +8113,7 @@ static void buildExampleList(EntryNav *rootNav)
     {
       PageDef *pd=new PageDef(root->fileName,root->startLine,
           root->name,root->brief+root->doc+root->inbodyDocs,root->args);
-      pd->setFileName(convertNameToFile(pd->name()+"-example",TRUE,FALSE));
+      pd->setFileName(convertNameToFile(pd->name()+"-example",FALSE,TRUE));
       pd->addSectionsToDefinition(root->anchors);
       //pi->addSections(root->anchors);
 
@@ -8090,6 +8163,7 @@ static void generateExampleDocs()
     startTitle(*g_outputList,n);
     g_outputList->docify(pd->name());
     endTitle(*g_outputList,n,0);
+    g_outputList->startContents();
     g_outputList->parseDoc(pd->docFile(),                            // file
                          pd->docLine(),                            // startLine
                          pd,                                       // context
@@ -8099,6 +8173,7 @@ static void generateExampleDocs()
                          TRUE,                                     // is example
                          pd->name()
                         );
+    g_outputList->endContents();
     endFile(*g_outputList);
   }
   g_outputList->enable(OutputGenerator::Man);
@@ -9430,7 +9505,7 @@ void readConfiguration(int argc, char **argv)
 
   /* Perlmod wants to know the path to the config file.*/
   QFileInfo configFileInfo(configName);
-  setPerlModDoxyfile(configFileInfo.absFilePath());
+  setPerlModDoxyfile(configFileInfo.absFilePath().data());
 
 }
 
@@ -10111,6 +10186,9 @@ void parseInput()
   addListReferences();
   generateXRefPages();
 
+  msg("Sorting member lists...\n");
+  sortMemberLists();
+
   if (Config_getBool("SHOW_DIRECTORIES") && Config_getBool("DIRECTORY_GRAPH"))
   {
     msg("Computing dependencies between directories...\n");
@@ -10179,7 +10257,7 @@ void generateOutput()
     if (generateEclipseHelp) Doxygen::indexList.addIndex(new EclipseHelp);
     if (generateHtmlHelp) Doxygen::indexList.addIndex(new HtmlHelp);
     if (generateQhp)      Doxygen::indexList.addIndex(new Qhp);
-    if (generateTreeView) Doxygen::indexList.addIndex(new FTVHelp);
+    if (generateTreeView) Doxygen::indexList.addIndex(new FTVHelp(TRUE));
     if (generateDocSet)   Doxygen::indexList.addIndex(new DocSets);
     Doxygen::indexList.initialize();
     Doxygen::indexList.addImageFile("tab_r.gif");
@@ -10187,7 +10265,7 @@ void generateOutput()
     Doxygen::indexList.addImageFile("tab_b.gif");
     Doxygen::indexList.addStyleSheetFile("tabs.css");
     Doxygen::indexList.addImageFile("doxygen.png");
-    if (Config_getBool("HTML_DYNAMIC_SECTIONS")) HtmlGenerator::generateSectionImages();
+    //if (Config_getBool("HTML_DYNAMIC_SECTIONS")) HtmlGenerator::generateSectionImages();
     copyStyleSheet();
   }
   if (Config_getBool("GENERATE_LATEX")) 
@@ -10276,7 +10354,6 @@ void generateOutput()
       exit(1);
     }
     HtmlGenerator::writeSearchData(searchDirName);
-    writeSearchStyleSheet();
     if (!serverBasedSearch) // client side search index
     {
       writeJavascriptSearchIndex();
@@ -10360,15 +10437,6 @@ void generateOutput()
   
   //writeDirDependencyGraph(Config_getString("HTML_OUTPUT"));
   
-  if (Config_getBool("GENERATE_RTF"))
-  {
-    msg("Combining RTF output...\n");
-    if (!RTFGenerator::preProcessFileInplace(Config_getString("RTF_OUTPUT"),"refman.rtf"))
-    {
-      err("An error occurred during post-processing the RTF files!\n");
-    }
-  }
-  
   if (Doxygen::formulaList.count()>0 && Config_getBool("GENERATE_HTML"))
   {
     msg("Generating bitmaps for formulas in HTML...\n");
@@ -10384,6 +10452,7 @@ void generateOutput()
   //  FTVHelp::getInstance()->finalize();
   //}
 
+  msg("finalizing index lists...\n");
   Doxygen::indexList.finalize();
 
   if (!Config_getString("GENERATE_TAGFILE").isEmpty())
@@ -10424,10 +10493,12 @@ void generateOutput()
     msg("Running html help compiler...\n");
     QString oldDir = QDir::currentDirPath();
     QDir::setCurrent(Config_getString("HTML_OUTPUT"));
+    portable_sysTimerStart();
     if (portable_system(Config_getString("HHC_LOCATION"), "index.hhp", FALSE))
     {
       err("Error: failed to run html help compiler on index.hhp\n");
     }
+    portable_sysTimerStop();
     QDir::setCurrent(oldDir);
   }
   if ( Config_getBool("GENERATE_HTML") &&
@@ -10441,10 +10512,12 @@ void generateOutput()
     QCString const args = QCString().sprintf("%s -o \"%s\"", qhpFileName.data(), qchFileName.data());
     QString const oldDir = QDir::currentDirPath();
     QDir::setCurrent(Config_getString("HTML_OUTPUT"));
+    portable_sysTimerStart();
     if (portable_system(Config_getString("QHG_LOCATION"), args.data(), FALSE))
     {
       err("Error: failed to run qhelpgenerator on index.qhp\n");
     }
+    portable_sysTimerStop();
     QDir::setCurrent(oldDir);
   }
 
@@ -10455,12 +10528,27 @@ void generateOutput()
     Doxygen::searchIndex->write(Config_getString("HTML_OUTPUT")+"/search/search.idx");
   }
 
+  if (Config_getBool("GENERATE_RTF"))
+  {
+    msg("Combining RTF output...\n");
+    if (!RTFGenerator::preProcessFileInplace(Config_getString("RTF_OUTPUT"),"refman.rtf"))
+    {
+      err("An error occurred during post-processing the RTF files!\n");
+    }
+  }
+
+  DotManager::instance()->run();
+
   if (Debug::isFlagSet(Debug::Time))
   {
     msg("Total elapsed time: %.3f seconds\n(of which %.3f seconds waiting for external tools to finish)\n",
          ((double)Doxygen::runningTime.elapsed())/1000.0,
          portable_getSysElapsedTime()
         );
+  }
+  else
+  {
+    msg("finished...\n");
   }
 
   /**************************************************************************

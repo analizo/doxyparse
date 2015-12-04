@@ -118,6 +118,7 @@ class MemberList : public QList<MemberDef>
     MemberList(ListType lt);
    ~MemberList();
     ListType listType() const { return m_listType; }
+    QCString listTypeAsString() const;
     bool insert(uint index,const MemberDef *md);
     void inSort(const MemberDef *md);
     void append(const MemberDef *md);
@@ -132,6 +133,7 @@ class MemberList : public QList<MemberDef>
     int friendCount() const    { ASSERT(m_numDecMembers!=-1); return m_friendCnt;  }
     int numDecMembers() const  { ASSERT(m_numDecMembers!=-1); return m_numDecMembers; }
     int numDocMembers() const  { ASSERT(m_numDocMembers!=-1); return m_numDocMembers; }
+    bool needsSorting() const  { return m_needsSorting; }
     void countDecMembers(bool countEnumValues=FALSE);
     void countDocMembers(bool countEnumValues=FALSE);
     void writePlainDeclarations(OutputList &ol,
@@ -143,11 +145,13 @@ class MemberList : public QList<MemberDef>
                Definition *container,const char *title,bool showEnumValues=FALSE);
     void writeDocumentationPage(OutputList &ol,
                const char *scopeName, Definition *container);
+    bool declVisible() const;
     void addMemberGroup(MemberGroup *mg);
     void setInGroup(bool inGroup) { m_inGroup=inGroup; }
     void setInFile(bool inFile) { m_inFile=inFile; }
     void addListReferences(Definition *def);
     void findSectionsInDocumentation();
+    void setNeedsSorting(bool b);
     MemberGroupList *getMemberGroupList() const { return memberGroupList; }
 
     void marshal(StorageIntf *s);
@@ -168,6 +172,7 @@ class MemberList : public QList<MemberDef>
     bool m_inGroup; // is this list part of a group definition
     bool m_inFile;  // is this list part of a file definition
     ListType m_listType;
+    bool m_needsSorting;
 };
 
 class MemberListIterator : public QListIterator<MemberDef>

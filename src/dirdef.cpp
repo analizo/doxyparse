@@ -9,6 +9,7 @@
 #include "message.h"
 #include "dot.h"
 #include "layout.h"
+#include "ftextstream.h"
 
 //----------------------------------------------------------------------
 // method implementation
@@ -193,6 +194,7 @@ void DirDef::writeDirectoryGraph(OutputList &ol)
       ol.startParagraph();
       ol.startDirDepGraph();
       //TODO: ol.parseText(theTranslator->trDirDepGraph());
+      ol.parseText((QCString)"Directory dependency graph for "+displayName()+":");
       ol.endDirDepGraph(dirDep);
       ol.endParagraph();
       ol.enableAll();
@@ -205,7 +207,7 @@ void DirDef::writeSubDirList(OutputList &ol)
   // write subdir list
   if (m_subdirs.count()>0)
   {
-    ol.startMemberHeader();
+    ol.startMemberHeader("subdirs");
     ol.parseText(theTranslator->trDir(TRUE,FALSE));
     ol.endMemberHeader();
     ol.startMemberList();
@@ -247,7 +249,7 @@ void DirDef::writeFileList(OutputList &ol)
   // write file list
   if (m_fileList->count()>0)
   {
-    ol.startMemberHeader();
+    ol.startMemberHeader("files");
     ol.parseText(theTranslator->trFile(TRUE,FALSE));
     ol.endMemberHeader();
     ol.startMemberList();
@@ -326,7 +328,6 @@ void DirDef::writeDocumentation(OutputList &ol)
   writeNavigationPath(ol);
 
   ol.endQuickIndices();
-  ol.startContents();
 
   startTitle(ol,getOutputFileBase());
   ol.pushGeneratorState();
@@ -337,6 +338,7 @@ void DirDef::writeDocumentation(OutputList &ol)
     ol.parseText(title);
   ol.popGeneratorState();
   endTitle(ol,getOutputFileBase(),title);
+  ol.startContents();
 
   if (!Config_getString("GENERATE_TAGFILE").isEmpty()) 
   {
@@ -661,7 +663,7 @@ DirDef *DirDef::mergeDirectoryInTree(const QCString &path)
   return dir;
 }
 
-void DirDef::writeDepGraph(QTextStream &t)
+void DirDef::writeDepGraph(FTextStream &t)
 {
     writeDotDirDepGraph(t,this);
 }
@@ -712,6 +714,7 @@ void DirRelation::writeDocumentation(OutputList &ol)
 
   // write navigation path
   m_src->writeNavigationPath(ol);
+  ol.startContents();
 
   //startTitle(ol,getOutputFileBase());
   //  ol.parseText(shortTitle);
@@ -721,12 +724,15 @@ void DirRelation::writeDocumentation(OutputList &ol)
   ol.writeString("<table class=\"dirtab\">");
   ol.writeString("<tr class=\"dirtab\">");
   // TODO: translate me! "File in %s"
-  ol.writeString("<th class=\"dirtab\">File in ");
-  m_src->writePathFragment(ol);
+  ol.writeString("<th class=\"dirtab\">");
+  ol.parseText(theTranslator->trFileIn(m_src->pathFragment()));
+  //m_src->writePathFragment(ol);
   ol.writeString("</th>");
   // TODO: translate me! "Includes file in %s"
-  ol.writeString("<th class=\"dirtab\">Includes file in ");
-  m_dst->dir()->writePathFragment(ol);
+  ol.writeString("<th class=\"dirtab\">");
+  //ol.writeString("Includes file in ");
+  //m_dst->dir()->writePathFragment(ol);
+  ol.parseText(theTranslator->trIncludesFileIn(m_dst->dir()->pathFragment()));
   ol.writeString("</th>");
   ol.writeString("</tr>");
 

@@ -19,7 +19,7 @@
 #define OUTPUTGEN_H
 
 #include "qtbc.h"
-#include <qtextstream.h>
+#include "ftextstream.h"
 #include <qbuffer.h>
 #include <qfile.h>
 #include <qstack.h>
@@ -287,12 +287,12 @@ class OutputGenerator : public BaseOutputDocInterface
     virtual OutputGenerator *get(OutputType o) = 0;
     void startPlainFile(const char *name);
     void endPlainFile();
-    QCString getContents() const;
+    //QCString getContents() const;
     bool isEnabled() const { return active; }
     void pushGeneratorState();
     void popGeneratorState();
-    void setEncoding(const QCString &enc) { encoding = enc; }
-    virtual void postProcess(QByteArray &) { }
+    //void setEncoding(const QCString &enc) { encoding = enc; }
+    //virtual void postProcess(QByteArray &) { }
 
     virtual void printDoc(DocNode *,const char *langExt) = 0;
 
@@ -325,7 +325,9 @@ class OutputGenerator : public BaseOutputDocInterface
     virtual void endGroupHeader() = 0;
     virtual void startMemberSections() = 0;
     virtual void endMemberSections() = 0;
-    virtual void startMemberHeader() = 0;
+    virtual void startHeaderSection() = 0;
+    virtual void endHeaderSection() = 0;
+    virtual void startMemberHeader(const char *anchor) = 0;
     virtual void endMemberHeader() = 0;
     virtual void startMemberSubtitle() = 0;
     virtual void endMemberSubtitle() = 0;
@@ -404,15 +406,12 @@ class OutputGenerator : public BaseOutputDocInterface
     virtual void endConstraintList() = 0;
 
   protected:
-    QTextStream fs;
-    QByteArray a;
-    QBuffer b;
-    QTextStream t;
+    FTextStream t;
     QFile *file;
+    QCString fileName;
     QCString dir;
     bool active;
     QStack<bool> *genStack;
-    QString encoding;
 
   private:
     OutputGenerator(const OutputGenerator &o);
