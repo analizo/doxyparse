@@ -1963,7 +1963,7 @@ void VhdlDocGen::writeVHDLDeclaration(MemberDef* mdef,OutputList &ol,
   // write search index info
   if (Doxygen::searchIndex)
   {
-    Doxygen::searchIndex->setCurrentDoc(mdef->qualifiedName(),mdef->getOutputFileBase(),mdef->anchor());
+    Doxygen::searchIndex->setCurrentDoc(mdef,mdef->anchor(),FALSE);
     Doxygen::searchIndex->addWord(mdef->localName(),TRUE);
     Doxygen::searchIndex->addWord(mdef->qualifiedName(),FALSE);
   }
@@ -2830,7 +2830,7 @@ bool VhdlDocGen::findConstraintFile(LayoutNavEntry *lne)
 
   if (Config_getBool("HAVE_DOT") && Config_getEnum("DOT_IMAGE_FORMAT")=="svg")
   {
-     QCString ov("Design Overview"); // TODO: translate me
+     QCString ov = theTranslator->trDesignOverview();
      QCString ofile("vhdl_design_overview");
      LayoutNavEntry *oo=new LayoutNavEntry( lne,LayoutNavEntry::MainPage,true,ofile,ov,"");  
      kk->addChild(oo); 

@@ -41,7 +41,7 @@ class RTFGenerator : public OutputGenerator
     bool isEnabled(OutputType o) { return (o==RTF && active); } 
     OutputGenerator *get(OutputType o) { return (o==RTF) ? this : 0; }
 
-    void printDoc(DocNode *,const char *);
+    void writeDoc(DocNode *,Definition *,MemberDef *);
 
     void startFile(const char *name,const char *manName,const char *title);
     void writeSearchInfo() {}
@@ -115,7 +115,7 @@ class RTFGenerator : public OutputGenerator
     void startMemberItem(const char *,int,const char *);
     void endMemberItem();
     void startMemberTemplateParams() {}
-    void endMemberTemplateParams(const char *) {}
+    void endMemberTemplateParams(const char *,const char *) {}
     void insertMemberAlign(bool) {}
 
     void writeRuler() { rtfwriteRuler_thin(); }
@@ -157,6 +157,8 @@ class RTFGenerator : public OutputGenerator
 
     void startMemberDescription(const char *,const char *);
     void endMemberDescription();
+    void startMemberDeclaration() {} 
+    void endMemberDeclaration(const char *,const char *) {}
     void writeInheritedSectionTitle(const char *,const char *,const char *,
                       const char *,const char *,const char *) {}
     void startDescList(SectionTypes);

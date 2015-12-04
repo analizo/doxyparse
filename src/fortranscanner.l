@@ -67,8 +67,7 @@
 #include "arguments.h"
 
 #define YY_NEVER_INTERACTIVE 1
-
-class Arguments;
+#define YY_NO_INPUT 1
 
 enum ScanVar { V_IGNORE, V_VARIABLE, V_PARAMETER};
 enum InterfaceType { IF_NONE, IF_SPECIFIC, IF_GENERIC, IF_ABSTRACT };
@@ -205,7 +204,6 @@ static void scanner_abort();
 
 static void startScope(Entry *scope);
 static bool endScope(Entry *scope, bool isGlobalRoot=FALSE);
-static QCString getFullName(Entry *e);
 //static bool isTypeName(QCString name);
 static void resolveModuleProcedures(QList<Entry> &moduleProcedures, Entry *current_root);
 static int getAmpersandAtTheStart(const char *buf, int length);
@@ -1640,84 +1638,84 @@ static QCString applyModifiers(QCString typeName, SymbolModifiers& mdfs)
 {
   if (!mdfs.dimension.isNull()) 
   {
-    typeName += ", ";
+    if (!typeName.isEmpty()) typeName += ", ";
     typeName += mdfs.dimension;
   }
   if (mdfs.direction!=SymbolModifiers::NONE_D) 
   {
-    typeName += ", ";
+    if (!typeName.isEmpty()) typeName += ", ";
     typeName += directionStrs[mdfs.direction];
   }
   if (mdfs.optional) 
   {
-    typeName += ", ";
+    if (!typeName.isEmpty()) typeName += ", ";
     typeName += "optional";
   }
   if (mdfs.allocatable) 
   {
-    typeName += ", ";
+    if (!typeName.isEmpty()) typeName += ", ";
     typeName += "allocatable";
   }
   if (mdfs.external) 
   {
-    typeName += ", ";
+    if (!typeName.isEmpty()) typeName += ", ";
     typeName += "external";
   }
   if (mdfs.intrinsic) 
   {
-    typeName += ", ";
+    if (!typeName.isEmpty()) typeName += ", ";
     typeName += "intrinsic";
   }
   if (mdfs.parameter) 
   {
-    typeName += ", ";
+    if (!typeName.isEmpty()) typeName += ", ";
     typeName += "parameter";
   }
   if (mdfs.pointer) 
   {
-    typeName += ", ";
+    if (!typeName.isEmpty()) typeName += ", ";
     typeName += "pointer";
   }
   if (mdfs.target) 
   {
-    typeName += ", ";
+    if (!typeName.isEmpty()) typeName += ", ";
     typeName += "target";
   }
   if (mdfs.save) 
   {
-    typeName += ", ";
+    if (!typeName.isEmpty()) typeName += ", ";
     typeName += "save";
   }
   if (mdfs.deferred) 
   {
-    typeName += ", ";
+    if (!typeName.isEmpty()) typeName += ", ";
     typeName += "deferred";
   }
   if (mdfs.nonoverridable) 
   {
-    typeName += ", ";
+    if (!typeName.isEmpty()) typeName += ", ";
     typeName += "non_overridable";
   }
   if (mdfs.nopass) 
   {
-    typeName += ", ";
+    if (!typeName.isEmpty()) typeName += ", ";
     typeName += "nopass";
   }
   if (mdfs.pass) 
   {
-    typeName += ", ";
+    if (!typeName.isEmpty()) typeName += ", ";
     typeName += "pass";
     if (!mdfs.passVar.isEmpty())
       typeName += "(" + mdfs.passVar + ")";
   }
   if (mdfs.protection == SymbolModifiers::PUBLIC)
   {
-    typeName += ", ";
+    if (!typeName.isEmpty()) typeName += ", ";
     typeName += "public";
   }
   else if (mdfs.protection == SymbolModifiers::PRIVATE)
   {
-    typeName += ", ";
+    if (!typeName.isEmpty()) typeName += ", ";
     typeName += "private";
   }
 
@@ -1856,6 +1854,7 @@ static bool endScope(Entry *scope, bool isGlobalRoot)
   return TRUE;
 }
 
+#if 0
 //! Return full name of the entry. Sometimes we must combine several names recursively.
 static QCString getFullName(Entry *e) 
 {
@@ -1866,6 +1865,7 @@ static QCString getFullName(Entry *e)
 
   return getFullName(e->parent())+"::"+name;
 }
+#endif
 
 static int yyread(char *buf,int max_size)
 {
@@ -2104,7 +2104,9 @@ static void subrHandleCommentBlock(const QCString &doc,bool brief)
 }
 
 //----------------------------------------------------------------------------
+#if 0
 static int level=0;
+
 static void debugCompounds(Entry *rt)  // print Entry structure (for debugging)
 {
  level++;
@@ -2117,6 +2119,7 @@ static void debugCompounds(Entry *rt)  // print Entry structure (for debugging)
   } 
 level--;
 }
+#endif
 
 
 static void parseMain(const char *fileName,const char *fileBuf,Entry *rt)
@@ -2211,12 +2214,13 @@ void FortranLanguageScanner::parseCode(CodeOutputInterface & codeOutIntf,
                    int endLine,
                    bool inlineFragment,
 		   MemberDef *memberDef,
-                   bool showLineNumbers
+                   bool showLineNumbers,
+                   Definition *searchCtx
                   )
 {
   ::parseFortranCode(codeOutIntf,scopeName,input,isExampleBlock,exampleName,
                      fileDef,startLine,endLine,inlineFragment,memberDef,
-                     showLineNumbers);
+                     showLineNumbers,searchCtx);
 }
 
 bool FortranLanguageScanner::needsPreprocessing(const QCString &extension)

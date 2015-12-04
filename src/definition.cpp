@@ -45,7 +45,7 @@
 //-----------------------------------------------------------------------------------------
 
 
-/** Private data associated with a Definition object. */
+/** Private data associated with a Symbol Definition object. */
 class DefinitionImpl
 {
   public:
@@ -292,6 +292,85 @@ Definition::Definition(const char *df,int dl,
   }
 }
 
+Definition::Definition(const Definition &d) : DefinitionIntf(), LockableObj()
+{
+  m_name = d.m_name;
+  m_defLine = d.m_defLine;
+  m_impl = new DefinitionImpl;
+  *m_impl = *d.m_impl;
+  m_impl->sectionDict = 0;
+  m_impl->sourceRefByDict = 0;
+  m_impl->sourceRefsDict = 0;
+  m_impl->partOfGroups = 0;
+  m_impl->xrefListItems = 0;
+  m_impl->brief = 0;
+  m_impl->details = 0;
+  m_impl->body = 0;
+  m_impl->inbodyDocs = 0;
+  if (d.m_impl->sectionDict)
+  {
+    m_impl->sectionDict = new SectionDict(17);
+    SDict<SectionInfo>::Iterator it(*d.m_impl->sectionDict);
+    SectionInfo *si;
+    for (it.toFirst();(si=it.current());++it)
+    {
+      m_impl->sectionDict->append(si->label,si);
+    }
+  }
+  if (d.m_impl->sourceRefByDict)
+  {
+    m_impl->sourceRefByDict = new MemberSDict;
+    MemberSDict::IteratorDict it(*d.m_impl->sourceRefByDict);
+    MemberDef *md;
+    for (it.toFirst();(md=it.current());++it)
+    {
+      m_impl->sourceRefByDict->append(it.currentKey(),md);
+    }
+  }
+  if (d.m_impl->sourceRefsDict)
+  {
+    m_impl->sourceRefsDict = new MemberSDict;
+    MemberSDict::IteratorDict it(*d.m_impl->sourceRefsDict);
+    MemberDef *md;
+    for (it.toFirst();(md=it.current());++it)
+    {
+      m_impl->sourceRefsDict->append(it.currentKey(),md);
+    }
+  }
+  if (d.m_impl->partOfGroups)
+  {
+    GroupListIterator it(*d.m_impl->partOfGroups);
+    GroupDef *gd;
+    for (it.toFirst();(gd=it.current());++it)
+    {
+      makePartOfGroup(gd);
+    }
+  }
+  if (d.m_impl->xrefListItems)
+  {
+    setRefItems(d.m_impl->xrefListItems);
+  }
+  if (d.m_impl->brief)
+  {
+    m_impl->brief = new BriefInfo(*d.m_impl->brief);
+  }
+  if (d.m_impl->details)
+  {
+    m_impl->details = new DocInfo(*d.m_impl->details);
+  }
+  if (d.m_impl->body)
+  {
+    m_impl->body = new BodyInfo(*d.m_impl->body);
+  }
+  if (d.m_impl->inbodyDocs)
+  {
+    m_impl->details = new DocInfo(*d.m_impl->inbodyDocs);
+  }
+
+  m_isSymbol = d.m_isSymbol;
+  if (m_isSymbol) addToMap(m_name,this);
+}
+
 Definition::~Definition()
 {
   if (m_isSymbol) 
@@ -410,63 +489,6 @@ void Definition::addSectionsToIndex()
     Doxygen::indexList.decContentsDepth();
     level--;
   }
-}
-
-void Definition::writeToc(OutputList &ol)
-{
-  makeResident();
-  if (m_impl->sectionDict==0) return;
-  ol.pushGeneratorState();
-  ol.disableAllBut(OutputGenerator::Html);
-  ol.writeString("<div class=\"toc\">");
-  ol.writeString("<h3>");
-  ol.writeString(theTranslator->trRTFTableOfContents());
-  ol.writeString("</h3>\n");
-  ol.writeString("<ul>");
-  SDict<SectionInfo>::Iterator li(*m_impl->sectionDict);
-  SectionInfo *si;
-  int level=1;
-  char cs[2];
-  cs[1]='\0';
-  bool inLi[5]={ FALSE, FALSE, FALSE, FALSE };
-  for (li.toFirst();(si=li.current());++li)
-  {
-    if (si->type==SectionInfo::Section       || 
-        si->type==SectionInfo::Subsection    || 
-        si->type==SectionInfo::Subsubsection ||
-        si->type==SectionInfo::Paragraph)
-    {
-      //printf("  level=%d title=%s\n",level,si->title.data());
-      int nextLevel = (int)si->type;
-      if (nextLevel>level)
-      {
-        ol.writeString("<ul>");
-      }
-      else if (nextLevel<level)
-      {
-        if (inLi[level]) ol.writeString("</li>\n");
-        inLi[level]=FALSE;
-        ol.writeString("</ul>\n");
-      }
-      cs[0]='0'+nextLevel;
-      if (inLi[nextLevel]) ol.writeString("</li>\n");
-      ol.writeString("<li class=\"level"+QCString(cs)+"\"><a href=\"#"+si->label+"\">"+si->title+"</a>");
-      inLi[nextLevel]=TRUE;
-      level = nextLevel;
-    }
-  }
-  while (level>1)
-  {
-    if (inLi[level]) ol.writeString("</li>\n");
-    inLi[level]=FALSE;
-    ol.writeString("</ul>\n");
-    level--;
-  }
-  if (inLi[level]) ol.writeString("</li>\n");
-  inLi[level]=FALSE;
-  ol.writeString("</ul>\n");
-  ol.writeString("</div>\n");
-  ol.popGeneratorState();
 }
 
 void Definition::writeDocAnchorsToTagFile()
@@ -1297,6 +1319,7 @@ QCString Definition::qualifiedName() const
 void Definition::setOuterScope(Definition *d) 
 {
   makeResident();
+  //printf("%s::setOuterScope(%s)\n",name().data(),d?d->name().data():"<none>");
   if (m_impl->outerScope!=d)
   { 
     m_impl->qualifiedName.resize(0); // flush cached scope name
@@ -1433,6 +1456,9 @@ QCString Definition::pathFragment() const
   return result;
 }
 
+//----------------------------------------------------------------------------------------
+
+// TODO: move to htmlgen
 /*! Returns the string used in the footer for $navpath when 
  *  GENERATE_TREEVIEW is enabled
  */
@@ -1440,9 +1466,11 @@ QCString Definition::navigationPathAsString() const
 {
   makeResident();
   QCString result;
-  if (m_impl->outerScope && m_impl->outerScope!=Doxygen::globalScope)
+  Definition *outerScope = getOuterScope();
+  QCString locName = localName();
+  if (outerScope && outerScope!=Doxygen::globalScope)
   {
-    result+=m_impl->outerScope->navigationPathAsString();
+    result+=outerScope->navigationPathAsString();
   }
   else if (definitionType()==Definition::TypeFile && ((const FileDef*)this)->getDirDef())
   {
@@ -1463,8 +1491,8 @@ QCString Definition::navigationPathAsString() const
     }
     else if (definitionType()==Definition::TypeClass)
     {
-      QCString name = m_impl->localName;
-      if (name.right(2)=="-p" || name.right(2)=="-g")
+      QCString name = locName;
+      if (name.right(2)=="-p" /*|| name.right(2)=="-g"*/)
       {
         name = name.left(name.length()-2);
       }
@@ -1475,17 +1503,18 @@ QCString Definition::navigationPathAsString() const
     else
     {
       result+="<a class=\"el\" href=\"$relpath$"+getOutputFileBase()+Doxygen::htmlFileExtension+"\">"+
-              m_impl->localName+"</a>";
+              locName+"</a>";
     }
   }
   else
   {
-    result+="<b>"+m_impl->localName+"</b>";
+    result+="<b>"+locName+"</b>";
   }
   result+="</li>";
   return result;
 }
 
+// TODO: move to htmlgen
 void Definition::writeNavigationPath(OutputList &ol) const
 {
   ol.pushGeneratorState();
@@ -1501,6 +1530,68 @@ void Definition::writeNavigationPath(OutputList &ol) const
 
   ol.popGeneratorState();
 }
+
+// TODO: move to htmlgen
+void Definition::writeToc(OutputList &ol)
+{
+  makeResident();
+  SectionDict *sectionDict = m_impl->sectionDict;
+  if (sectionDict==0) return;
+  ol.pushGeneratorState();
+  ol.disableAllBut(OutputGenerator::Html);
+  ol.writeString("<div class=\"toc\">");
+  ol.writeString("<h3>");
+  ol.writeString(theTranslator->trRTFTableOfContents());
+  ol.writeString("</h3>\n");
+  ol.writeString("<ul>");
+  SDict<SectionInfo>::Iterator li(*sectionDict);
+  SectionInfo *si;
+  int level=1;
+  char cs[2];
+  cs[1]='\0';
+  bool inLi[5]={ FALSE, FALSE, FALSE, FALSE };
+  for (li.toFirst();(si=li.current());++li)
+  {
+    if (si->type==SectionInfo::Section       || 
+        si->type==SectionInfo::Subsection    || 
+        si->type==SectionInfo::Subsubsection ||
+        si->type==SectionInfo::Paragraph)
+    {
+      //printf("  level=%d title=%s\n",level,si->title.data());
+      int nextLevel = (int)si->type;
+      if (nextLevel>level)
+      {
+        ol.writeString("<ul>");
+      }
+      else if (nextLevel<level)
+      {
+        if (inLi[level]) ol.writeString("</li>\n");
+        inLi[level]=FALSE;
+        ol.writeString("</ul>\n");
+      }
+      cs[0]='0'+nextLevel;
+      if (inLi[nextLevel]) ol.writeString("</li>\n");
+      ol.writeString("<li class=\"level"+QCString(cs)+"\"><a href=\"#"+si->label+"\">"+si->title+"</a>");
+      inLi[nextLevel]=TRUE;
+      level = nextLevel;
+    }
+  }
+  while (level>1)
+  {
+    if (inLi[level]) ol.writeString("</li>\n");
+    inLi[level]=FALSE;
+    ol.writeString("</ul>\n");
+    level--;
+  }
+  if (inLi[level]) ol.writeString("</li>\n");
+  inLi[level]=FALSE;
+  ol.writeString("</ul>\n");
+  ol.writeString("</div>\n");
+  ol.popGeneratorState();
+}
+
+//----------------------------------------------------------------------------------------
+
 
 QCString Definition::symbolName() const 
 { 

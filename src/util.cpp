@@ -460,10 +460,21 @@ QCString resolveTypeDef(Definition *context,const QCString &qualifiedName,
 /*! Get a class definition given its name. 
  *  Returns 0 if the class is not found.
  */
-ClassDef *getClass(const char *name)
+ClassDef *getClass(const char *n)
 {
-  if (name==0 || name[0]=='\0') return 0;
-  return Doxygen::classSDict->find(name);
+  if (n==0 || n[0]=='\0') return 0;
+  QCString name=n;
+  ClassDef *result = Doxygen::classSDict->find(name);
+  //if (result==0 && !exact) // also try generic and protocol versions
+  //{
+  //  result = Doxygen::classSDict->find(name+"-g");
+  //  if (result==0)
+  //  {
+  //    result = Doxygen::classSDict->find(name+"-p");
+  //  }
+  //}
+  //printf("getClass(%s)=%s\n",n,result?result->name().data():"<none>");
+  return result;
 }
 
 NamespaceDef *getResolvedNamespace(const char *name)
@@ -1388,18 +1399,20 @@ static ClassDef *getResolvedClassRec(Definition *scope,
 
   //printf("Looking for symbol %s\n",name.data());
   DefinitionIntf *di = Doxygen::symbolMap->find(name);
+  // the -g (for C# generics) and -p (for ObjC protocols) are now already 
+  // stripped from the key used in the symbolMap, so that is not needed here.
   if (di==0) 
   {
-    di = Doxygen::symbolMap->find(name+"-g");
-    if (di==0)
-    {
+    //di = Doxygen::symbolMap->find(name+"-g");
+    //if (di==0)
+    //{
       di = Doxygen::symbolMap->find(name+"-p");
       if (di==0)
       {
         //printf("no such symbol!\n");
         return 0;
       }
-    }
+    //}
   }
   //printf("found symbol!\n");
 
@@ -1749,11 +1762,13 @@ nextChar:
       vsp=0;
     }
     else if (!isspace((uchar)c) || // not a space
-        ( i>0 && i<l-1 &&          // internal character
-          (isId(s.at(i-1)) || s.at(i-1)==')' || s.at(i-1)==',' || s.at(i-1)=='>' || s.at(i-1)==']')
-          && (isId(s.at(i+1)) || (i<l-2 && s.at(i+1)=='$' && isId(s.at(i+2)))
-            || (i<l-3 && s.at(i+1)=='&' && s.at(i+2)=='$' && isId(s.at(i+3))))
-        ) 
+          ( i>0 && i<l-1 &&          // internal character
+            (isId(s.at(i-1)) || s.at(i-1)==')' || s.at(i-1)==',' || s.at(i-1)=='>' || s.at(i-1)==']') && 
+            (isId(s.at(i+1)) || 
+             (i<l-2 && s.at(i+1)=='$' && isId(s.at(i+2))) || 
+             (i<l-3 && s.at(i+1)=='&' && s.at(i+2)=='$' && isId(s.at(i+3)))
+            )
+          ) 
         )
     {
       if (c=='*' || c=='&' || c=='@' || c=='$')
@@ -1763,6 +1778,14 @@ nextChar:
         if ((rl>0 && (isId(growBuf.at(rl-1)) || growBuf.at(rl-1)=='>')) &&
             ((c!='*' && c!='&') || !findOperator2(s,i)) // avoid splitting operator* and operator->* and operator&
            ) 
+        {
+          growBuf.addChar(' ');
+        }
+      }
+      else if (c=='-')
+      {
+        uint rl=growBuf.getPos();
+        if (rl>0 && growBuf.at(rl-1)==')' && i<l-1 && s.at(i+1)=='>') // trailing return type ')->' => ') ->'
         {
           growBuf.addChar(' ');
         }
@@ -1812,10 +1835,10 @@ void linkifyText(const TextGeneratorIntf &out,Definition *scope,
   static QRegExp regExpSplit("(?!:),");
   QCString txtStr=text;
   int strLen = txtStr.length();
-  //printf("linkifyText scope=%s fileScope=%s strtxt=%s strlen=%d\n",
+  //printf("linkifyText scope=%s fileScope=%s strtxt=%s strlen=%d external=%d\n",
   //    scope?scope->name().data():"<none>",
   //    fileScope?fileScope->name().data():"<none>",
-  //    txtStr.data(),strLen);
+  //    txtStr.data(),strLen,external);
   int matchLen;
   int index=0;
   int newIndex;
@@ -1896,7 +1919,7 @@ void linkifyText(const TextGeneratorIntf &out,Definition *scope,
           }
         }
       }
-      if (!found && cd) 
+      if (!found && (cd || (cd=getClass(matchWord)))) 
       {
         //printf("Found class %s\n",cd->name().data());
         // add link to the result
@@ -1921,18 +1944,18 @@ void linkifyText(const TextGeneratorIntf &out,Definition *scope,
           }
         }
       }
-      else if ((cd=getClass(matchWord+"-g"))) // C# generic as well
-      {
-        // add link to the result
-        if (external ? cd->isLinkable() : cd->isLinkableInProject())
-        {
-          if (cd!=self)
-          {
-            out.writeLink(cd->getReference(),cd->getOutputFileBase(),cd->anchor(),word);
-            found=TRUE;
-          }
-        }
-      }
+//      else if ((cd=getClass(matchWord+"-g"))) // C# generic as well
+//      {
+//        // add link to the result
+//        if (external ? cd->isLinkable() : cd->isLinkableInProject())
+//        {
+//          if (cd!=self)
+//          {
+//            out.writeLink(cd->getReference(),cd->getOutputFileBase(),cd->anchor(),word);
+//            found=TRUE;
+//          }
+//        }
+//      }
       else
       {
         //printf("   -> nothing\n");
@@ -2076,6 +2099,8 @@ QCString argListToString(ArgumentList *al,bool useCanonicalType,bool showDefVals
   result+=")";
   if (al->constSpecifier) result+=" const";
   if (al->volatileSpecifier) result+=" volatile";
+  if (!al->trailingReturnType.isEmpty()) result+=" -> "+al->trailingReturnType;
+  if (al->pureSpecifier) result+=" =0";
   return removeRedundantWhiteSpace(result);
 }
 
@@ -2261,7 +2286,7 @@ QCString transcodeCharacterStringToUTF8(const QCString &input)
   {
     size_t iLeft=inputSize;
     size_t oLeft=outputSize;
-    const char *inputPtr = input.data();
+    char *inputPtr = input.data();
     char *outputPtr = output.data();
     if (!portable_iconv(cd, &inputPtr, &iLeft, &outputPtr, &oLeft))
     {
@@ -3810,15 +3835,19 @@ static void findMembersWithSpecificName(MemberName *mn,
  *   - if `fd' is non zero, the member was found in the global namespace of
  *     file fd.
  */
-bool getDefs(const QCString &scName,const QCString &memberName, 
-    const char *args,
-    MemberDef *&md, 
-    ClassDef *&cd, FileDef *&fd, NamespaceDef *&nd, GroupDef *&gd,
-    bool forceEmptyScope,
-    FileDef *currentFile,
-    bool checkCV,
-    const char *forceTagFile
-    )
+bool getDefs(const QCString &scName,
+             const QCString &memberName, 
+             const char *args,
+             MemberDef *&md, 
+             ClassDef *&cd, 
+             FileDef *&fd, 
+             NamespaceDef *&nd, 
+             GroupDef *&gd,
+             bool forceEmptyScope,
+             FileDef *currentFile,
+             bool checkCV,
+             const char *forceTagFile
+            )
 {
   fd=0, md=0, cd=0, nd=0, gd=0;
   if (memberName.isEmpty()) return FALSE; /* empty name => nothing to link */
@@ -4212,8 +4241,8 @@ static bool getScopeDefs(const char *docScope,const char *scope,
     if (scopeOffset>0) fullName.prepend(docScopeName.left(scopeOffset)+"::");
 
     if (((cd=getClass(fullName)) ||         // normal class
-         (cd=getClass(fullName+"-p")) ||    // ObjC protocol
-         (cd=getClass(fullName+"-g"))       // C# generic
+         (cd=getClass(fullName+"-p")) //||    // ObjC protocol
+         //(cd=getClass(fullName+"-g"))       // C# generic
         ) && cd->isLinkable())
     {
       return TRUE; // class link written => quit 
@@ -4570,12 +4599,12 @@ bool resolveLink(/* in */ const char *scName,
     resAnchor=cd->anchor();
     return TRUE;
   }
-  else if ((cd=getClass(linkRef+"-g"))) // C# generic link
-  {
-    *resContext=cd;
-    resAnchor=cd->anchor();
-    return TRUE;
-  }
+//  else if ((cd=getClass(linkRef+"-g"))) // C# generic link
+//  {
+//    *resContext=cd;
+//    resAnchor=cd->anchor();
+//    return TRUE;
+//  }
   else if ((nd=Doxygen::namespaceSDict->find(linkRef)))
   {
     *resContext=nd;
@@ -5149,7 +5178,7 @@ done:
   }
   //printf("extractNamespace `%s' => `%s|%s'\n",scopeName.data(),
   //       className.data(),namespaceName.data());
-  if (className.right(2)=="-g" || className.right(2)=="-p")
+  if (/*className.right(2)=="-g" ||*/ className.right(2)=="-p")
   {
     className = className.left(className.length()-2);
   }
@@ -5853,27 +5882,6 @@ QCString substituteTemplateArgumentsInString(
   return result.stripWhiteSpace();
 }
 
-
-/*! Makes a deep copy of argument list \a src. Will allocate memory, that
- *  is owned by the caller. 
- */
-ArgumentList *copyArgumentList(const ArgumentList *src)
-{
-  ASSERT(src!=0);
-  ArgumentList *dst = new ArgumentList;
-  dst->setAutoDelete(TRUE);
-  ArgumentListIterator tali(*src);
-  Argument *a;
-  for (;(a=tali.current());++tali)
-  {
-    dst->append(new Argument(*a));
-  }
-  dst->constSpecifier    = src->constSpecifier;
-  dst->volatileSpecifier = src->volatileSpecifier;
-  dst->pureSpecifier     = src->pureSpecifier;
-  return dst;
-}
-
 /*! Makes a deep copy of the list of argument lists \a srcLists. 
  *  Will allocate memory, that is owned by the caller.
  */
@@ -5886,7 +5894,7 @@ QList<ArgumentList> *copyArgumentLists(const QList<ArgumentList> *srcLists)
   ArgumentList *sl;
   for (;(sl=sli.current());++sli)
   {
-    dstLists->append(copyArgumentList(sl));
+    dstLists->append(sl->deepCopy());
   }
   return dstLists;
 }
@@ -7041,7 +7049,7 @@ static int transcodeCharacterBuffer(const char *fileName,BufStr &srcBuf,int size
   BufStr tmpBuf(tmpBufSize);
   size_t iLeft=size;
   size_t oLeft=tmpBufSize;
-  const char *srcPtr = srcBuf.data();
+  char *srcPtr = srcBuf.data();
   char *dstPtr = tmpBuf.data();
   uint newSize=0;
   if (!portable_iconv(cd, &srcPtr, &iLeft, &dstPtr, &oLeft))

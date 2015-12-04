@@ -384,11 +384,12 @@ void addMembersToIndex(T *def,LayoutDocManager::LayoutPart part,
           ClassSDict::Iterator it(*classes);
           for (;(cd=it.current());++it)
           {
-            if (cd->isLinkable())
+            if (cd->isLinkable() && (cd->partOfGroups()==0 || def->definitionType()==Definition::TypeGroup))
             {
               bool isNestedClass = def->definitionType()==Definition::TypeClass;
               addMembersToIndex(cd,LayoutDocManager::Class,cd->displayName(FALSE),cd->anchor(),
-                                addToIndex && isNestedClass,preventSeparateIndex);
+                                addToIndex && isNestedClass,
+                                preventSeparateIndex || cd->isEmbeddedInOuterScope());
             }
           }
         }
@@ -778,15 +779,30 @@ static void writeDirHierarchy(OutputList &ol, FTVHelp* ftv,bool addToIndex)
         {
           bool doc,src;
           doc = fileVisibleInIndex(fd,src);
+          QCString reference, outputBase;
           if (doc)
           {
-            addMembersToIndex(fd,LayoutDocManager::File,fd->displayName(),QCString(),TRUE);
+            reference = fd->getReference();
+            outputBase = fd->getOutputFileBase();
           }
-          else if (src)
+          if (doc || src)
           {
-            Doxygen::indexList.addContentsItem(
-                 FALSE, convertToHtml(fd->name(),TRUE), 0, 
-                 fd->getSourceFileBase(), 0, FALSE, TRUE, fd);
+            ftv->addContentsItem(FALSE,fd->displayName(),          
+                                 reference, outputBase, 0,         
+                                 FALSE,FALSE,fd);
+          }
+          if (addToIndex)
+          {
+            if (doc)
+            {
+              addMembersToIndex(fd,LayoutDocManager::File,fd->displayName(),QCString(),TRUE);
+            }
+            else if (src)
+            {
+              Doxygen::indexList.addContentsItem(
+                  FALSE, convertToHtml(fd->name(),TRUE), 0, 
+                  fd->getSourceFileBase(), 0, FALSE, TRUE, fd);
+            }
           }
         }
       }
@@ -1359,7 +1375,7 @@ void writeClassTree(ClassSDict *clDict,FTVHelp *ftv,bool addToIndex,bool globalO
           ftv->addContentsItem(count>0,cd->displayName(FALSE),cd->getReference(),
               cd->getOutputFileBase(),cd->anchor(),FALSE,TRUE,cd); 
           if (addToIndex && 
-              !cd->isEmbeddedInOuterScope() &&
+              cd->partOfGroups()==0 &&
               (cd->getOuterScope()==0 || 
                cd->getOuterScope()->definitionType()!=Definition::TypeClass
               )
@@ -1387,7 +1403,7 @@ static bool containsVisibleChild(NamespaceDef *nd,bool includeClasses)
     NamespaceDef *cnd;
     for (cnli.toFirst();(cnd=cnli.current());++cnli)
     {
-      if (cnd->isLinkable() && cnd->localName().find('@')!=-1)
+      if (cnd->isLinkable() && cnd->localName().find('@')==-1)
       {
         return TRUE;
       }
@@ -1930,6 +1946,7 @@ static void writeAlphabeticalClassList(OutputList &ol)
               if (sep!="::")
               {
                 nsDispName=substitute(namesp,"::",sep);
+                cname=substitute(cname,"::",sep);
               }
               else
               {
@@ -3143,6 +3160,7 @@ bool writeMemberNavIndex(FTextStream &t,
 
 //----------------------------------------------------------------------------
 
+#if 0
 static bool writeFullNavIndex(FTextStream &t, LayoutNavEntry *root,int indent,bool &first)
 {
   static struct NavEntryCountMap 
@@ -3224,6 +3242,7 @@ static bool writeFullNavIndex(FTextStream &t, LayoutNavEntry *root,int indent,bo
   }
   return found;
 }
+#endif
 
 //----------------------------------------------------------------------------
 
@@ -3415,7 +3434,8 @@ void writeGraphInfo(OutputList &ol)
     legendDocs = legendDocs.left(s+8) + "[!-- SVG 0 --]\n" + legendDocs.mid(e); 
     //printf("legendDocs=%s\n",legendDocs.data());
   }
-  ol.parseDoc("graph_legend",1,0,0,legendDocs,FALSE,FALSE);
+  FileDef fd("","graph_legend");
+  ol.parseDoc("graph_legend",1,&fd,0,legendDocs,FALSE,FALSE);
   stripCommentsStateRef = oldStripCommentsState;
   endFile(ol);
   ol.popGeneratorState();
@@ -3548,21 +3568,24 @@ static void writeGroupTreeNode(OutputList &ol, GroupDef *gd, int level, FTVHelp*
         ClassDef *cd;
         for (;(cd=it.current());++it)
         {
-          bool nestedClassInSameGroup = 
-              cd->getOuterScope() && cd->getOuterScope()->definitionType()==Definition::TypeClass &&
-              cd->getOuterScope()->partOfGroups()!=0 && cd->getOuterScope()->partOfGroups()->contains(gd);
-          if (cd->isVisible() && !nestedClassInSameGroup)
+          //bool nestedClassInSameGroup = 
+          //    cd->getOuterScope() && cd->getOuterScope()->definitionType()==Definition::TypeClass &&
+          //    cd->getOuterScope()->partOfGroups()!=0 && cd->getOuterScope()->partOfGroups()->contains(gd);
+          //printf("===== GroupClasses: %s visible=%d nestedClassInSameGroup=%d\n",cd->name().data(),cd->isVisible(),nestedClassInSameGroup);
+          if (cd->isVisible() /*&& !nestedClassInSameGroup*/)
           {
-            if (cd->isLinkable() && cd->isEmbeddedInOuterScope())
-            {
+            //if (cd->isEmbeddedInOuterScope())
+            //{
+              //printf("add class & members %d\n",addToIndex);
               addMembersToIndex(cd,LayoutDocManager::Class,cd->displayName(FALSE),cd->anchor(),addToIndex,TRUE);
-            }
-            else // only index the class, not its members
-            {
-              Doxygen::indexList.addContentsItem(FALSE,
-                cd->localName(),cd->getReference(),
-                cd->getOutputFileBase(),cd->anchor(),FALSE,FALSE);
-            }
+            //}
+            //else // only index the class, not its members
+            //{
+            //  printf("%s: add class only\n",cd->name().data());
+            //  Doxygen::indexList.addContentsItem(FALSE,
+            //    cd->displayName(TRUE),cd->getReference(),
+            //    cd->getOutputFileBase(),cd->anchor(),addToIndex,TRUE);
+            //}
           }
         }
       }
@@ -4135,7 +4158,7 @@ static void writeIndex(OutputList &ol)
       ol.parseText(/*projPrefix+*/
           (fortranOpt ? theTranslator->trCompoundIndexFortran() : 
            vhdlOpt    ? VhdlDocGen::trDesignUnitIndex()         :
-                        theTranslator->trCompoundIndex()
+                        theTranslator->trHierarchicalIndex()
           ));
       ol.endIndexSection(isClassHierarchyIndex);
     }

@@ -22,6 +22,8 @@
 #include "language.h"
 #include "doxygen.h"
 #include "vhdldocgen.h"
+#include "defargs.h"
+#include "arguments.h"
 
 ClassList::ClassList() : QList<ClassDef>()
 {
@@ -96,6 +98,7 @@ bool ClassSDict::declVisible(const ClassDef::CompoundType *filter) const
 void ClassSDict::writeDeclaration(OutputList &ol,const ClassDef::CompoundType *filter,
                                   const char *header,bool localNames)
 {
+  static bool extractPrivate = Config_getBool("EXTRACT_PRIVATE");
   if (count()>0)
   {
     ClassSDict::Iterator sdi(*this);
@@ -105,6 +108,8 @@ void ClassSDict::writeDeclaration(OutputList &ol,const ClassDef::CompoundType *f
     {
       //printf("  ClassSDict::writeDeclaration for %s\n",cd->name().data());
       if (cd->name().find('@')==-1 && 
+          !cd->isExtension() && 
+          (cd->protection()!=Private || extractPrivate) &&
           (filter==0 || *filter==cd->compoundType())
          )
       {
@@ -160,4 +165,55 @@ void ClassSDict::writeDocumentation(OutputList &ol,Definition * container)
     }
   }
 }
+
+//-------------------------------------------
+
+void GenericsSDict::insert(const QCString &key,ClassDef *cd)
+{
+  int i=key.find('<');
+  if (i==-1) return;
+  ArgumentList argList;
+  stringToArgumentList(key.mid(i),&argList);
+  int c = argList.count();
+  if (c==0) return;
+  GenericsCollection *collection = m_dict.find(key.left(i));
+  if (collection==0) // new name
+  {
+    collection = new GenericsCollection;
+    m_dict.append(key.left(i),collection);
+  }
+  if (collection->find(c)==0) // should always be 0!
+  {
+    collection->insert(c,cd);
+  }
+}
+
+ClassDef *GenericsSDict::find(const QCString &key)
+{
+  int i=key.find('<');
+  if (i==-1)
+  {
+    GenericsCollection *collection = m_dict.find(key);
+    if (collection && collection->count()==1)
+    {
+      QIntDictIterator<ClassDef> it(*collection);
+      return it.current();
+    }
+  }
+  else
+  {
+    GenericsCollection *collection = m_dict.find(key.left(i));
+    if (collection)
+    {
+      ArgumentList argList;
+      stringToArgumentList(key.mid(i),&argList);
+      int c = argList.count();
+      return collection->find(c);
+    }
+  }
+  return 0;
+}
+
+
+
 

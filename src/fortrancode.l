@@ -47,6 +47,7 @@
 
 #define YY_NEVER_INTERACTIVE 1
 #define YY_NO_TOP_STATE 1
+#define YY_NO_INPUT 1
    
 //--------------------------------------------------------------------------------
 
@@ -106,6 +107,7 @@ static int	     g_inputPosition;   //!< read offset during parsing
 static int           g_inputLines;      //!< number of line in the code fragment
 static int	     g_yyLineNr;        //!< current line number
 static bool          g_needsTermination;
+static Definition   *g_searchCtx;
 static bool          g_isFixedForm;
 
 static bool          g_insideBody;      //!< inside subprog/program body? => create links
@@ -181,11 +183,18 @@ static void startFontClass(const char *s)
   g_currentFontClass=s;
 }
 
-static void setCurrentDoc(const QCString &name,const QCString &base,const QCString &anchor="")
+static void setCurrentDoc(const QCString &anchor)
 {
   if (Doxygen::searchIndex)
   {
-    Doxygen::searchIndex->setCurrentDoc(name,base,anchor);
+    if (g_searchCtx)
+    {
+      Doxygen::searchIndex->setCurrentDoc(g_searchCtx,g_searchCtx->anchor(),FALSE);
+    }
+    else
+    {
+      Doxygen::searchIndex->setCurrentDoc(g_sourceFileDef,anchor,TRUE);
+    }
   }
 }
 
@@ -225,20 +234,14 @@ static void startCodeLine()
         g_code->writeLineNumber(g_currentMemberDef->getReference(),
 	                        g_currentMemberDef->getOutputFileBase(),
 	                        g_currentMemberDef->anchor(),g_yyLineNr);
-        setCurrentDoc(
-                                g_currentMemberDef->qualifiedName(),
-	                        g_sourceFileDef->getSourceFileBase(),
-	                        lineAnchor);
+        setCurrentDoc(lineAnchor);
       }
       else if (d->isLinkableInProject())
       {
         g_code->writeLineNumber(d->getReference(),
 	                        d->getOutputFileBase(),
 	                        0,g_yyLineNr);
-        setCurrentDoc(
-                                d->qualifiedName(),
-	                        g_sourceFileDef->getSourceFileBase(),
-	                        lineAnchor);
+        setCurrentDoc(lineAnchor);
       }
     }
     else
@@ -769,10 +772,13 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
 					  BEGIN(UseOnly);     
                                         }           
 <UseOnly>{BS},{BS}                      { codifyLines(yytext); }
+<UseOnly>{BS}&{BS}"\n"                  { codifyLines(yytext); }
 <UseOnly>{ID}                           {
- 					  codifyLines(yytext);
+                                          g_insideBody=TRUE;
+                                          generateLink(*g_code, yytext);
+                                          g_insideBody=FALSE;
                                           useEntry->onlyNames.append(yytext);
-                                        }   
+                                        }
 <Use,UseOnly>"\n"                       {
                                           unput(*yytext);
                                           yy_pop_state();
@@ -1014,6 +1020,13 @@ PREFIX    (RECURSIVE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,2}(RECURSIVE|PURE|ELEMENTA
 <*>"\\\\"                               { str+=yytext; /* ignore \\  */}
 <*>"\\\""|\\\'                          { str+=yytext; /* ignore \"  */}
 
+<String>\n                              { // string with \n inside
+                                          str+=yytext;
+  					  startFontClass("stringliteral");
+  					  codifyLines(str);
+					  endFontClass();
+                                          str = "";
+                                        }           
 <String>\"|\'                           { // string ends with next quote without previous backspace 
                                           if(yytext[0]!=stringStartSymbol) REJECT; // single vs double quote
                                           str+=yytext;
@@ -1055,7 +1068,7 @@ void resetFortranCodeParserState() {}
 void parseFortranCode(CodeOutputInterface &od,const char *className,const QCString &s, 
                   bool exBlock, const char *exName,FileDef *fd,
 		  int startLine,int endLine,bool inlineFragment,
-		  MemberDef *memberDef,bool)
+		  MemberDef *memberDef,bool,Definition *searchCtx)
 {
   //printf("***parseCode() exBlock=%d exName=%s fd=%p\n",exBlock,exName,fd);
 
@@ -1070,6 +1083,7 @@ void parseFortranCode(CodeOutputInterface &od,const char *className,const QCStri
   g_isFixedForm = recognizeFixedForm((const char*)s);
   g_currentFontClass = 0;
   g_needsTermination = FALSE;
+  g_searchCtx = searchCtx;
   if (endLine!=-1)
     g_inputLines  = endLine+1;
   else
@@ -1090,7 +1104,7 @@ void parseFortranCode(CodeOutputInterface &od,const char *className,const QCStri
   }
   if (g_sourceFileDef) 
   {
-    setCurrentDoc(g_sourceFileDef->name(),g_sourceFileDef->getSourceFileBase());
+    setCurrentDoc("l00001");
   }
   g_currentDefinition = 0;
   g_currentMemberDef = 0;

@@ -93,7 +93,7 @@ static QCString       g_fileName;
 // as a title of the page, in effect making it a level0 header, so the
 // level of all other sections needs to be corrected as well.
 // This flag is TRUE if corrections are needed.
-static bool           g_correctSectionLevel;
+//static bool           g_correctSectionLevel;
 
 
 //----------
@@ -1618,8 +1618,8 @@ void writeOneLineHeaderOrRuler(GrowBuf &out,const char *data,int size)
   }
   else if ((level=isAtxHeader(data,size,header,id)))
   {
-    if (level==1) g_correctSectionLevel=FALSE;
-    if (g_correctSectionLevel) level--;
+    //if (level==1) g_correctSectionLevel=FALSE;
+    //if (g_correctSectionLevel) level--;
     QCString hTag;
     if (level<5 && !id.isEmpty())
     {
@@ -1737,7 +1737,8 @@ static int writeCodeBlock(GrowBuf &out,const char *data,int size,int refIndent)
     int j=i;
     int indent=0;
     while (j<end && data[j]==' ') j++,indent++;
-    //printf("j=%d end=%d indent=%d refIndent=%d data={%s}\n",j,end,indent,refIndent,QCString(data+i).left(end-i-1).data());
+    //printf("j=%d end=%d indent=%d refIndent=%d tabSize=%d data={%s}\n",
+    //    j,end,indent,refIndent,Config_getInt("TAB_SIZE"),QCString(data+i).left(end-i-1).data());
     if (j==end-1) // empty line 
     {
       emptyLines++;
@@ -1953,8 +1954,8 @@ static QCString processBlocks(const QCString &s,int indent)
       //printf("isHeaderLine(%s)=%d\n",QCString(data+i).left(size-i).data(),level);
       if ((level=isHeaderline(data+i,size-i))>0)
       {
-        if (level==1) g_correctSectionLevel=FALSE;
-        if (g_correctSectionLevel) level--;
+        //if (level==1) g_correctSectionLevel=FALSE;
+        //if (g_correctSectionLevel) level--;
         //printf("Found header at %d-%d\n",i,end);
         while (pi<size && data[pi]==' ') pi++;
         QCString header,id;
@@ -2007,14 +2008,14 @@ static QCString processBlocks(const QCString &s,int indent)
         //printf("Found FencedCodeBlock lang='%s' start=%d end=%d code={%s}\n",
         //       lang.data(),blockStart,blockEnd,QCString(data+pi+blockStart).left(blockEnd-blockStart).data());
         if (!lang.isEmpty() && lang.at(0)=='.') lang=lang.mid(1);
-        if (lang.isEmpty()) out.addStr("@verbatim"); else out.addStr("@code");
+        out.addStr("@code");
         if (!lang.isEmpty())
         {
           out.addStr("{"+lang+"}");
         }
         out.addStr(data+pi+blockStart,blockEnd-blockStart);       
         out.addStr("\n");
-        if (lang.isEmpty()) out.addStr("@endverbatim"); else out.addStr("@endcode");
+        out.addStr("@endcode");
         i=pi+blockOffset;
         pi=-1;
         end=i+1;
@@ -2116,6 +2117,7 @@ static QCString detab(const QCString &s,int &refIndent)
       case '\t': // expand tab
         {
           int stop = tabSize - (col%tabSize);
+          //printf("expand at %d stop=%d\n",col,stop);
           col+=stop;
           while (stop--) out.addChar(' '); 
         }
@@ -2144,6 +2146,22 @@ static QCString detab(const QCString &s,int &refIndent)
 
 QCString processMarkdown(const QCString &fileName,Entry *e,const QCString &input)
 {
+  static bool init=FALSE;
+  if (!init)
+  {
+    // setup callback table for special characters
+    g_actions[(unsigned int)'_']=processEmphasis;
+    g_actions[(unsigned int)'*']=processEmphasis;
+    g_actions[(unsigned int)'`']=processCodeSpan;
+    g_actions[(unsigned int)'\\']=processSpecialCommand;
+    g_actions[(unsigned int)'@']=processSpecialCommand;
+    g_actions[(unsigned int)'[']=processLink;
+    g_actions[(unsigned int)'!']=processLink;
+    g_actions[(unsigned int)'<']=processHtmlTag;
+    g_actions[(unsigned int)'-']=processNmdash;
+    init=TRUE;
+  }
+
   g_linkRefs.setAutoDelete(TRUE);
   g_linkRefs.clear();
   g_current = e;
@@ -2154,24 +2172,15 @@ QCString processMarkdown(const QCString &fileName,Entry *e,const QCString &input
   int refIndent;
   // for replace tabs by spaces
   QCString s = detab(input,refIndent);
+  //printf("======== DeTab =========\n---- output -----\n%s\n---------\n",s.data());
   // then process quotation blocks (as these may contain other blocks)
   s = processQuotations(s,refIndent);
   //printf("======== Quotations =========\n---- output -----\n%s\n---------\n",s.data());
   // then process block items (headers, rules, and code blocks, references)
   s = processBlocks(s,refIndent);
   //printf("======== Blocks =========\n---- output -----\n%s\n---------\n",s.data());
-  int size=s.length();
-  g_actions['_']=processEmphasis;
-  g_actions['*']=processEmphasis;
-  g_actions['`']=processCodeSpan;
-  g_actions['\\']=processSpecialCommand;
-  g_actions['@']=processSpecialCommand;
-  g_actions['[']=processLink;
-  g_actions['!']=processLink;
-  g_actions['<']=processHtmlTag;
-  g_actions['-']=processNmdash;
   // finally process the inline markup (links, emphasis and code spans)
-  processInline(out,s,size);
+  processInline(out,s,s.length());
   out.addChar(0);
   Debug::print(Debug::Markdown,0,"======== Markdown =========\n---- input ------- \n%s\n---- output -----\n%s\n---------\n",input.data(),out.get());
   return out.get();
@@ -2197,7 +2206,7 @@ void MarkdownFileParser::parseInput(const char *fileName,
   QCString docs = output.data();
   QCString id;
   QCString title=extractPageTitle(docs,id).stripWhiteSpace();
-  g_correctSectionLevel = !title.isEmpty();
+  //g_correctSectionLevel = !title.isEmpty();
   QCString baseName = substitute(QFileInfo(fileName).baseName().utf8()," ","_");
   if (id.isEmpty()) id = "md_"+baseName;
   if (title.isEmpty()) title = baseName;
@@ -2249,7 +2258,7 @@ void MarkdownFileParser::parseInput(const char *fileName,
 
   // restore setting
   Doxygen::markdownSupport = markdownEnabled;
-  g_correctSectionLevel = FALSE;
+  //g_correctSectionLevel = FALSE;
 }
 
 void MarkdownFileParser::parseCode(CodeOutputInterface &codeOutIntf,
@@ -2262,7 +2271,8 @@ void MarkdownFileParser::parseCode(CodeOutputInterface &codeOutIntf,
                int endLine,
                bool inlineFragment,
                MemberDef *memberDef,
-               bool showLineNumbers
+               bool showLineNumbers,
+               Definition *searchCtx
               )
 {
   ParserInterface *pIntf = Doxygen::parserManager->getParser("*.cpp");
@@ -2270,7 +2280,7 @@ void MarkdownFileParser::parseCode(CodeOutputInterface &codeOutIntf,
   {
     pIntf->parseCode(
        codeOutIntf,scopeName,input,isExampleBlock,exampleName,
-       fileDef,startLine,endLine,inlineFragment,memberDef,showLineNumbers);
+       fileDef,startLine,endLine,inlineFragment,memberDef,showLineNumbers,searchCtx);
   }
 }
 

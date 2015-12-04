@@ -49,6 +49,7 @@
 #include "arguments.h"
 
 #define YY_NEVER_INTERACTIVE 1
+#define YY_NO_INPUT 1
 
 #define MAX_INCLUDE_DEPTH 10
 
@@ -1789,7 +1790,8 @@ static void tcl_command_PROC()
 {
 D
   QCString myNs, myName;
-  Entry *myEntryNs, *myEntry;
+  Entry *myEntryNs;
+  Entry *myEntry;
   tcl_scan *myScan = tcl.scan.at(0);
 
   tcl_codify_cmd("keyword",0);
@@ -2009,7 +2011,8 @@ static void tcl_command_OO_CLASS()
 {
 D
   QCString myNs, myName, myStr;
-  Entry *myEntryNs, *myEntryCl;
+  //Entry *myEntryNs;
+  Entry *myEntryCl;
   tcl_scan *myScan = tcl.scan.at(0);
 
   tcl_codify_cmd("keyword",0);
@@ -2029,7 +2032,7 @@ D
   tcl.entry_current->bodyLine = tcl.line_body0;
   tcl.entry_current->endBodyLine = tcl.line_body1;
   tcl.entry_main->addSubEntry(tcl.entry_current);
-  myEntryNs = tcl_entry_namespace(myName);
+  //myEntryNs = tcl_entry_namespace(myName);
   tcl.cl.insert(myName,tcl.entry_current);
   myEntryCl = tcl.entry_current;
   myScan = tcl_scan_start(tcl.word_is,*tcl.list_commandwords.at(6),
@@ -2558,7 +2561,8 @@ void TclLanguageScanner::parseCode(CodeOutputInterface & codeOutIntf,
                    int endLine,
                    bool inlineFragment,
 		   MemberDef *memberDef,
-                   bool showLineNumbers
+                   bool showLineNumbers,
+                   Definition *searchCtx
                   )
 {
   (void)scopeName;
@@ -2566,6 +2570,7 @@ void TclLanguageScanner::parseCode(CodeOutputInterface & codeOutIntf,
   (void)fileDef;
   (void)endLine;
   (void)inlineFragment;
+  (void)searchCtx;
 
   if (input.length()<1) return;
   tcl.input_string = input;
