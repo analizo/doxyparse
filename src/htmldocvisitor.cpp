@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2014 by Dimitri van Heesch.
+ * Copyright (C) 1997-2015 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -2001,7 +2001,7 @@ void HtmlDocVisitor::writeMscFile(const QCString &fileName,
   }
   baseName.prepend("msc_");
   QCString outDir = Config_getString("HTML_OUTPUT");
-  QCString imgExt = Config_getEnum("DOT_IMAGE_FORMAT");
+  QCString imgExt = getDotImageExtension();
   MscOutputFormat mscFormat = MSC_BITMAP;
   if ("svg" == imgExt)
     mscFormat = MSC_SVG;
@@ -2045,7 +2045,7 @@ void HtmlDocVisitor::writePlantUMLFile(const QCString &fileName,
     baseName=baseName.left(i);
   }
   static QCString outDir = Config_getString("HTML_OUTPUT");
-  static QCString imgExt = Config_getEnum("DOT_IMAGE_FORMAT");
+  QCString imgExt = getDotImageExtension();
   if (imgExt=="svg")
   {
     generatePlantUMLOutput(fileName,outDir,PUML_SVG);

@@ -2,7 +2,7 @@
 *
 * 
 *
-* Copyright (C) 1997-2014 by Dimitri van Heesch.
+* Copyright (C) 1997-2015 by Dimitri van Heesch.
 *
 * Permission to use, copy, modify, and distribute this software and its
 * documentation under the terms of the GNU General Public License is hereby
@@ -483,13 +483,13 @@ static void generateDocbookForMember(MemberDef *md,FTextStream &t,Definition *de
           cnt++;
         }
         t << endl << "}";
-        t << "</literallayout>" << endl;
-        if (md->briefDescription())
-        {
-            t << "<para><emphasis>";
-            writeDocbookString(t,md->briefDescription());
-            t << "</emphasis></para>" << endl;
-        }
+      }
+      t << "</literallayout>" << endl;
+      if (md->briefDescription())
+      {
+          t << "<para><emphasis>";
+          writeDocbookString(t,md->briefDescription());
+          t << "</emphasis></para>" << endl;
       }
     }
     else if (md->memberType()==MemberType_Define) 

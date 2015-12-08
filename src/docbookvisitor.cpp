@@ -3,7 +3,7 @@
  * 
  *
  *
- * Copyright (C) 1997-2014 by Dimitri van Heesch.
+ * Copyright (C) 1997-2015 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby
@@ -1350,7 +1350,7 @@ void DocbookDocVisitor::startDotFile(const QCString &fileName,
   }
   baseName.prepend("dot_");
   QCString outDir = Config_getString("DOCBOOK_OUTPUT");
-  QCString imgExt = Config_getEnum("DOT_IMAGE_FORMAT");
+  QCString imgExt = getDotImageExtension();
   writeDotGraphFromFile(fileName,outDir,baseName,GOF_BITMAP);
   m_t << "<para>" << endl;
   visitPreStart(m_t, hasCaption, baseName + "." + imgExt,  width,  height);

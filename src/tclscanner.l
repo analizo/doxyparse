@@ -14,12 +14,12 @@
  * input used in their production; they are not affected by this license.
  *
  */ 
+%option never-interactive
 %{
 #include <stdio.h> 
 #include <stdlib.h>
 #include <assert.h>
 #include <ctype.h>
-#include <unistd.h> 
 
 #include <qstring.h>
 #include <qstringlist.h>
@@ -51,8 +51,8 @@
 #include "namespacedef.h"
 #include "filedef.h"
 
-#define YY_NEVER_INTERACTIVE 1
 #define YY_NO_INPUT 1
+#define YY_NO_UNISTD_H 1
 
 #define MAX_INCLUDE_DEPTH 10
 
@@ -666,7 +666,9 @@ static void tcl_codify(const char *s,const char *str)
     tcl.code->startFontClass(s);
     tcl.code_font=s;
   }
-  const char *p=str,*sp=p;
+  char *tmp = (char *) malloc(strlen(str)+1);
+  strcpy(tmp, str);
+  char *p=tmp,*sp=p;
   char c;
   bool done=FALSE;
   while (!done)
@@ -676,7 +678,10 @@ static void tcl_codify(const char *s,const char *str)
     if (c=='\n')
     {
       tcl.code_line++;
-      // *(p-1)='\0'; // Dimitri: is this really needed?
+      *(p-1)='\0'; // Dimitri: is this really needed?
+                   // wtschueller: As far as I can see: yes.
+                   // Deletes that \n that would produce ugly source listings otherwise.
+                   // However, there may exist more sophisticated solutions.
       tcl.code->codify(sp);
       if (tcl.code_font)
       {
@@ -699,6 +704,7 @@ static void tcl_codify(const char *s,const char *str)
       done=TRUE;
     }
   }
+  free(tmp);
   tcl_font_end();
 }
 

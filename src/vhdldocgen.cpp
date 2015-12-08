@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * Copyright (C) 1997-2014 by Dimitri van Heesch.
+ * Copyright (C) 1997-2015 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby
@@ -2212,6 +2212,19 @@ void VhdlDocGen::writeVHDLDeclaration(MemberDef* mdef,OutputList &ol,
       ol.insertMemberAlign();
       VhdlDocGen::formatString(ltype,ol,mdef);
       break;
+    case VhdlDocGen::RECORD:
+    case VhdlDocGen::UNITS:
+      writeLink(mdef,ol);
+      ol.docify(" ");
+      ol.startBold();
+      if (ltype.isEmpty()) {
+          ol.docify(" ");
+      }
+      ol.insertMemberAlign();
+      if (!ltype.isEmpty())
+        VhdlDocGen::formatString(ltype,ol,mdef);
+      ol.endBold();
+      break;
     case VhdlDocGen::TYPE:
       bRec=largs.stripPrefix("record") ;
       bUnit=largs.stripPrefix("units") ;
@@ -2792,7 +2805,8 @@ bool VhdlDocGen::findConstraintFile(LayoutNavEntry *lne)
   QCString file;
   QCString co("Constraints");
 
-  if (Config_getBool("HAVE_DOT") && Config_getEnum("DOT_IMAGE_FORMAT")=="svg")
+  QCString imgExt = getDotImageExtension();
+  if (Config_getBool("HAVE_DOT") && imgExt=="svg")
   {
     QCString ov = theTranslator->trDesignOverview();
     QCString ofile("vhdl_design_overview");

@@ -2,7 +2,7 @@
  *
  * 
  *
- * Copyright (C) 1997-2014 by Dimitri van Heesch.
+ * Copyright (C) 1997-2015 by Dimitri van Heesch.
  *
  * Permission to use, copy, modify, and distribute this software and its
  * documentation under the terms of the GNU General Public License is hereby 
@@ -2143,13 +2143,13 @@ static void writeNamespaceLinkForMember(OutputList &ol,MemberDef *md,const char 
                              QCString &prevNamespaceName)
 {
   NamespaceDef *nd=md->getNamespaceDef();
-  if (nd && prevNamespaceName!=nd->name())
+  if (nd && prevNamespaceName!=nd->displayName())
   {
     ol.docify(separator);
     ol.writeObjectLink(md->getReference(),md->getOutputFileBase(),md->anchor(),
-        nd->name());
+        nd->displayName());
     ol.writeString("\n");
-    prevNamespaceName = nd->name();
+    prevNamespaceName = nd->displayName();
   }
 }
 
@@ -3114,7 +3114,7 @@ static void writePages(PageDef *pd,FTVHelp *ftv)
 
     if (ftv)
     {
-      //printf("*** adding %s\n",pageTitle.data());
+      //printf("*** adding %s hasSubPages=%d hasSections=%d\n",pageTitle.data(),hasSubPages,hasSections);
       ftv->addContentsItem(
           hasSubPages,pageTitle,
           pd->getReference(),pd->getOutputFileBase(),
@@ -3123,7 +3123,7 @@ static void writePages(PageDef *pd,FTVHelp *ftv)
     if (addToIndex && pd!=Doxygen::mainPage)
     {
       Doxygen::indexList->addContentsItem(
-          hasSubPages,pageTitle,
+          hasSubPages || hasSections,pageTitle,
           pd->getReference(),pd->getOutputFileBase(),
           0,hasSubPages,TRUE);
     }
@@ -3266,7 +3266,8 @@ void writeGraphInfo(OutputList &ol)
   QCString legendDocs = theTranslator->trLegendDocs();
   int s = legendDocs.find("<center>");
   int e = legendDocs.find("</center>");
-  if (Config_getEnum("DOT_IMAGE_FORMAT")=="svg" && s!=-1 && e!=-1)
+  QCString imgExt = getDotImageExtension();
+  if (imgExt=="svg" && s!=-1 && e!=-1)
   {
     legendDocs = legendDocs.left(s+8) + "[!-- SVG 0 --]\n" + legendDocs.mid(e); 
     //printf("legendDocs=%s\n",legendDocs.data());
@@ -4139,7 +4140,7 @@ static void writeIndexHierarchyEntries(OutputList &ol,const QList<LayoutNavEntry
         case LayoutNavEntry::Classes: 
           if (annotatedClasses>0 && addToIndex)
           {
-            Doxygen::indexList->addContentsItem(TRUE,lne->title(),0,0,0); 
+            Doxygen::indexList->addContentsItem(TRUE,lne->title(),0,"annotated",0); 
             Doxygen::indexList->incContentsDepth();
             needsClosing=TRUE;
           }
