@@ -178,8 +178,8 @@ static void printReferenceTo(MemberDef* md) {
 }
 
 static void printReferencesMembers(MemberDef *md) {
-  LockingPtr<MemberSDict> defDict = md->getReferencesMembers();
-  if (defDict != 0) {
+  MemberSDict *defDict = md->getReferencesMembers();
+  if (defDict) {
     MemberSDict::Iterator msdi(*defDict);
     MemberDef *rmd;
     for (msdi.toFirst(); (rmd=msdi.current()); ++msdi) {
