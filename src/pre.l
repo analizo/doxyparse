@@ -3214,7 +3214,7 @@ void preprocessFile(const char *fileName,BufStr &input,BufStr &output)
 
 void preFreeScanner()
 {
-#if defined(YY_FLEX_SUBMINOR_VERSION) 
+#if defined(YY_FLEX_SUBMINOR_VERSION) || !defined(YY_FLEX_MINOR_VERSION)
   if (g_lexInit)
   {
     preYYlex_destroy();
@@ -3222,7 +3222,7 @@ void preFreeScanner()
 #endif
 }
 
-#if !defined(YY_FLEX_SUBMINOR_VERSION) 
+#if !defined(YY_FLEX_SUBMINOR_VERSION) || !defined(YY_FLEX_MINOR_VERSION)
 extern "C" { // some bogus code to keep the compiler happy
 //  int  preYYwrap() { return 1 ; }
   void preYYdummy() { yy_flex_realloc(0,0); } 

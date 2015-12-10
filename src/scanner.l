@@ -7076,7 +7076,7 @@ void CLanguageScanner::parsePrototype(const char *text)
 
 //----------------------------------------------------------------------------
 
-#if !defined(YY_FLEX_SUBMINOR_VERSION) 
+#if !defined(YY_FLEX_SUBMINOR_VERSION) || !defined(YY_FLEX_MINOR_VERSION)
 //----------------------------------------------------------------------------
 extern "C" { // some bogus code to keep the compiler happy
   void scannerYYdummy() { yy_flex_realloc(0,0); } 
