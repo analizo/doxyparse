@@ -1601,7 +1601,7 @@ void parseVhdlCode(CodeOutputInterface &od,const char *className,const QCString 
 
 void codeFreeVhdlScanner()
 {
-#if defined(YY_FLEX_SUBMINOR_VERSION) 
+#if defined(YY_FLEX_SUBMINOR_VERSION) || !defined(YY_FLEX_MINOR_VERSION)
   if (g_lexInit)
   {
     vhdlcodeYYlex_destroy();
@@ -1609,11 +1609,11 @@ void codeFreeVhdlScanner()
 #endif
 }
 
-#if !defined(YY_FLEX_SUBMINOR_VERSION) 
+#if !defined(YY_FLEX_SUBMINOR_VERSION) || !defined(YY_FLEX_MINOR_VERSION)
 extern "C" { // some bogus code to keep the compiler happy
   void vhdlcodeYYdummy() { yy_flex_realloc(0,0); } 
 }
-#elif YY_FLEX_SUBMINOR_VERSION<33
+#elif YY_FLEX_SUBMINOR_VERSION<33 && YY_FLEX_MINOR_VERSION < 6
 #error "You seem to be using a version of flex newer than 2.5.4 but older than 2.5.33. These versions do NOT work with doxygen! Please use version <=2.5.4 or >=2.5.33 or expect things to be parsed wrongly!"
 #endif
 

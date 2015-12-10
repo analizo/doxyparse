@@ -1038,7 +1038,7 @@ void convertCppComments(BufStr *inBuf,BufStr *outBuf,const char *fileName)
 
 
 //----------------------------------------------------------------------------
-#if !defined(YY_FLEX_SUBMINOR_VERSION) 
+#if !defined(YY_FLEX_SUBMINOR_VERSION) || !defined(YY_FLEX_MINOR_VERSION)
 extern "C" { // some bogus code to keep the compiler happy
     void commentcnvYYdummy() { yy_flex_realloc(0,0); } 
 }
