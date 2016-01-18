@@ -282,7 +282,7 @@ void Definition::removeFromMap(Definition *d)
 
 Definition::Definition(const char *df,int dl,int dc,
                        const char *name,const char *b,
-                       const char *d,bool isSymbol)
+                       const char *d,bool isSymbol) : m_cookie(0)
 {
   m_name = name;
   m_defLine = dl;
@@ -299,7 +299,7 @@ Definition::Definition(const char *df,int dl,int dc,
   }
 }
 
-Definition::Definition(const Definition &d) : DefinitionIntf()
+Definition::Definition(const Definition &d) : DefinitionIntf(), m_cookie(0)
 {
   m_name = d.m_name;
   m_defLine = d.m_defLine;
@@ -380,7 +380,7 @@ Definition::Definition(const Definition &d) : DefinitionIntf()
 
 Definition::~Definition()
 {
-  if (m_isSymbol) 
+  if (m_isSymbol)
   {
     removeFromMap(this);
   }
@@ -389,6 +389,8 @@ Definition::~Definition()
     delete m_impl;
     m_impl=0;
   }
+  delete m_cookie;
+  m_cookie=0;
 }
 
 void Definition::setName(const char *name)
@@ -1217,7 +1219,7 @@ void Definition::_writeSourceRefList(OutputList &ol,const char *scopeName,
           {
             ol.disable(OutputGenerator::Latex);
           }
-          if (!rtfSourceCode)
+          if (rtfSourceCode)
           {
             ol.disable(OutputGenerator::RTF);
           }
@@ -1942,5 +1944,28 @@ bool Definition::hasBriefDescription() const
   static bool briefMemberDesc = Config_getBool("BRIEF_MEMBER_DESC");
   return !briefDescription().isEmpty() && briefMemberDesc;
 }
+
+QCString Definition::externalReference(const QCString &relPath) const
+{
+  QCString ref = getReference();
+  if (!ref.isEmpty())
+  {
+    QCString *dest = Doxygen::tagDestinationDict[ref];
+    if (dest)
+    {
+      QCString result = *dest;
+      int l = result.length();
+      if (!relPath.isEmpty() && l>0 && result.at(0)=='.')
+      { // relative path -> prepend relPath.
+        result.prepend(relPath);
+        l+=relPath.length();
+      }
+      if (l>0 && result.at(l-1)!='/') result+='/';
+      return result;
+    }
+  }
+  return relPath;
+}
+
 
 

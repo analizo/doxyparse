@@ -75,6 +75,7 @@ static int              lastCSConstraint;
 static int              lastHereDocContext;
 static int              lastDefineContext;
 static int              lastAlignAsContext;
+static int              lastC11AttributeContext;
 static Protection	protection;
 static Protection	baseProt;
 static int		sharpCount   = 0 ;
@@ -668,6 +669,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 %x      SkipPHPString
 %x	SkipInits
 %x	SkipC11Inits
+%x      SkipC11Attribute
 %x	SkipCPP
 %x	SkipCPPBlock
 %x	SkipComment
@@ -2431,6 +2433,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
                                             }
 					    else
                                             {
+					      externC=FALSE; // see bug759247
 		 			      BEGIN(FindMembers);
                                             }
 					  }
@@ -3417,6 +3420,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  {
   					    current->args += yytext ;
 					    squareCount=1;
+					    externC=FALSE; // see bug759247
 					    BEGIN( Array ) ;
 					  }
 					}
@@ -4089,6 +4093,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  current_root->addSubEntry( current ) ;
   					  current=new Entry;
 					  initEntry();
+					  language = current->lang = SrcLangExt_Cpp; // see bug746361
 					  insideObjC=FALSE;
 					  BEGIN( FindMembers ); 
   					}
@@ -5022,6 +5027,9 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
                                             BEGIN(SkipInits);
                                           }
                                         }
+<SkipC11Attribute>"]]"                 {
+                                          BEGIN(lastC11AttributeContext);
+                                        }
 <SkipInits>"{"				{ // C++11 style initializer
   					  unput('{');
 					  BEGIN( Function );
@@ -5125,7 +5133,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
   				          //addToBody(yytext);
   					  BEGIN( SkipCurlyCpp );
 					}
-<SkipCurly,SkipC11Inits,SkipInits>\n	{
+<SkipCurly,SkipC11Inits,SkipInits,SkipC11Attribute>\n	{
                                           lineCount();
   				          //addToBody(yytext);
   					}
@@ -5154,22 +5162,22 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
   				          //addToBody(yytext);
                                           lineCount();
 					}
-<SkipInits,SkipC11Inits,SkipCurly,SkipCurlyCpp>"/*"	{
+<SkipInits,SkipC11Inits,SkipCurly,SkipCurlyCpp,SkipC11Attribute>"/*"	{
   				          //addToBody(yytext);
   					  lastCContext = YY_START;
 					  BEGIN(SkipComment);
   					}
-<SkipInits,SkipC11Inits,SkipCurly,SkipCurlyCpp>"//"  {
+<SkipInits,SkipC11Inits,SkipCurly,SkipCurlyCpp,SkipC11Attribute>"//"  {
   				          //addToBody(yytext);
   					  lastCContext = YY_START;
 					  BEGIN(SkipCxxComment);
   					}
-<SkipInits,SkipC11Inits>"("             {
+<SkipInits,SkipC11Inits,SkipC11Attribute>"("             {
                                           roundCount=0;
                                           lastSkipRoundContext=YY_START;
                                           BEGIN(SkipRound);
                                         }
-<SkipInits,SkipC11Inits>\"	        {
+<SkipInits,SkipC11Inits,SkipC11Attribute>\"	        {
   					  lastStringContext=YY_START;
   				          BEGIN( SkipString ); 
 					}
@@ -5204,7 +5212,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					    BEGIN(SkipPHPString);
 					  }
 					}
-<SkipInits,SkipC11Inits,SkipCurly,SkipCurlyCpp>.	{ }
+<SkipInits,SkipC11Inits,SkipCurly,SkipCurlyCpp,SkipC11Attribute>.	{ }
 <SkipString,SkipPHPString>\\.		{ }
 <SkipString>\"				{ 
   					  BEGIN( lastStringContext ); 
@@ -5325,8 +5333,8 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  }
 					}
 <ClassTemplSpec>"<"			{
-  					  current->name += yytext;
-  					  sharpCount++;
+					  current->name += yytext;
+					  if (roundCount==0) sharpCount++;
   					}
 <ClassTemplSpec>.			{
   					  current->name += yytext;
@@ -5375,6 +5383,11 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
     					  unput(';');
 					  current->reset();
 					  initEntry();
+                                          if (insideObjC) // see bug746361
+                                          {
+					    language = current->lang = SrcLangExt_Cpp;
+                                            insideObjC = FALSE;
+                                          }
 					  if (isTypedef) // typedef of a class, put typedef keyword back
 					  {
 					    current->type.prepend("typedef");
@@ -5999,7 +6012,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					}
 <Comment>.				{ current->program += *yytext ; }
 
-<FindMembers,FindFields,MemberSpec,FuncQual,SkipCurly,Operator,ClassVar,SkipInits,SkipC11Inits,Bases,OldStyleArgs>("//"{B}*)?"/*!" { 
+<FindMembers,FindFields,MemberSpec,FuncQual,SkipCurly,Operator,ClassVar,SkipInits,SkipC11Inits,SkipC11Attribute,Bases,OldStyleArgs>("//"{B}*)?"/*!" { 
   					  //printf("Start doc block at %d\n",yyLineNr);
 					  removeSlashes=(yytext[1]=='/');
 					  tmpDocType=-1;
@@ -6272,14 +6285,14 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
   					  BEGIN(DocCopyBlock);
   					}
 <DocBlock>^({B}*"*"+)?{B}{0,3}"~~~"[~]*                {
-                                          docBlock+=yytext;
+                                          docBlock+=substitute(yytext,"*"," ");
                                           docBlockName="~~~";
                                           g_fencedSize=yyleng;
                                           g_nestedComment=FALSE;
                                           BEGIN(DocCopyBlock);
                                         }
 <DocBlock>^({B}*"*"+)?{B}{0,3}"```"[`]*                {
-                                          docBlock+=yytext;
+                                          docBlock+=substitute(yytext,"*"," ");
                                           docBlockName="```";
                                           g_fencedSize=yyleng;
                                           g_nestedComment=FALSE;
@@ -6397,14 +6410,14 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  }
   					}
 <DocCopyBlock>^({B}*"*"+)?{B}{0,3}"~~~"[~]* {
-                                          docBlock+=yytext;
+                                          docBlock+=substitute(yytext,"*"," ");
                                           if (g_fencedSize==yyleng)
                                           {
                                             BEGIN(DocBlock);
                                           }
                                         }
 <DocCopyBlock>^({B}*"*"+)?{B}{0,3}"```"[`]*                 {
-                                          docBlock+=yytext;
+                                          docBlock+=substitute(yytext,"*"," ");
                                           if (g_fencedSize==yyleng)
                                           {
                                             BEGIN(DocBlock);
@@ -6528,6 +6541,12 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  BEGIN( lastCContext ) ;
 					}
 <SkipComment>[^\*\n]+
+
+"[["                                    { // C++11 attribute
+                                          lastC11AttributeContext = YY_START;
+                                          BEGIN( SkipC11Attribute );
+                                        }
+
 <*>\n					{ lineCount(); }
 <*>\"					{
 					  if (insideIDL && insideCppQuote)
@@ -6749,7 +6768,7 @@ static void parseCompounds(Entry *rt)
 
       // deep copy group list from parent (see bug 727732)
       static bool autoGroupNested = Config_getBool("GROUP_NESTED_COMPOUNDS");
-      if (rt->groups && ce->section!=Entry::ENUM_SEC && !(ce->spec&Entry::Enum))
+      if (autoGroupNested && rt->groups && ce->section!=Entry::ENUM_SEC && !(ce->spec&Entry::Enum))
       {
         QListIterator<Grouping> gli(*rt->groups);
         Grouping *g;

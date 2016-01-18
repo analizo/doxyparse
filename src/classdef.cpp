@@ -925,10 +925,7 @@ static void writeTemplateSpec(OutputList &ol,Definition *d,
         if (a) ol.docify(", ");
       }
       ol.docify(">");
-      ol.pushGeneratorState();
-      ol.disableAllBut(OutputGenerator::Html);
       ol.lineBreak();
-      ol.popGeneratorState();
     }
     ol.docify(type.lower()+" "+name);
     ol.endSubsubsection();
@@ -1960,7 +1957,6 @@ void ClassDef::writeDocumentationContents(OutputList &ol,const QCString & /*page
 
   QCString pageType = " ";
   pageType += compoundTypeString();
-  toupper(pageType.at(1));
 
   Doxygen::indexList->addIndexItem(this,0);
 
@@ -2607,7 +2603,7 @@ void ClassDef::setTypeConstraints(ArgumentList *al)
 void ClassDef::setTemplateArguments(ArgumentList *al)
 {
   if (al==0) return;
-  if (!m_impl->tempArgs) delete m_impl->tempArgs; // delete old list if needed
+  if (m_impl->tempArgs) delete m_impl->tempArgs; // delete old list if needed
   //printf("setting template args '%s' for '%s'\n",tempArgListToString(al,getLanguage()).data(),name().data());
   m_impl->tempArgs=new ArgumentList;
   ArgumentListIterator ali(*al);

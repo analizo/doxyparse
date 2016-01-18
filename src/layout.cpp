@@ -888,7 +888,7 @@ class LayoutParser : public QXmlDefaultHandler
         // no MainPage node... add one as the first item of the root node...
         new LayoutNavEntry(m_rootNav,LayoutNavEntry::MainPage, TRUE, 
             /*Config_getBool("GENERATE_TREEVIEW") ? "main" :*/ "index",
-            theTranslator->trMainPage(),TRUE);
+            theTranslator->trMainPage(),"",TRUE);
       }
     }
 
@@ -1269,6 +1269,7 @@ class LayoutParser : public QXmlDefaultHandler
 
   private:
     LayoutParser() : m_sHandler(163), m_eHandler(17), m_invalidEntry(FALSE) { }
+   ~LayoutParser() { delete m_rootNav; }
 
     QDict<StartElementHandler> m_sHandler;
     QDict<EndElementHandler>   m_eHandler;
@@ -1396,7 +1397,8 @@ void LayoutDocManager::parse(QTextStream &t,const char *fileName)
 void writeDefaultLayoutFile(const char *fileName)
 {
   QFile f(fileName);
-  if (!f.open(IO_WriteOnly))
+  bool ok = openOutputFile(fileName,f);
+  if (!ok)
   {
     err("Failed to open file %s for writing!\n",fileName);
     return;

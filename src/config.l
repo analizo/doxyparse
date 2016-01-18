@@ -242,7 +242,7 @@ QStrList &Config::getList(const char *fileName,int num,const char *name) const
   }
   else if (opt->kind()!=ConfigOption::O_List)
   {
-    config_err("%d<%d>: Internal error: Requested option %s not of list type!\n",fileName,num,name);
+    config_err("%s<%d>: Internal error: Requested option %s not of list type!\n",fileName,num,name);
     exit(1);
   }
   return *((ConfigList *)opt)->valueRef();
@@ -1077,7 +1077,7 @@ void Config::checkFileName(const char *optionName)
       (val=="no"  || val=="false" || val=="0" || val=="none")) 
   {
     config_err("file name expected for option %s, got %s instead. Ignoring...\n",optionName,s.data());
-    s=""; // note tihe use of &s above: this will change the option value!
+    s=""; // note the use of &s above: this will change the option value!
   }
 }
 
@@ -1119,14 +1119,15 @@ void Config::check()
   
   QCString &paperType = Config_getEnum("PAPER_TYPE");
   paperType=paperType.lower().stripWhiteSpace(); 
-  if (paperType.isEmpty())
+  if (paperType.isEmpty() || paperType=="a4wide")
   {
     paperType = "a4";
   }
-  if (paperType!="a4" && paperType!="a4wide" && paperType!="letter" && 
+  if (paperType!="a4" && paperType!="letter" && 
       paperType!="legal" && paperType!="executive")
   {
     config_err("Unknown page type specified\n");
+    paperType="a4";
   }
   
   QCString &outputLanguage=Config_getEnum("OUTPUT_LANGUAGE");
@@ -1198,6 +1199,12 @@ void Config::check()
         exit(1);
       }
     }
+    QCString &path = Config_getString("MATHJAX_RELPATH");
+    if (!path.isEmpty() && path.at(path.length()-1)!='/')
+    {
+      path+="/";
+    }
+
   }
 
   // Test to see if LaTeX header is valid
@@ -1426,71 +1433,7 @@ void Config::check()
     }
   }
 
-  // add default pattern if needed
-  QStrList &filePatternList = Config_getList("FILE_PATTERNS");
-  if (filePatternList.isEmpty())
-  {
-    filePatternList.append("*.c");
-    filePatternList.append("*.cc"); 
-    filePatternList.append("*.cxx");
-    filePatternList.append("*.cpp");
-    filePatternList.append("*.c++");
-    //filePatternList.append("*.d");
-    filePatternList.append("*.java");
-    filePatternList.append("*.ii");
-    filePatternList.append("*.ixx");
-    filePatternList.append("*.ipp");
-    filePatternList.append("*.i++");
-    filePatternList.append("*.inl");
-    filePatternList.append("*.h");
-    filePatternList.append("*.hh");
-    filePatternList.append("*.hxx");
-    filePatternList.append("*.hpp");
-    filePatternList.append("*.h++");
-    filePatternList.append("*.idl");
-    filePatternList.append("*.odl");
-    filePatternList.append("*.cs");
-    filePatternList.append("*.php");
-    filePatternList.append("*.php3");
-    filePatternList.append("*.inc");
-    filePatternList.append("*.m");
-    filePatternList.append("*.mm");
-    filePatternList.append("*.dox");
-    filePatternList.append("*.py");
-    filePatternList.append("*.f90");
-    filePatternList.append("*.f");
-    filePatternList.append("*.for");
-    filePatternList.append("*.vhd");
-    filePatternList.append("*.vhdl");
-    filePatternList.append("*.tcl");
-    filePatternList.append("*.md");
-    filePatternList.append("*.markdown");
-    if (portable_fileSystemIsCaseSensitive())
-    {
-      // unix => case sensitive match => also include useful uppercase versions
-      filePatternList.append("*.C");
-      filePatternList.append("*.CC"); 
-      filePatternList.append("*.C++");
-      filePatternList.append("*.II");
-      filePatternList.append("*.I++");
-      filePatternList.append("*.H");
-      filePatternList.append("*.HH");
-      filePatternList.append("*.H++");
-      filePatternList.append("*.CS");
-      filePatternList.append("*.PHP");
-      filePatternList.append("*.PHP3");
-      filePatternList.append("*.M");
-      filePatternList.append("*.MM");
-      filePatternList.append("*.PY");
-      filePatternList.append("*.F90");
-      filePatternList.append("*.F");
-      filePatternList.append("*.VHD");
-      filePatternList.append("*.VHDL");
-      filePatternList.append("*.TCL");
-      filePatternList.append("*.MD");
-      filePatternList.append("*.MARKDOWN");
-    }
-  }
+  initFilePattern();
 
   // add default pattern if needed
   QStrList &examplePatternList = Config_getList("EXAMPLE_PATTERNS");
@@ -1756,6 +1699,7 @@ static QCString configFileToString(const char *name)
   if (!fileOpened)  
   {
     config_err("cannot open file `%s' for reading\n",name);
+    exit(1);
   }
   return "";
 }

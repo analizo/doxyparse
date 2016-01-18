@@ -704,6 +704,14 @@ void replaceComment(int offset);
 				     g_readLineCtx=YY_START;
 				     BEGIN(ReadLine);
   				   }
+<SComment>\n[ \t]*"//"[\/!]("<")?[ \t]*[\\@]"}".*\n {   
+                                     /* See Bug 752712: end the multiline comment when finding a @} or \} command */
+                                     copyToOutput(" */",3); 
+				     copyToOutput(yytext,(int)yyleng); 
+				     g_inSpecialComment=FALSE;
+				     g_inRoseComment=FALSE;
+				     BEGIN(Scan); 
+                                   }
 <SComment>\n[ \t]*"///"[^\/\n]/.*\n  { 
                                      replaceComment(1); 
 				     g_readLineCtx=YY_START;
@@ -773,6 +781,7 @@ void replaceComment(int offset);
 				       //printf("** Adding start of comment!\n");
 				       if (g_lang!=SrcLangExt_Python &&
 					   g_lang!=SrcLangExt_VHDL &&
+					   g_lang!=SrcLangExt_Markdown &&
 					   g_lang!=SrcLangExt_Fortran)
 				       {
  				         ADDCHAR('/');
@@ -792,6 +801,7 @@ void replaceComment(int offset);
     			             {
 				       if (g_lang!=SrcLangExt_Python &&
 					   g_lang!=SrcLangExt_VHDL &&
+					   g_lang!=SrcLangExt_Markdown &&
 					   g_lang!=SrcLangExt_Fortran)
 				       {
  				         ADDCHAR('*');

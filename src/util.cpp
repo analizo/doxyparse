@@ -18,6 +18,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <math.h>
+#include <limits.h>
 
 #include "md5.h"
 
@@ -2472,6 +2473,35 @@ QCString fileToString(const char *name,bool filter,bool isSourceCode)
 QCString dateToString(bool includeTime)
 {
   QDateTime current = QDateTime::currentDateTime();
+  QCString sourceDateEpoch = portable_getenv("SOURCE_DATE_EPOCH");
+  if (!sourceDateEpoch.isEmpty())
+  {
+    bool ok;
+    uint64 epoch = sourceDateEpoch.toUInt64(&ok);
+    if (!ok)
+    {
+      static bool warnedOnce=FALSE;
+      if (!warnedOnce)
+      {
+        warn_uncond("Environment variable SOURCE_DATE_EPOCH does not contain a valid number; value is '%s'\n",
+            sourceDateEpoch.data());
+        warnedOnce=TRUE;
+      }
+    }
+    else if (epoch>UINT_MAX)
+    {
+      static bool warnedOnce=FALSE;
+      if (!warnedOnce)
+      {
+        warn_uncond("Environment variable SOURCE_DATA_EPOCH must have a value smaller than or equal to %llu; actual value %llu\n",UINT_MAX,epoch);
+        warnedOnce=TRUE;
+      }
+    }
+    else // all ok, replace current time with epoch value
+    {
+      current.setTime_t((ulong)epoch); // TODO: add support for 64bit epoch value
+    }
+  }
   return theTranslator->trDateTime(current.date().year(),
                                    current.date().month(),
                                    current.date().day(),
@@ -3975,6 +4005,11 @@ bool getDefs(const QCString &scName,
 
       MemberDef *tmd=0;
       ClassDef *fcd=getResolvedClass(Doxygen::globalScope,0,className,&tmd);
+      if (fcd==0 && className.find('<')!=-1) // try without template specifiers as well
+      {
+         QCString nameWithoutTemplates = stripTemplateSpecifiersFromScope(className,FALSE);
+         fcd=getResolvedClass(Doxygen::globalScope,0,nameWithoutTemplates,&tmd);
+      }
       //printf("Trying class scope %s: fcd=%p tmd=%p\n",className.data(),fcd,tmd);
       // todo: fill in correct fileScope!
       if (fcd &&  // is it a documented class
@@ -4261,7 +4296,7 @@ bool getDefs(const QCString &scName,
         bool found=FALSE;
         MemberListIterator mmli(*mn);
         MemberDef *mmd;
-        for (mmli.toFirst();((mmd=mmli.current()) && !found);++mmli)
+        for (mmli.toFirst();(mmd=mmli.current());++mmli)
         {
           MemberDef *tmd = mmd->getEnumScope();
           //printf("try member %s tmd=%s\n",mmd->name().data(),tmd?tmd->name().data():"<none>");
@@ -4726,7 +4761,7 @@ bool resolveLink(/* in */ const char *scName,
 
   QCString linkRef=lr;
   QCString linkRefWithoutTemplates = stripTemplateSpecifiersFromScope(linkRef,FALSE);
-  //printf("ResolveLink linkRef=%s inSee=%d\n",lr,inSeeBlock);
+  //printf("ResolveLink linkRef=%s\n",lr);
   FileDef  *fd;
   GroupDef *gd;
   PageDef  *pd;
@@ -5646,6 +5681,37 @@ QCString stripScope(const char *name)
   return name;
 }
 
+/*! Converts a string to a HTML id string */
+QCString convertToId(const char *s)
+{
+  static const char hex[] = "0123456789ABCDEF";
+  static GrowBuf growBuf;
+  growBuf.clear();
+  if (s==0) return "";
+  const char *p=s;
+  char c;
+  bool first=TRUE;
+  while ((c=*p++))
+  {
+    char encChar[4];
+    if ((c>='0' && c<='9') || (c>='a' && c<='z') || (c>='A' && c<='Z') || c=='-' || c==':' || c=='.')
+    { // any permissive character except _
+      if (first && c>='0' && c<='9') growBuf.addChar('a'); // don't start with a digit
+      growBuf.addChar(c);
+    }
+    else
+    {
+      encChar[0]='_';
+      encChar[1]=hex[((unsigned char)c)>>4];
+      encChar[2]=hex[((unsigned char)c)&0xF];
+      encChar[3]=0;
+      growBuf.addStr(encChar);
+    }
+    first=FALSE;
+  }
+  growBuf.addChar(0);
+  return growBuf.get();
+}
 
 /*! Converts a string to an XML-encoded string */
 QCString convertToXML(const char *s)
@@ -5743,6 +5809,15 @@ QCString convertToJSString(const char *s)
   return convertCharEntitiesToUTF8(growBuf.get());
 }
 
+QCString convertToLaTeX(const QCString &s,bool insideTabbing,bool keepSpaces)
+{
+  QGString result;
+  FTextStream t(&result);
+  filterLatexString(t,s,insideTabbing,FALSE,FALSE,keepSpaces);
+  return result.data();
+}
+
+
 
 QCString convertCharEntitiesToUTF8(const QCString &s)
 {
@@ -5831,7 +5906,8 @@ void addMembersToMemberGroup(MemberList *ml,
                     groupId,
                     info->header,
                     info->doc,
-                    info->docFile
+                    info->docFile,
+                    info->docLine
                     );
                 (*ppMemberGroupSDict)->append(groupId,mg);
               }
@@ -5863,7 +5939,8 @@ void addMembersToMemberGroup(MemberList *ml,
               groupId,
               info->header,
               info->doc,
-              info->docFile
+              info->docFile,
+              info->docLine
               );
           (*ppMemberGroupSDict)->append(groupId,mg);
         }
@@ -6324,11 +6401,7 @@ PageDef *addRelatedPage(const char *name,const QCString &ptitle,
     if (tagInfo)
     {
       pd->setReference(tagInfo->tagName);
-      pd->setFileName(tagInfo->fileName,TRUE);
-    }
-    else
-    {
-      pd->setFileName(convertNameToFile(pd->name(),FALSE,TRUE),FALSE);
+      pd->setFileName(tagInfo->fileName);
     }
 
     //printf("Appending page `%s'\n",baseName.data());
@@ -6458,10 +6531,9 @@ void addGroupListToTitle(OutputList &ol,Definition *d)
 }
 
 void filterLatexString(FTextStream &t,const char *str,
-    bool insideTabbing,bool insidePre,bool insideItem)
+    bool insideTabbing,bool insidePre,bool insideItem,bool keepSpaces)
 {
   if (str==0) return;
-  //printf("filterLatexString(%s)\n",str);
   //if (strlen(str)<2) stackTrace();
   const unsigned char *p=(const unsigned char *)str;
   const unsigned char *q;
@@ -6480,8 +6552,11 @@ void filterLatexString(FTextStream &t,const char *str,
         case '{':  t << "\\{"; break;
         case '}':  t << "\\}"; break;
         case '_':  t << "\\_"; break;
-        default: 
+        case ' ':  if (keepSpaces) t << "~"; else t << ' ';
+                   break;
+        default:
                    t << (char)c;
+                   break;
       }
     }
     else
@@ -6551,11 +6626,13 @@ void filterLatexString(FTextStream &t,const char *str,
                    break;
         case '\'': t << "\\textquotesingle{}";
                    break;
+        case ' ':  if (keepSpaces) { if (insideTabbing) t << "\\>"; else t << '~'; } else t << ' ';
+                   break;
 
         default:   
                    //if (!insideTabbing && forceBreaks && c!=' ' && *p!=' ')
                    if (!insideTabbing && 
-                       ((c>='A' && c<='Z' && pc!=' ' && pc!='\0') || (c==':' && pc!=':') || (pc=='.' && isId(c)))
+                       ((c>='A' && c<='Z' && pc!=' ' && pc!='\0' && *p) || (c==':' && pc!=':') || (pc=='.' && isId(c)))
                       )
                    {
                      t << "\\+";
@@ -6565,6 +6642,102 @@ void filterLatexString(FTextStream &t,const char *str,
     }
     pc = c;
   }
+}
+
+QCString latexEscapeLabelName(const char *s,bool insideTabbing)
+{
+  QGString result;
+  QCString tmp(qstrlen(s)+1);
+  FTextStream t(&result);
+  const char *p=s;
+  char c;
+  int i;
+  while ((c=*p++))
+  {
+    switch (c)
+    {
+      case '|': t << "\\texttt{\"|}"; break;
+      case '!': t << "\"!"; break;
+      case '%': t << "\\%";       break;
+      case '{': t << "\\lcurly{}"; break;
+      case '}': t << "\\rcurly{}"; break;
+      case '~': t << "````~"; break; // to get it a bit better in index together with other special characters
+      // NOTE: adding a case here, means adding it to while below as well!
+      default:  
+        i=0;
+        // collect as long string as possible, before handing it to docify
+        tmp[i++]=c;
+        while ((c=*p) && c!='|' && c!='!' && c!='%' && c!='{' && c!='}' && c!='~')
+        {
+          tmp[i++]=c;
+          p++;
+        }
+        tmp[i]=0;
+        filterLatexString(t,tmp.data(),insideTabbing);
+        break;
+    }
+  }
+  return result.data();
+}
+
+QCString latexEscapeIndexChars(const char *s,bool insideTabbing)
+{
+  QGString result;
+  QCString tmp(qstrlen(s)+1);
+  FTextStream t(&result);
+  const char *p=s;
+  char c;
+  int i;
+  while ((c=*p++))
+  {
+    switch (c)
+    {
+      case '!': t << "\"!"; break;
+      case '"': t << "\"\""; break;
+      case '@': t << "\"@"; break;
+      case '|': t << "\\texttt{\"|}"; break;
+      case '[': t << "["; break;
+      case ']': t << "]"; break;
+      case '{': t << "\\lcurly{}"; break;
+      case '}': t << "\\rcurly{}"; break;
+      // NOTE: adding a case here, means adding it to while below as well!
+      default:  
+        i=0;
+        // collect as long string as possible, before handing it to docify
+        tmp[i++]=c;
+        while ((c=*p) && c!='"' && c!='@' && c!='[' && c!=']' && c!='!' && c!='{' && c!='}' && c!='|')
+        {
+          tmp[i++]=c;
+          p++;
+        }
+        tmp[i]=0;
+        filterLatexString(t,tmp.data(),insideTabbing);
+        break;
+    }
+  }
+  return result.data();
+}
+
+QCString latexEscapePDFString(const char *s)
+{
+  QGString result;
+  FTextStream t(&result);
+  const char *p=s;
+  char c;
+  int i;
+  while ((c=*p++))
+  {
+    switch (c)
+    {
+      case '\\': t << "\\textbackslash{}"; break;
+      case '{':  t << "\\{"; break;
+      case '}':  t << "\\}"; break;
+      default:
+        t << c;
+        break;
+    }
+  }
+  return result.data();
 }
 
 
@@ -6825,6 +6998,7 @@ bool updateLanguageMapping(const QCString &extension,const QCString &language)
 
 void initDefaultExtensionMapping()
 {
+  // NOTE: when adding an extension, also add the extension in config.xml
   g_extLookup.setAutoDelete(TRUE);
   //                  extension      parser id
   updateLanguageMapping(".dox",      "c");
@@ -6864,8 +7038,9 @@ void initDefaultExtensionMapping()
   updateLanguageMapping(".phtml",    "php");
   updateLanguageMapping(".m",        "objective-c");
   updateLanguageMapping(".M",        "objective-c");
-  updateLanguageMapping(".mm",       "objective-c");
+  updateLanguageMapping(".mm",       "c");  // see bug746361
   updateLanguageMapping(".py",       "python");
+  updateLanguageMapping(".pyw",      "python");
   updateLanguageMapping(".f",        "fortran");
   updateLanguageMapping(".for",      "fortran");
   updateLanguageMapping(".f90",      "fortran");
@@ -8324,7 +8499,7 @@ void convertProtectionLevel(
         if (extractPrivate)
         {
           *outListType1=MemberListType_pubSlots;
-          *outListType1=MemberListType_proSlots;
+          *outListType2=MemberListType_proSlots;
         }
         else
         {
@@ -8390,3 +8565,48 @@ QCString getDotImageExtension(void)
   imgExt = imgExt.replace( QRegExp(":.*"), "" );
   return imgExt;
 }
+
+void initFilePattern(void)
+{
+  // add default pattern if needed
+  QStrList &filePatternList = Config_getList("FILE_PATTERNS");
+  if (filePatternList.isEmpty())
+  {
+    QDictIterator<int> it( g_extLookup );
+    QCString pattern;
+    bool caseSens =  portable_fileSystemIsCaseSensitive();
+    for (;it.current();++it)
+    {
+      pattern = "*";
+      pattern += it.currentKey();
+      filePatternList.append(pattern.data());
+      if (caseSens) filePatternList.append(pattern.upper().data());
+    }
+  }
+}
+
+bool openOutputFile(const char *outFile,QFile &f)
+{
+  bool fileOpened=FALSE;
+  bool writeToStdout=(outFile[0]=='-' && outFile[1]=='\0');
+  if (writeToStdout) // write to stdout
+  {
+    fileOpened = f.open(IO_WriteOnly,stdout);
+  }
+  else // write to file
+  {
+    QFileInfo fi(outFile);
+    if (fi.exists()) // create a backup
+    {
+      QDir dir=fi.dir();
+      QFileInfo backup(fi.fileName()+".bak");
+      if (backup.exists()) // remove existing backup
+        dir.remove(backup.fileName());
+      dir.rename(fi.fileName(),fi.fileName()+".bak");
+    } 
+    f.setName(outFile);
+    fileOpened = f.open(IO_WriteOnly|IO_Translate);
+  }
+  return fileOpened;
+}
+

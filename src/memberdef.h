@@ -176,6 +176,7 @@ class MemberDef : public Definition
     bool protectionVisible() const;
     bool showInCallGraph() const;
     bool isStrongEnumValue() const;
+    bool livesInsideEnum() const;
 
     int numberOfFlowKeyWords();
     // derived getters

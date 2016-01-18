@@ -471,9 +471,9 @@ static void checkUndocumentedParams()
         if (lang==SrcLangExt_Fortran) argName = argName.lower();
         argName=argName.stripWhiteSpace();
         if (argName.right(3)=="...") argName=argName.left(argName.length()-3);
-        if (g_memberDef->getLanguage()==SrcLangExt_Python && argName=="self")
+        if (g_memberDef->getLanguage()==SrcLangExt_Python && (argName=="self" || argName=="cls"))
         { 
-          // allow undocumented self parameter for Python
+          // allow undocumented self / cls parameter for Python
         }
         else if (!argName.isEmpty() && g_paramsFound.find(argName)==0 && a->docs.isEmpty()) 
         {
@@ -494,9 +494,9 @@ static void checkUndocumentedParams()
           QCString argName = g_memberDef->isDefine() ? a->type : a->name;
           if (lang==SrcLangExt_Fortran) argName = argName.lower();
           argName=argName.stripWhiteSpace();
-          if (g_memberDef->getLanguage()==SrcLangExt_Python && argName=="self")
+          if (g_memberDef->getLanguage()==SrcLangExt_Python && (argName=="self" || argName=="cls"))
           { 
-            // allow undocumented self parameter for Python
+            // allow undocumented self / cls parameter for Python
           }
           else if (!argName.isEmpty() && g_paramsFound.find(argName)==0) 
           {
@@ -511,18 +511,9 @@ static void checkUndocumentedParams()
             errMsg+="  parameter '"+argName+"'";
           }
         }
-        if (g_memberDef->inheritsDocsFrom())
-        {
-           warn_doc_error(g_memberDef->getDefFileName(),
-                          g_memberDef->getDefLine(),
-                          substitute(errMsg,"%","%%"));
-        }
-        else
-        {
-           warn_doc_error(g_memberDef->getDefFileName(),
-                          g_memberDef->getDefLine(),
-                          substitute(errMsg,"%","%%"));
-        }
+        warn_doc_error(g_memberDef->getDefFileName(),
+                       g_memberDef->getDefLine(),
+                       substitute(errMsg,"%","%%"));
       }
     }
   }
@@ -563,7 +554,7 @@ static void detectNoDocumentedParams()
         for (ali.toFirst();(a=ali.current()) && allDoc;++ali)
         {
           if (!a->name.isEmpty() && a->type!="void" &&
-              !(isPython && a->name=="self")
+              !(isPython && (a->name=="self" || a->name=="cls"))
              )
           {
             allDoc = !a->docs.isEmpty();
@@ -579,7 +570,7 @@ static void detectNoDocumentedParams()
           for (ali.toFirst();(a=ali.current()) && allDoc;++ali)
           {
             if (!a->name.isEmpty() && a->type!="void" &&
-                !(isPython && a->name=="self")
+                !(isPython && (a->name=="self" || a->name=="cls"))
                )
             {
               allDoc = !a->docs.isEmpty();
@@ -594,7 +585,8 @@ static void detectNoDocumentedParams()
         g_memberDef->setHasDocumentedParams(TRUE);
       }
     }
-    //printf("Member %s hasReturnCommand=%d\n",g_memberDef->name().data(),g_hasReturnCommand);
+    //printf("Member %s hadDocumentedReturnType()=%d hasReturnCommand=%d\n",
+    //    g_memberDef->name().data(),g_memberDef->hasDocumentedReturnType(),g_hasReturnCommand);
     if (!g_memberDef->hasDocumentedReturnType() && // docs not yet found
         g_hasReturnCommand)
     {
@@ -611,7 +603,18 @@ static void detectNoDocumentedParams()
     {
       g_memberDef->setHasDocumentedReturnType(TRUE);
     }
-       
+    else if ( // see if return type is documented in a function w/o return type
+        g_memberDef->hasDocumentedReturnType() &&
+        (returnType.isEmpty()              || // empty return type
+         returnType.find("void")!=-1       || // void return type
+         returnType.find("subroutine")!=-1 || // fortran subroutine
+         g_memberDef->isConstructor()      || // a constructor
+         g_memberDef->isDestructor()          // or destructor
+        )
+       )
+    {
+      warn_doc_error(g_fileName,doctokenizerYYlineno,"documented empty return type");
+    }
   }
 }
 
@@ -1381,6 +1384,15 @@ reparsetoken:
           break;
         case CMD_QUOTE:
           children.append(new DocSymbol(parent,DocSymbol::Sym_Quot));
+          break;
+        case CMD_PUNT:
+          children.append(new DocSymbol(parent,DocSymbol::Sym_Dot));
+          break;
+        case CMD_PLUS:
+          children.append(new DocSymbol(parent,DocSymbol::Sym_Plus));
+          break;
+        case CMD_MINUS:
+          children.append(new DocSymbol(parent,DocSymbol::Sym_Minus));
           break;
         case CMD_EMPHASIS:
           {
@@ -2168,7 +2180,7 @@ bool DocXRefItem::parse()
       }
       else
       {
-        m_file   = convertNameToFile(refList->listName(),FALSE,TRUE);
+        m_file   = refList->fileName();
         m_anchor = item->listAnchor;
       }
       m_title  = refList->sectionTitle();
@@ -2418,7 +2430,7 @@ void DocInternalRef::parse()
 //---------------------------------------------------------------------------
 
 DocRef::DocRef(DocNode *parent,const QCString &target,const QCString &context) : 
-   m_refToSection(FALSE), m_refToAnchor(FALSE), m_isSubPage(FALSE)
+   m_refType(Unknown), m_isSubPage(FALSE)
 {
   m_parent = parent; 
   Definition  *compound = 0;
@@ -2444,8 +2456,18 @@ DocRef::DocRef(DocNode *parent,const QCString &target,const QCString &context) :
 
     m_ref          = sec->ref;
     m_file         = stripKnownExtensions(sec->fileName);
-    m_refToAnchor  = sec->type==SectionInfo::Anchor;
-    m_refToSection = sec->type!=SectionInfo::Anchor;
+    if (sec->type==SectionInfo::Anchor)
+    {
+      m_refType = Anchor;
+    }
+    else if (sec->type==SectionInfo::Table)
+    {
+      m_refType = Table;
+    }
+    else
+    {
+      m_refType = Section;
+    }
     m_isSubPage    = pd && pd->hasParentPage();
     if (sec->type!=SectionInfo::Page || m_isSubPage) m_anchor = sec->label;
     //printf("m_text=%s,m_ref=%s,m_file=%s,m_refToAnchor=%d type=%d\n",
@@ -3216,6 +3238,9 @@ int DocIndexEntry::parse()
         case CMD_NDASH:   m_entry+="--";  break;
         case CMD_MDASH:   m_entry+="---";  break;
         case CMD_QUOTE:   m_entry+='"';  break;
+        case CMD_PUNT:    m_entry+='.';  break;
+        case CMD_PLUS:    m_entry+='+';  break;
+        case CMD_MINUS:   m_entry+='-';  break;
         default:
           warn_doc_error(g_fileName,doctokenizerYYlineno,"Unexpected command %s found as argument of \\addindex",
                     qPrint(g_token->name));
@@ -3238,6 +3263,41 @@ endindexentry:
 }
 
 //---------------------------------------------------------------------------
+
+DocHtmlCaption::DocHtmlCaption(DocNode *parent,const HtmlAttribList &attribs)
+{
+  m_hasCaptionId = FALSE;
+  HtmlAttribListIterator li(attribs);
+  HtmlAttrib *opt;
+  for (li.toFirst();(opt=li.current());++li)
+  {
+    if (opt->name=="id") // interpret id attribute as an anchor
+    {
+      SectionInfo *sec = Doxygen::sectionDict->find(opt->value);
+      if (sec)
+      {
+        //printf("Found anchor %s\n",id.data());
+        m_file   = sec->fileName;
+        m_anchor = sec->label;
+        m_hasCaptionId = TRUE;
+        if (g_sectionDict && g_sectionDict->find(opt->value)==0)
+        {
+          //printf("Inserting in dictionary!\n");
+          g_sectionDict->append(opt->value,sec);
+        }
+      }
+      else
+      {
+        warn_doc_error(g_fileName,doctokenizerYYlineno,"Invalid caption id `%s'",qPrint(opt->value));
+      }
+    }
+    else // copy attribute
+    {
+      m_attribs.append(new HtmlAttrib(*opt));
+    }
+  }
+  m_parent = parent;
+}
 
 int DocHtmlCaption::parse()
 {
@@ -3744,12 +3804,14 @@ void DocHtmlTable::accept(DocVisitor *v)
 { 
   v->visitPre(this); 
   // for HTML output we put the caption first
-  if (m_caption && v->id()==DocVisitor_Html) m_caption->accept(v);
+  //if (m_caption && v->id()==DocVisitor_Html) m_caption->accept(v);
+  // doxygen 1.8.11: always put the caption first
+  if (m_caption) m_caption->accept(v);
   QListIterator<DocNode> cli(m_children);
   DocNode *n;
   for (cli.toFirst();(n=cli.current());++cli) n->accept(v);
   // for other output formats we put the caption last
-  if (m_caption && v->id()!=DocVisitor_Html) m_caption->accept(v);
+  //if (m_caption && v->id()!=DocVisitor_Html) m_caption->accept(v);
   v->visitPost(this); 
 }
 
@@ -5287,6 +5349,15 @@ int DocPara::handleCommand(const QCString &cmdName)
     case CMD_QUOTE:
       m_children.append(new DocSymbol(this,DocSymbol::Sym_Quot));
       break;
+    case CMD_PUNT:
+      m_children.append(new DocSymbol(this,DocSymbol::Sym_Dot));
+      break;
+    case CMD_PLUS:
+      m_children.append(new DocSymbol(this,DocSymbol::Sym_Plus));
+      break;
+    case CMD_MINUS:
+      m_children.append(new DocSymbol(this,DocSymbol::Sym_Minus));
+      break;
     case CMD_SA:
       g_inSeeBlock=TRUE;
       retval = handleSimpleSection(DocSimpleSect::See);
@@ -5895,7 +5966,7 @@ int DocPara::handleHtmlStartTag(const QCString &tagName,const HtmlAttribList &ta
           {
             if (Config_getBool("WARN_NO_PARAMDOC"))
             {
-              warn_doc_error(g_fileName,doctokenizerYYlineno,"empty 'name' attribute for <param> tag.");
+              warn_doc_error(g_fileName,doctokenizerYYlineno,"empty 'name' attribute for <param%s> tag.",tagId==XML_PARAM?"":"type");
             }
           }
           else
@@ -5907,7 +5978,7 @@ int DocPara::handleHtmlStartTag(const QCString &tagName,const HtmlAttribList &ta
         }
         else
         {
-          warn_doc_error(g_fileName,doctokenizerYYlineno,"Missing 'name' attribute from <param> tag.");
+          warn_doc_error(g_fileName,doctokenizerYYlineno,"Missing 'name' attribute from <param%s> tag.",tagId==XML_PARAM?"":"type");
         }
       }
       break;
@@ -5940,7 +6011,7 @@ int DocPara::handleHtmlStartTag(const QCString &tagName,const HtmlAttribList &ta
         }
         else
         {
-          warn_doc_error(g_fileName,doctokenizerYYlineno,"Missing 'name' attribute from <exception> tag.");
+          warn_doc_error(g_fileName,doctokenizerYYlineno,"Missing 'cref' attribute from <exception> tag.");
         }
       }
       break;
@@ -6797,6 +6868,15 @@ void DocText::parse()
             break;
           case CMD_QUOTE:
             m_children.append(new DocSymbol(this,DocSymbol::Sym_Quot));
+            break;
+          case CMD_PUNT:
+            m_children.append(new DocSymbol(this,DocSymbol::Sym_Dot));
+            break;
+          case CMD_PLUS:
+            m_children.append(new DocSymbol(this,DocSymbol::Sym_Plus));
+            break;
+          case CMD_MINUS:
+            m_children.append(new DocSymbol(this,DocSymbol::Sym_Minus));
             break;
           default:
             warn_doc_error(g_fileName,doctokenizerYYlineno,"Unexpected command `%s' found",

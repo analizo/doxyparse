@@ -324,6 +324,7 @@ void MemberList::writePlainDeclarations(OutputList &ol,
                       )
 {
   //printf("----- writePlainDeclaration() ----\n");
+  static bool hideUndocMembers = Config_getBool("HIDE_UNDOC_MEMBERS");
   countDecMembers();
   if (numDecMembers()==0) 
   {
@@ -387,7 +388,7 @@ void MemberList::writePlainDeclarations(OutputList &ol,
             }
             // if this is an anonymous enum and there are variables of this
             // enum type (i.e. enumVars>0), then we do not show the enum here.
-            if (enumVars==0) // show enum here
+            if (enumVars==0 && !hideUndocMembers) // show enum here
             {
               //printf("Enum!!\n");
               if (first)
@@ -435,8 +436,8 @@ void MemberList::writePlainDeclarations(OutputList &ol,
                 }
                 delete rootNode;
               }
-              ol.endMemberDeclaration(md->anchor(),inheritId);
               ol.endMemberItem();
+              ol.endMemberDeclaration(md->anchor(),inheritId);
             }
             md->warnIfUndocumented();
             break;
@@ -627,7 +628,7 @@ void MemberList::writeDeclarations(OutputList &ol,
           {
             //printf("Member group has docs!\n");
             ol.startMemberGroupDocs();
-            ol.generateDoc("[generated]",-1,ctx,0,mg->documentation()+"\n",FALSE,FALSE);
+            ol.generateDoc(mg->docFile(),mg->docLine(),ctx,0,mg->documentation()+"\n",FALSE,FALSE);
             ol.endMemberGroupDocs();
           }
           ol.startMemberGroup();
@@ -681,7 +682,7 @@ void MemberList::writeDocumentation(OutputList &ol,
   }
   if (memberGroupList)
   {
-    //printf("MemberList::writeDocumentation()  --  member groups\n");
+    printf("MemberList::writeDocumentation()  --  member groups %d\n",memberGroupList->count());
     MemberGroupListIterator mgli(*memberGroupList);
     MemberGroup *mg;
     for (;(mg=mgli.current());++mgli)

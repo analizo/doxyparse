@@ -42,7 +42,7 @@ static const char types[][NUM_HTML_LIST_TYPES] = {"1", "a", "i", "A"};
 static QCString convertIndexWordToAnchor(const QString &word)
 {
   static char hex[] = "0123456789abcdef";
-  QCString result;
+  QCString result="a";
   const char *str = word.data();
   unsigned char c;
   if (str)
@@ -54,8 +54,7 @@ static QCString convertIndexWordToAnchor(const QString &word)
           (c >= '0' && c <= '9') || // DIGIT
           c == '-' ||
           c == '.' ||
-          c == '_' ||
-          c == '~'
+          c == '_'
          )
       {
         result += c;
@@ -63,7 +62,7 @@ static QCString convertIndexWordToAnchor(const QString &word)
       else
       {
         char enc[4];
-        enc[0] = '%';
+        enc[0] = ':';
         enc[1] = hex[(c & 0xf0) >> 4];
         enc[2] = hex[c & 0xf];
         enc[3] = 0;
@@ -1037,7 +1036,7 @@ void HtmlDocVisitor::visitPre(DocPara *p)
 void HtmlDocVisitor::visitPost(DocPara *p)
 {
   bool needsTag = FALSE;
-  if (p && p->parent()) 
+  if (p->parent()) 
   {
     switch (p->parent()->kind()) 
     {
@@ -1067,7 +1066,7 @@ void HtmlDocVisitor::visitPost(DocPara *p)
   // the paragraph (<ul>,<dl>,<table>) then that will already have ended the 
   // paragraph and we don't need to do it here
   int nodeIndex = p->children().count()-1;
-  if (p && nodeIndex>=0)
+  if (nodeIndex>=0)
   {
     while (nodeIndex>=0 && p->children().at(nodeIndex)->kind()==DocNode::Kind_WhiteSpace)
     {
@@ -1301,6 +1300,11 @@ void HtmlDocVisitor::visitPre(DocHtmlTable *t)
 
   forceEndParagraph(t);
 
+  if (t->hasCaption())
+  {
+    m_t << "<a class=\"anchor\" id=\"" << t->caption()->anchor() << "\"></a>\n";
+  }
+
   QString attrs = htmlAttribsToString(t->attribs());
   if (attrs.isEmpty())
   {
@@ -1356,13 +1360,8 @@ void HtmlDocVisitor::visitPre(DocHtmlCaption *c)
   bool hasAlign      = FALSE;
   HtmlAttribListIterator li(c->attribs());
   HtmlAttrib *att;
-  for (li.toFirst();(att=li.current());++li)
-  {
-    if (att->name=="align") hasAlign=TRUE;
-  }
-  m_t << "<caption" << htmlAttribsToString(c->attribs());
-  if (!hasAlign) m_t << " align=\"bottom\"";
-  m_t << ">";
+  QCString id;
+  m_t << "<caption" << htmlAttribsToString(c->attribs()) << ">";
 }
 
 void HtmlDocVisitor::visitPost(DocHtmlCaption *) 
@@ -1808,7 +1807,6 @@ void HtmlDocVisitor::visitPre(DocHtmlBlockQuote *b)
 {
   if (m_hide) return;
   forceEndParagraph(b);
-
   QString attrs = htmlAttribsToString(b->attribs());
   if (attrs.isEmpty())
   {
@@ -1902,24 +1900,8 @@ void HtmlDocVisitor::filterQuotedCdataAttr(const char* str)
     {
       case '&':  m_t << "&amp;"; break;
       case '"':  m_t << "&quot;"; break;
-       // For SGML compliance, and given the SGML declaration for HTML syntax,
-       // it's enough to replace these two, provided that the declaration
-       // for the HTML version we generate (and as supported by the browser)
-       // specifies that all the other symbols used in rawVal are
-       // within the right character class (i.e., they're not
-       // some multinational weird characters not in the BASESET).
-       // We assume that 1) the browser will support whatever is remaining
-       // in the formula and 2) the TeX formulae are generally governed
-       // by even stricter character restrictions so it should be enough.
-       //
-       // On some incompliant browsers, additional translation of
-       // '>' and '<' into "&gt;" and "&lt;", respectively, might be needed;
-       // but I'm unaware of particular modern (last 4 years) versions
-       // with such problems, so let's not do it for performance.
-       // Also, some brousers will (wrongly) not process the entity references
-       // inside the attribute value and show the &...; form instead,  
-       // so we won't create entites unless necessary to minimize clutter there.
-       // --vassilii 
+      case '<':  m_t << "&lt;"; break;
+      case '>':  m_t << "&gt;"; break;
       default:   m_t << c;
     }
   }
@@ -1944,7 +1926,7 @@ void HtmlDocVisitor::startLink(const QCString &ref,const QCString &file,
   if (!file.isEmpty()) m_t << file << Doxygen::htmlFileExtension;
   if (!anchor.isEmpty()) m_t << "#" << anchor;
   m_t << "\"";
-  if (!tooltip.isEmpty()) m_t << " title=\"" << substitute(tooltip,"\"","&quot;") << "\"";
+  if (!tooltip.isEmpty()) m_t << " title=\"" << convertToHtml(tooltip) << "\"";
   m_t << ">";
 }
 
@@ -2061,6 +2043,42 @@ void HtmlDocVisitor::writePlantUMLFile(const QCString &fileName,
   }
 }
 
+/** Returns TRUE if the child nodes in paragraph \a para until \a nodeIndex
+    contain a style change node that is still active and that style change is one that
+    must be located outside of a paragraph, i.e. it is a center, div, or pre tag.
+    See also bug746162.
+ */
+static bool insideStyleChangeThatIsOutsideParagraph(DocPara *para,int nodeIndex)
+{
+  //printf("insideStyleChangeThatIsOutputParagraph(index=%d)\n",nodeIndex);
+  int styleMask=0;
+  bool styleOutsideParagraph=FALSE;
+  while (nodeIndex>=0 && !styleOutsideParagraph)
+  {
+    DocNode *n = para->children().at(nodeIndex);
+    if (n->kind()==DocNode::Kind_StyleChange)
+    {
+      DocStyleChange *sc = (DocStyleChange*)n;
+      if (!sc->enable()) // remember styles that has been closed already
+      {
+        styleMask|=(int)sc->style();
+      }
+      bool paraStyle = sc->style()==DocStyleChange::Center ||
+                       sc->style()==DocStyleChange::Div    ||
+                       sc->style()==DocStyleChange::Preformatted;
+      //printf("Found style change %s enabled=%d\n",sc->styleString(),sc->enable());
+      if (sc->enable() && (styleMask&(int)sc->style())==0 && // style change that is still active
+          paraStyle
+         )
+      {
+        styleOutsideParagraph=TRUE;
+      }
+    }
+    nodeIndex--;
+  }
+  return styleOutsideParagraph;
+}
+
 /** Used for items found inside a paragraph, which due to XHTML restrictions
  *  have to be outside of the paragraph. This method will forcefully end
  *  the current paragraph and forceStartParagraph() will restart it.
@@ -2074,7 +2092,7 @@ void HtmlDocVisitor::forceEndParagraph(DocNode *n)
     int nodeIndex = para->children().findRef(n);
     nodeIndex--;
     if (nodeIndex<0) return; // first node
-    while (nodeIndex>=0 && 
+    while (nodeIndex>=0 &&
            para->children().at(nodeIndex)->kind()==DocNode::Kind_WhiteSpace
           )
     {
@@ -2086,12 +2104,14 @@ void HtmlDocVisitor::forceEndParagraph(DocNode *n)
       //printf("n=%p kind=%d outside=%d\n",n,n->kind(),mustBeOutsideParagraph(n));
       if (mustBeOutsideParagraph(n)) return;
     }
-
+    nodeIndex--;
+    bool styleOutsideParagraph=insideStyleChangeThatIsOutsideParagraph(para,nodeIndex);
     bool isFirst;
     bool isLast;
     getParagraphContext(para,isFirst,isLast);
-    //printf("forceEnd first=%d last=%d\n",isFirst,isLast);
+    //printf("forceEnd first=%d last=%d styleOutsideParagraph=%d\n",isFirst,isLast,styleOutsideParagraph);
     if (isFirst && isLast) return;
+    if (styleOutsideParagraph) return;
 
     m_t << "</p>";
   }
@@ -2109,9 +2129,11 @@ void HtmlDocVisitor::forceStartParagraph(DocNode *n)
     DocPara *para = (DocPara*)n->parent();
     int nodeIndex = para->children().findRef(n);
     int numNodes  = para->children().count();
+    bool styleOutsideParagraph=insideStyleChangeThatIsOutsideParagraph(para,nodeIndex);
+    if (styleOutsideParagraph) return;
     nodeIndex++;
     if (nodeIndex==numNodes) return; // last node
-    while (nodeIndex<numNodes && 
+    while (nodeIndex<numNodes &&
            para->children().at(nodeIndex)->kind()==DocNode::Kind_WhiteSpace
           )
     {

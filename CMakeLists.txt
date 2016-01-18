@@ -24,9 +24,10 @@ option(use_sqlite3     "Add support for sqlite3 output [experimental]." OFF)
 option(use_libclang    "Add support for libclang parsing." OFF)
 option(win_static      "Link with /MT in stead of /MD on windows" OFF)
 option(english_only    "Only compile in support for the English language" OFF)
+option(force_qt4       "Forces doxywizard to build using Qt4 even if Qt5 is installed" OFF)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
-set(SOURCE "${CMAKE_SOURCE_DIR}")
+set(TOP "${CMAKE_SOURCE_DIR}")
 include(version)
 
 set(sqlite3  "0" CACHE INTERNAL "used in settings.h")
@@ -41,12 +42,15 @@ endif()
 
 if (${CMAKE_SYSTEM} MATCHES "Darwin")
     set(CMAKE_CXX_FLAGS "-Wno-deprecated-register -mmacosx-version-min=10.5 ${CMAKE_CXX_FLAGS}")
+    set(CMAKE_C_FLAGS "-Wno-deprecated-register -mmacosx-version-min=10.5 ${CMAKE_C_FLAGS}")
     find_library(CORESERVICES_LIB CoreServices)
     set(EXTRA_LIBS ${CORESERVICES_LIB})
 endif()
 
 if (WIN32)
-    set(ICONV_DIR "${CMAKE_SOURCE_DIR}/winbuild")
+    if(NOT ICONV_DIR)
+      set(ICONV_DIR "${CMAKE_SOURCE_DIR}/winbuild")
+    endif()
     set(CMAKE_REQUIRED_DEFINITIONS "-DLIBICONV_STATIC")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj") # needed for language.cpp on 64bit
     add_definitions(-DLIBICONV_STATIC -D_CRT_SECURE_NO_WARNINGS)
@@ -67,8 +71,6 @@ include_directories(${ICONV_INCLUDE_DIR})
 
 
 #set(DOXYDOCS ${CMAKE_SOURCE_DIR}/doc CACHE INTERNAL "Path to doxygen docs")
-set(DOC_INSTALL_DIR "share/doc/packages/doxygen" CACHE STRING "Relative path where to install the documentation")
-set(EXAMPLE_DIR ${CMAKE_SOURCE_DIR}/examples)
 set(DOXYDOCS ${PROJECT_BINARY_DIR}/doc)
 set(ENV{DOXYGEN_DOCDIR} ${DOXYDOCS})
 set(GENERATED_SRC "${CMAKE_BINARY_DIR}/generated_src" CACHE INTERNAL "Stores generated files")
@@ -138,3 +140,6 @@ add_subdirectory(addon/doxywizard)
 
 enable_testing()
 add_subdirectory(testing)
+
+include(cmake/packaging.cmake) # set CPACK_xxxx properties
+include(CPack)

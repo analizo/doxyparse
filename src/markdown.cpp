@@ -589,8 +589,8 @@ static int processHtmlTag(GrowBuf &out,const char *data,int offset,int size)
 static int processEmphasis(GrowBuf &out,const char *data,int offset,int size)
 {
   if ((offset>0 && !isOpenEmphChar(-1)) || // invalid char before * or _
-      (size>1 && data[0]!=data[1] && !isIdChar(1)) || // invalid char after * or _
-      (size>2 && data[0]==data[1] && !isIdChar(2)))   // invalid char after ** or __
+      (size>1 && data[0]!=data[1] && !(isIdChar(1) || data[1]=='[')) || // invalid char after * or _
+      (size>2 && data[0]==data[1] && !(isIdChar(2) || data[2]=='[')))   // invalid char after ** or __
   {
     return 0;
   }
@@ -695,14 +695,26 @@ static int processLink(GrowBuf &out,const char *data,int,int size)
     if (i<size && data[i]=='<') i++;
     linkStart=i;
     nl=0;
-    while (i<size && data[i]!='\'' && data[i]!='"' && data[i]!=')') 
+    int braceCount=1;
+    while (i<size && data[i]!='\'' && data[i]!='"' && braceCount>0)
     {
-      if (data[i]=='\n')
+      if (data[i]=='\n') // unexpected EOL
       {
         nl++;
         if (nl>1) return 0;
       }
-      i++;
+      else if (data[i]=='(')
+      {
+        braceCount++;
+      }
+      else if (data[i]==')')
+      {
+        braceCount--;
+      }
+      if (braceCount>0)
+      {
+        i++;
+      }
     }
     if (i>=size || data[i]=='\n') return 0;
     convertStringFragment(link,data+linkStart,i-linkStart);
@@ -720,7 +732,7 @@ static int processLink(GrowBuf &out,const char *data,int,int size)
       nl=0;
       while (i<size && data[i]!=')')
       {
-        if (data[i]=='\n') 
+        if (data[i]=='\n')
         {
           if (nl>1) return 0;
           nl++;
@@ -889,7 +901,8 @@ static int processLink(GrowBuf &out,const char *data,int,int size)
         out.addStr("\"");
       }
       out.addStr(">");
-      out.addStr(content.simplifyWhiteSpace());
+      content = content.simplifyWhiteSpace();
+      processInline(out,content,content.length());
       out.addStr("</a>");
     }
     else // avoid link to e.g. F[x](y)
@@ -1005,8 +1018,8 @@ static int processSpecialCommand(GrowBuf &out, const char *data, int offset, int
   if (size>1 && data[0]=='\\')
   {
     char c=data[1];
-    if (c=='[' || c==']' || c=='*' || c=='+' || c=='-' ||
-        c=='!' || c=='(' || c==')' || c=='.' || c=='`' || c=='_') 
+    if (c=='[' || c==']' || c=='*' || /* c=='+' || c=='-' || c=='.' || */
+        c=='!' || c=='(' || c==')' || c=='`' || c=='_')
     {
       if (c=='-' && size>3 && data[2]=='-' && data[3]=='-') // \---
       {
@@ -1018,7 +1031,11 @@ static int processSpecialCommand(GrowBuf &out, const char *data, int offset, int
         out.addStr(&data[1],2);
         return 3;
       }
-      out.addStr(&data[1],1);
+      else if (c=='-') // \-
+      {
+        out.addChar(c);
+      }
+      out.addChar(data[1]);
       return 2;
     }
   }
@@ -2351,21 +2368,22 @@ void MarkdownFileParser::parseInput(const char *fileName,
   QCString fn      = QFileInfo(fileName).fileName().utf8();
   static QCString mdfileAsMainPage = Config_getString("USE_MDFILE_AS_MAINPAGE");
   if (id.isEmpty()) id = markdownFileNameToId(fileName);
-  if (title.isEmpty()) title = titleFn;
   if (!mdfileAsMainPage.isEmpty() &&
       (fn==mdfileAsMainPage || // name reference
        QFileInfo(fileName).absFilePath()==
        QFileInfo(mdfileAsMainPage).absFilePath()) // file reference with path
      )
   {
-    docs.prepend("@mainpage\n");
+    docs.prepend("@mainpage "+title+"\n");
   }
   else if (id=="mainpage" || id=="index")
   {
+    if (title.isEmpty()) title = titleFn;
     docs.prepend("@mainpage "+title+"\n");
   }
   else
   {
+    if (title.isEmpty()) title = titleFn;
     docs.prepend("@page "+id+" "+title+"\n");
   }
   int lineNr=1;

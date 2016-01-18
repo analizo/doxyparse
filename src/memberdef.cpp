@@ -968,7 +968,7 @@ QCString MemberDef::getOutputFileBase() const
       return baseName;
     }
   }
-  else if (m_impl->nspace)
+  else if (m_impl->nspace && m_impl->nspace->isLinkableInProject())
   {
     baseName=m_impl->nspace->getOutputFileBase();
   }
@@ -1093,7 +1093,8 @@ void MemberDef::_computeLinkableInProject()
     m_isLinkableCached = 1; // in class but class not linkable
     return;
   }
-  if (!m_impl->group && m_impl->nspace && !m_impl->related && !m_impl->nspace->isLinkableInProject())
+  if (!m_impl->group && m_impl->nspace && !m_impl->related && !m_impl->nspace->isLinkableInProject()
+      && (m_impl->fileDef==0 || !m_impl->fileDef->isLinkableInProject()))
   {
     //printf("in a namespace but namespace not linkable!\n");
     m_isLinkableCached = 1; // in namespace but namespace not linkable
@@ -1418,6 +1419,7 @@ void MemberDef::writeDeclaration(OutputList &ol,
   // are explicitly grouped.
   if (!inGroup && m_impl->mtype==MemberType_EnumValue) return;
 
+
   Definition *d=0;
   ASSERT (cd!=0 || nd!=0 || fd!=0 || gd!=0); // member should belong to something
   if (cd) d=cd; else if (nd) d=nd; else if (fd) d=fd; else d=gd;
@@ -1444,19 +1446,21 @@ void MemberDef::writeDeclaration(OutputList &ol,
 
   // If there is no detailed description we need to write the anchor here.
   bool detailsVisible = isDetailedSectionLinkable();
-  if (!detailsVisible)
+  bool writeAnchor = (inGroup || m_impl->group==0) &&     // only write anchors for member that have no details and are
+                     !detailsVisible && !m_impl->annMemb; // rendered inside the group page or are not grouped at all
+  if (writeAnchor)
   {
     QCString doxyArgs=argsString();
-    if (!m_impl->annMemb)
+    QCString doxyName=name();
+    if (!cname.isEmpty())
     {
-      QCString doxyName=name();
-      if (!cname.isEmpty())
-      {
-        doxyName.prepend(cdname+getLanguageSpecificSeparator(getLanguage()));
-      }
-      ol.startDoxyAnchor(cfname,cname,anchor(),doxyName,doxyArgs);
+      doxyName.prepend(cdname+getLanguageSpecificSeparator(getLanguage()));
     }
+    ol.startDoxyAnchor(cfname,cname,anchor(),doxyName,doxyArgs);
+  }
 
+  if (!detailsVisible)
+  {
     ol.pushGeneratorState();
     ol.disable(OutputGenerator::Man);
     ol.disable(OutputGenerator::Latex);
@@ -1513,11 +1517,16 @@ void MemberDef::writeDeclaration(OutputList &ol,
         ol.writeNonBreakableSpace(3);
       }
       QCString varName=ltype.right(ltype.length()-ir).stripWhiteSpace();
-      //printf(">>>>>> indDepth=%d ltype=`%s' varName=`%s'\n",indDepth,ltype.data(),varName.data());
+      //printf(">>>>>> ltype=`%s' varName=`%s'\n",ltype.data(),varName.data());
       ol.docify("}");
       if (varName.isEmpty() && (name().isEmpty() || name().at(0)=='@'))
       {
         ol.docify(";");
+      }
+      else if (!varName.isEmpty() && (varName.at(0)=='*' || varName.at(0)=='&'))
+      {
+        ol.docify(" ");
+        ol.docify(varName);
       }
       endAnonScopeNeeded=TRUE;
     }
@@ -1775,7 +1784,7 @@ void MemberDef::writeDeclaration(OutputList &ol,
       ol.endTypewriter();
   }
 
-  if (!detailsVisible && !m_impl->annMemb)
+  if (writeAnchor)
   {
     ol.endDoxyAnchor(cfname,anchor());
   }
@@ -1915,7 +1924,7 @@ bool MemberDef::isDetailedSectionVisible(bool inGroup,bool inFile) const
   static bool inlineSimpleStructs = Config_getBool("INLINE_SIMPLE_STRUCTS");
   static bool hideUndocMembers = Config_getBool("HIDE_UNDOC_MEMBERS");
   bool groupFilter = getGroupDef()==0 || inGroup || separateMemPages;
-  bool fileFilter  = getNamespaceDef()==0 || !inFile;
+  bool fileFilter  = getNamespaceDef()==0 || !getNamespaceDef()->isLinkable() || !inFile;
   bool simpleFilter = (hasBriefDescription() || !hideUndocMembers) && inlineSimpleStructs &&
                       getClassDef()!=0 && getClassDef()->isSimple();
 
@@ -2262,7 +2271,7 @@ void MemberDef::_writeCategoryRelation(OutputList &ol)
         text = theTranslator->trExtendsClass();
         name = m_impl->classDef->categoryOf()->displayName();
       }
-      i=text.find("@1");
+      i=text.find("@0");
       if (i!=-1)
       {
         MemberDef *md = m_impl->categoryRelation;
@@ -2496,7 +2505,7 @@ void MemberDef::_writeGroupInclude(OutputList &ol,bool inGroup)
 
     if (isIDLorJava) ol.docify("\""); else ol.docify("<");
 
-    if (fd && fd->isLinkable())
+    if (fd->isLinkable())
     {
       ol.writeObjectLink(fd->getReference(),fd->getOutputFileBase(),fd->anchor(),nm);
     }
@@ -3224,10 +3233,9 @@ void MemberDef::warnIfUndocumented()
     t="file", d=fd;
   static bool extractAll = Config_getBool("EXTRACT_ALL");
 
-  //printf("warnIfUndoc: d->isLinkable()=%d isLinkable()=%d "
-  //       "isDocumentedFriendClass()=%d name()=%s prot=%d isReference=%d\n",
-  //       d->isLinkable(),isLinkable(),isDocumentedFriendClass(),
-  //       name().data(),m_impl->prot,isReference());
+  //printf("%s:warnIfUndoc: hasUserDocs=%d isFriendClass=%d protection=%d isRef=%d isDel=%d\n",
+  //    name().data(),
+  //    hasUserDocumentation(),isFriendClass(),protectionLevelVisible(m_impl->prot),isReference(),isDeleted());
   if ((!hasUserDocumentation() && !extractAll) &&
       !isFriendClass() &&
       name().find('@')==-1 && d && d->name().find('@')==-1 &&
@@ -3235,7 +3243,7 @@ void MemberDef::warnIfUndocumented()
       !isReference() && !isDeleted()
      )
   {
-    warn_undoc(d->getDefFileName(),d->getDefLine(),"Member %s%s (%s) of %s %s is not documented.",
+    warn_undoc(getDefFileName(),getDefLine(),"Member %s%s (%s) of %s %s is not documented.",
          qPrint(name()),qPrint(argsString()),qPrint(memberTypeName()),t,qPrint(d->name()));
   }
 }
@@ -4480,6 +4488,11 @@ bool MemberDef::isDocsForDefinition() const
 MemberDef *MemberDef::getEnumScope() const
 {
   return m_impl->enumScope;
+}
+
+bool MemberDef::livesInsideEnum() const
+{
+  return m_impl->livesInsideEnum;
 }
 
 MemberList *MemberDef::enumFieldList() const

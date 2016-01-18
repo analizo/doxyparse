@@ -228,6 +228,7 @@ void DirDef::writeSubDirList(OutputList &ol)
     DirDef *dd;
     for (;(dd=it.current());++it)
     {
+      if (!dd->hasDocumentation()) continue;
       ol.startMemberDeclaration();
       ol.startMemberItem(dd->getOutputFileBase(),0);
       ol.parseText(theTranslator->trDir(FALSE,TRUE)+" ");
@@ -266,6 +267,7 @@ void DirDef::writeFileList(OutputList &ol)
     FileDef *fd;
     for (;(fd=it.current());++it)
     {
+      if (!fd->hasDocumentation()) continue;
       ol.startMemberDeclaration();
       ol.startMemberItem(fd->getOutputFileBase(),0);
       ol.docify(theTranslator->trFile(FALSE,TRUE)+" ");
@@ -385,7 +387,7 @@ void DirDef::writeDocumentation(OutputList &ol)
   ol.pushGeneratorState();
   
   QCString title=theTranslator->trDirReference(m_dispName);
-  startFile(ol,getOutputFileBase(),name(),title,HLI_None,!generateTreeView);
+  startFile(ol,getOutputFileBase(),name(),title,HLI_Files,!generateTreeView);
 
   if (!generateTreeView)
   {
@@ -610,7 +612,7 @@ bool DirDef::isParentOf(DirDef *dir) const
 
 bool DirDef::depGraphIsTrivial() const
 {
-  return FALSE;
+  return m_usedDirs->count()==0;
 }
 
 //----------------------------------------------------------------------
@@ -694,11 +696,6 @@ DirDef *DirDef::mergeDirectoryInTree(const QCString &path)
     p=i+1;
   }
   return dir;
-}
-
-void DirDef::writeDepGraph(FTextStream &t)
-{
-    writeDotDirDepGraph(t,this);
 }
 
 //----------------------------------------------------------------------
@@ -841,6 +838,7 @@ static void computeCommonDirPrefix()
           else // dir is shorter than path -> take path of dir as new start
           {
             path=dir->name();
+            l=path.length();
             int i=path.findRev('/',l-2);
             if (i==-1) // no unique prefix -> stop
             {
