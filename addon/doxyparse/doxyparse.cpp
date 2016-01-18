@@ -3,8 +3,8 @@
  * Copyright (C) 2009 by Joenio Costa.
  *
  * Permission to use, copy, modify, and distribute this software and its
- * documentation under the terms of the GNU General Public License is hereby 
- * granted. No representations are made about the suitability of this software 
+ * documentation under the terms of the GNU General Public License is hereby
+ * granted. No representations are made about the suitability of this software
  * for any purpose. It is provided "as is" without express or implied warranty.
  * See the GNU General Public License for more details.
  *
@@ -87,7 +87,7 @@ static void findXRefSymbols(FileDef *fd)
   // reset the parsers state
   pIntf->resetCodeParserState();
 
-  // create a new backend object 
+  // create a new backend object
   Doxyparse *parse = new Doxyparse(fd);
 
   // parse the source code
@@ -365,7 +365,7 @@ int main(int argc,char **argv) {
     exit(1);
   }
 
-  // initialize data structures 
+  // initialize data structures
   initDoxygen();
 
   // setup the non-default configuration options
@@ -390,7 +390,7 @@ int main(int argc,char **argv) {
   Config_getBool("EXTRACT_STATIC")=TRUE;
   Config_getBool("EXTRACT_PRIVATE")=TRUE;
   Config_getBool("EXTRACT_LOCAL_METHODS")=TRUE;
-  // Extract source browse information, needed 
+  // Extract source browse information, needed
   // to make doxygen gather the cross reference info
   Config_getBool("SOURCE_BROWSER")=TRUE;
   // find functions call between modules
@@ -425,7 +425,7 @@ int main(int argc,char **argv) {
   parseInput();
 
   // iterate over the input files
-  FileNameListIterator fnli(*Doxygen::inputNameList); 
+  FileNameListIterator fnli(*Doxygen::inputNameList);
   FileName *fn;
   // for each file with a certain name
   for (fnli.toFirst();(fn=fnli.current());++fnli) {
