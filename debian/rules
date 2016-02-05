@@ -3,11 +3,11 @@
 include /usr/share/cdbs/1/rules/debhelper.mk
 
 configure/doxyparse::
-	QTDIR=/usr ./configure --with-doxyparse
+	cmake -G "Unix Makefiles" -Dbuild_parse=ON
 
 build/doxyparse::
 	PATH=$(CURDIR)/debian/bin:$(PATH) make
 
 clean::
-	[ ! -f Makefile ] || $(MAKE) distclean
+	[ ! -f Makefile ] || $(MAKE) clean
 	rm -f qtools/Makefile.qtools
