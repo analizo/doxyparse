@@ -237,7 +237,14 @@ void ManDocVisitor::visit(DocInclude *inc)
                                            inc->text(),
                                            langExt,
                                            inc->isExample(),
-                                           inc->exampleFile(), &fd);
+                                           inc->exampleFile(),
+                                           &fd,   // fileDef,
+                                           -1,    // start line
+                                           -1,    // end line
+                                           FALSE, // inline fragment
+                                           0,     // memberDef
+                                           TRUE
+					   );
          if (!m_firstCol) m_t << endl;
          m_t << ".fi" << endl;
          m_t << ".PP" << endl;
@@ -253,7 +260,14 @@ void ManDocVisitor::visit(DocInclude *inc)
                                         inc->text(),
                                         langExt,
                                         inc->isExample(),
-                                        inc->exampleFile());
+                                        inc->exampleFile(),
+                                        0,     // fileDef
+                                        -1,    // startLine
+                                        -1,    // endLine
+                                        TRUE,  // inlineFragment
+                                        0,     // memberDef
+                                        FALSE
+				       );
       if (!m_firstCol) m_t << endl;
       m_t << ".fi" << endl;
       m_t << ".PP" << endl;
@@ -291,6 +305,38 @@ void ManDocVisitor::visit(DocInclude *inc)
       m_t << ".fi" << endl;
       m_t << ".PP" << endl;
       m_firstCol=TRUE;
+      break;
+    case DocInclude::SnipWithLines:
+      {
+         if (!m_firstCol) m_t << endl;
+         m_t << ".PP" << endl;
+         m_t << ".nf" << endl;
+         QFileInfo cfi( inc->file() );
+         FileDef fd( cfi.dirPath().utf8(), cfi.fileName().utf8() );
+         Doxygen::parserManager->getParser(inc->extension())
+                               ->parseCode(m_ci,
+                                           inc->context(),
+                                           extractBlock(inc->text(),inc->blockId()),
+                                           langExt,
+                                           inc->isExample(),
+                                           inc->exampleFile(), 
+                                           &fd,
+                                           lineBlock(inc->text(),inc->blockId()),
+                                           -1,    // endLine
+                                           FALSE, // inlineFragment
+                                           0,     // memberDef
+                                           TRUE   // show line number
+                                          );
+         if (!m_firstCol) m_t << endl;
+         m_t << ".fi" << endl;
+         m_t << ".PP" << endl;
+         m_firstCol=TRUE;
+      }
+      break;
+    case DocInclude::SnippetDoc: 
+    case DocInclude::IncludeDoc: 
+      err("Internal inconsistency: found switch SnippetDoc / IncludeDoc in file: %s"
+          "Please create a bug report\n",__FILE__);
       break;
   }
 }
@@ -818,7 +864,7 @@ void ManDocVisitor::visitPost(DocSecRefList *)
 
 //void ManDocVisitor::visitPre(DocLanguage *l)
 //{
-//  QString langId = Config_getEnum("OUTPUT_LANGUAGE");
+//  QString langId = Config_getEnum(OUTPUT_LANGUAGE);
 //  if (l->id().lower()!=langId.lower())
 //  {
 //    pushEnabled();
@@ -828,7 +874,7 @@ void ManDocVisitor::visitPost(DocSecRefList *)
 //
 //void ManDocVisitor::visitPost(DocLanguage *l) 
 //{
-//  QString langId = Config_getEnum("OUTPUT_LANGUAGE");
+//  QString langId = Config_getEnum(OUTPUT_LANGUAGE);
 //  if (l->id().lower()!=langId.lower())
 //  {
 //    popEnabled();

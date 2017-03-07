@@ -144,7 +144,7 @@ class ManGenerator : public OutputGenerator
     void endDescItem();
     void lineBreak(const char *) { t << "\n.br" << endl; }
     void writeChar(char c);
-    void startMemberDoc(const char *,const char *,const char *,const char *,bool);
+    void startMemberDoc(const char *,const char *,const char *,const char *,int,int,bool);
     void endMemberDoc(bool);
     void startDoxyAnchor(const char *,const char *,const char *,const char *,const char *);
     void endDoxyAnchor(const char *,const char *) {}
@@ -160,8 +160,8 @@ class ManGenerator : public OutputGenerator
     void endCenter()          {}
     void startSmall()         {}
     void endSmall()           {}
-    void startMemberDescription(const char *,const char *) { t << "\n.RI \"\\fI"; firstCol=FALSE; }
-    void endMemberDescription()   { t << "\\fP\""; firstCol=FALSE; }
+    void startMemberDescription(const char *,const char *) { t << "\n.RI \""; firstCol=FALSE; }
+    void endMemberDescription()   { t << "\""; firstCol=FALSE; }
     void startMemberDeclaration() {} 
     void endMemberDeclaration(const char *,const char *) {}
     void writeInheritedSectionTitle(const char *,const char *,const char *,
@@ -199,6 +199,8 @@ class ManGenerator : public OutputGenerator
     void startDescTable(const char *t) 
     { startSimpleSect(EnumValues,0,0,t); startDescForItem(); }
     void endDescTable() { endDescForItem(); endSimpleSect(); }
+    void startDescTableRow() {}
+    void endDescTableRow() {}
     void startDescTableTitle() { startItemListItem(); startBold(); startEmphasis(); endItemListItem(); }
     void endDescTableTitle() { endEmphasis(); endBold(); }
     void startDescTableData() { t << endl; firstCol=TRUE; }
@@ -244,8 +246,8 @@ class ManGenerator : public OutputGenerator
     void endConstraintDocs();
     void endConstraintList();
 
-    void startMemberDocSimple();
-    void endMemberDocSimple();
+    void startMemberDocSimple(bool);
+    void endMemberDocSimple(bool);
     void startInlineMemberType();
     void endInlineMemberType();
     void startInlineMemberName();

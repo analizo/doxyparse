@@ -225,7 +225,9 @@ class HtmlGenerator : public OutputGenerator
     void endDescForItem()   { t << "</dd>\n"; }
     void lineBreak(const char *style);
     void writeChar(char c);
-    void startMemberDoc(const char *,const char *,const char *,const char *,bool);
+    void startMemberDoc(const char *clName, const char *memName, 
+                        const char *anchor, const char *title, 
+                        int memCount, int memTotal, bool showInline);
     void endMemberDoc(bool); 
     void startDoxyAnchor(const char *fName,const char *manName,
                          const char *anchor,const char *name,
@@ -270,25 +272,16 @@ class HtmlGenerator : public OutputGenerator
     void startContents();
     void endContents();
     void writeNonBreakableSpace(int);
-    
-    void startDescTable(const char *title)
-    //{ t << "<table border=\"0\" cellspacing=\"2\" cellpadding=\"0\">" << endl; }
-    { t << "<table class=\"fieldtable\">" << endl
-        << "<tr><th colspan=\"2\">" << title << "</th></tr>";
-    }
-    void endDescTable()
-    { t << "</table>" << endl; }
-    void startDescTableTitle()
-    //{ t << "<tr><td valign=\"top\"><em>"; }
-    { t << "<tr><td class=\"fieldname\">"; }
-    void endDescTableTitle()
-    { t << "&#160;</td>"; }
-    void startDescTableData()
-    //{ t << "<td>" << endl; }
-    { t << "<td class=\"fielddoc\">" << endl; }
-    void endDescTableData()
-    { t << "</td></tr>" << endl; }
-    
+
+    void startDescTable(const char *title);
+    void endDescTable();
+    void startDescTableRow();
+    void endDescTableRow();
+    void startDescTableTitle();
+    void endDescTableTitle();
+    void startDescTableData();
+    void endDescTableData();
+
     void startDotGraph();
     void endDotGraph(const DotClassGraph &g);
     void startInclDepGraph();
@@ -328,8 +321,8 @@ class HtmlGenerator : public OutputGenerator
     void endConstraintDocs();
     void endConstraintList();
 
-    void startMemberDocSimple();
-    void endMemberDocSimple();
+    void startMemberDocSimple(bool);
+    void endMemberDocSimple(bool);
     void startInlineMemberType();
     void endInlineMemberType();
     void startInlineMemberName();

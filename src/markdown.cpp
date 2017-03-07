@@ -111,19 +111,22 @@ static void processInline(GrowBuf &out,const char *data,int size);
 static QCString escapeSpecialChars(const QCString &s)
 {
   if (s.isEmpty()) return "";
+  bool insideQuote=FALSE;
   GrowBuf growBuf;
   const char *p=s;
-  char c;
+  char c,pc='\0';
   while ((c=*p++))
   {
     switch (c)
     {
-      case '<':  growBuf.addStr("\\<");   break;
-      case '>':  growBuf.addStr("\\>");   break;
-      case '\\': growBuf.addStr("\\\\");  break;
-      case '@':  growBuf.addStr("\\@");   break;
-      default:   growBuf.addChar(c);      break;
+      case '"':  if (pc!='\\')  { insideQuote=!insideQuote; } growBuf.addChar(c);   break;
+      case '<':  if (!insideQuote) { growBuf.addChar('\\'); } growBuf.addChar('<'); break;
+      case '>':  if (!insideQuote) { growBuf.addChar('\\'); } growBuf.addChar('>'); break;
+      case '\\': if (!insideQuote) { growBuf.addChar('\\'); } growBuf.addChar('\\'); break;
+      case '@':  if (!insideQuote) { growBuf.addChar('\\'); } growBuf.addChar('@'); break;
+      default:   growBuf.addChar(c); break;
     }
+    pc=c;
   }
   growBuf.addChar(0);
   return growBuf.get();
@@ -838,7 +841,7 @@ static int processLink(GrowBuf &out,const char *data,int,int size)
       out.addStr("@image html ");
       out.addStr(link.mid(fd ? 0 : 5));
       if (!explicitTitle && !content.isEmpty())
-      { 
+      {
         out.addStr(" \"");
         out.addStr(content);
         out.addStr("\"");
@@ -1018,25 +1021,20 @@ static int processSpecialCommand(GrowBuf &out, const char *data, int offset, int
   if (size>1 && data[0]=='\\')
   {
     char c=data[1];
-    if (c=='[' || c==']' || c=='*' || /* c=='+' || c=='-' || c=='.' || */
-        c=='!' || c=='(' || c==')' || c=='`' || c=='_')
+    if (c=='[' || c==']' || c=='*' || c=='!' || c=='(' || c==')' || c=='`' || c=='_')
     {
-      if (c=='-' && size>3 && data[2]=='-' && data[3]=='-') // \---
-      {
-        out.addStr(&data[1],3);
-        return 4;
-      }
-      else if (c=='-' && size>2 && data[2]=='-') // \--
-      {
-        out.addStr(&data[1],2);
-        return 3;
-      }
-      else if (c=='-') // \-
-      {
-        out.addChar(c);
-      }
       out.addChar(data[1]);
       return 2;
+    }
+    else if (c=='-' && size>3 && data[2]=='-' && data[3]=='-') // \---
+    {
+      out.addStr(&data[1],3);
+      return 4;
+    }
+    else if (c=='-' && size>2 && data[2]=='-') // \--
+    {
+      out.addStr(&data[1],2);
+      return 3;
     }
   }
   return 0;
@@ -1231,7 +1229,7 @@ static int isHRuler(const char *data,int size)
   return n>=3; // at least 3 characters needed for a hruler
 }
 
-static QCString extractTitleId(QCString &title)
+static QCString extractTitleId(QCString &title, int level)
 {
   //static QRegExp r1("^[a-z_A-Z][a-z_A-Z0-9\\-]*:");
   static QRegExp r2("\\{#[a-z_A-Z][a-z_A-Z0-9\\-]*\\}");
@@ -1242,6 +1240,14 @@ static QCString extractTitleId(QCString &title)
     QCString id = title.mid(i+2,l-3);
     title = title.left(i);
     //printf("found id='%s' title='%s'\n",id.data(),title.data());
+    return id;
+  }
+  if ((level > 0) && (level <= Config_getInt(TOC_INCLUDE_HEADINGS)))
+  {
+    static int autoId = 0;
+    QCString id;
+    id.sprintf("autotoc_md%d",autoId++);
+    //printf("auto-generated id='%s' title='%s'\n",id.data(),title.data());
     return id;
   }
   //printf("no id found in title '%s'\n",title.data());
@@ -1275,7 +1281,7 @@ static int isAtxHeader(const char *data,int size,
 
   // store result
   convertStringFragment(header,data+i,end-i);
-  id = extractTitleId(header);
+  id = extractTitleId(header, level);
   if (!id.isEmpty()) // strip #'s between title and id
   {
     i=header.length()-1;
@@ -1836,7 +1842,7 @@ static int writeCodeBlock(GrowBuf &out,const char *data,int size,int refIndent)
     int indent=0;
     while (j<end && data[j]==' ') j++,indent++;
     //printf("j=%d end=%d indent=%d refIndent=%d tabSize=%d data={%s}\n",
-    //    j,end,indent,refIndent,Config_getInt("TAB_SIZE"),QCString(data+i).left(end-i-1).data());
+    //    j,end,indent,refIndent,Config_getInt(TAB_SIZE),QCString(data+i).left(end-i-1).data());
     if (j==end-1) // empty line 
     {
       emptyLines++;
@@ -2084,7 +2090,7 @@ static QCString processBlocks(const QCString &s,int indent)
         while (pi<size && data[pi]==' ') pi++;
         QCString header,id;
         convertStringFragment(header,data+pi,i-pi-1);
-        id = extractTitleId(header);
+        id = extractTitleId(header, level);
         //printf("header='%s' is='%s'\n",header.data(),id.data());
         if (!header.isEmpty())
         {
@@ -2195,6 +2201,29 @@ static QCString processBlocks(const QCString &s,int indent)
   return out.get();
 }
 
+/** returns TRUE if input string docs starts with \@page or \@mainpage command */
+static bool isExplicitPage(const QCString &docs)
+{
+  int i=0;
+  const char *data = docs.data();
+  if (data)
+  {
+    int size=docs.size();
+    while (i<size && (data[i]==' ' || data[i]=='\n'))
+    {
+      i++;
+    }
+    if (i<size+1 &&
+        (data[i]=='\\' || data[i]=='@') &&
+        (qstrncmp(&data[i+1],"page ",5)==0 || qstrncmp(&data[i+1],"mainpage",8)==0)
+       )
+    {
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
 static QCString extractPageTitle(QCString &docs,QCString &id)
 {
   int ln=0;
@@ -2225,7 +2254,7 @@ static QCString extractPageTitle(QCString &docs,QCString &id)
       QCString lns;
       lns.fill('\n',ln);
       docs=lns+docs.mid(end2);
-      id = extractTitleId(title);
+      id = extractTitleId(title, 0);
       //printf("extractPageTitle(title='%s' docs='%s' id='%s')\n",title.data(),docs.data(),id.data());
       return title;
     }
@@ -2240,7 +2269,7 @@ static QCString extractPageTitle(QCString &docs,QCString &id)
 
 static QCString detab(const QCString &s,int &refIndent)
 {
-  static int tabSize = Config_getInt("TAB_SIZE");
+  static int tabSize = Config_getInt(TAB_SIZE);
   GrowBuf out;
   int size = s.length();
   const char *data = s.data();
@@ -2366,25 +2395,28 @@ void MarkdownFileParser::parseInput(const char *fileName,
   QCString title=extractPageTitle(docs,id).stripWhiteSpace();
   QCString titleFn = QFileInfo(fileName).baseName().utf8();
   QCString fn      = QFileInfo(fileName).fileName().utf8();
-  static QCString mdfileAsMainPage = Config_getString("USE_MDFILE_AS_MAINPAGE");
+  static QCString mdfileAsMainPage = Config_getString(USE_MDFILE_AS_MAINPAGE);
   if (id.isEmpty()) id = markdownFileNameToId(fileName);
-  if (!mdfileAsMainPage.isEmpty() &&
-      (fn==mdfileAsMainPage || // name reference
-       QFileInfo(fileName).absFilePath()==
-       QFileInfo(mdfileAsMainPage).absFilePath()) // file reference with path
-     )
+  if (!isExplicitPage(docs))
   {
-    docs.prepend("@mainpage "+title+"\n");
-  }
-  else if (id=="mainpage" || id=="index")
-  {
-    if (title.isEmpty()) title = titleFn;
-    docs.prepend("@mainpage "+title+"\n");
-  }
-  else
-  {
-    if (title.isEmpty()) title = titleFn;
-    docs.prepend("@page "+id+" "+title+"\n");
+    if (!mdfileAsMainPage.isEmpty() &&
+        (fn==mdfileAsMainPage || // name reference
+         QFileInfo(fileName).absFilePath()==
+         QFileInfo(mdfileAsMainPage).absFilePath()) // file reference with path
+       )
+    {
+      docs.prepend("@mainpage "+title+"\n");
+    }
+    else if (id=="mainpage" || id=="index")
+    {
+      if (title.isEmpty()) title = titleFn;
+      docs.prepend("@mainpage "+title+"\n");
+    }
+    else
+    {
+      if (title.isEmpty()) title = titleFn;
+      docs.prepend("@page "+id+" "+title+"\n");
+    }
   }
   int lineNr=1;
   int position=0;

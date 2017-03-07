@@ -138,7 +138,7 @@ class RTFGenerator : public OutputGenerator
     void startDescItem();
     void endDescItem();
     void lineBreak(const char *style=0);
-    void startMemberDoc(const char *,const char *,const char *,const char *,bool);
+    void startMemberDoc(const char *,const char *,const char *,const char *,int,int,bool);
     void endMemberDoc(bool);
     void startDoxyAnchor(const char *,const char *,const char *,const char *,const char *);
     void endDoxyAnchor(const char *,const char *);
@@ -193,6 +193,8 @@ class RTFGenerator : public OutputGenerator
 	
     void startDescTable(const char *title);
     void endDescTable();
+    void startDescTableRow();
+    void endDescTableRow();
     void startDescTableTitle();
     void endDescTableTitle();
     void startDescTableData();
@@ -242,8 +244,8 @@ class RTFGenerator : public OutputGenerator
     void endConstraintDocs();
     void endConstraintList();
 
-    void startMemberDocSimple();
-    void endMemberDocSimple();
+    void startMemberDocSimple(bool);
+    void endMemberDocSimple(bool);
     void startInlineMemberType();
     void endInlineMemberType();
     void startInlineMemberName();

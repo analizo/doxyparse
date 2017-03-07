@@ -1927,7 +1927,13 @@ void VhdlParser::component_instantiation_statement() {QCString s,s1;if (!hasErro
     }
     if (!hasError) {
     
-addCompInst(s.lower().data(),s1.lower().data(),0,getLine());
+QCString s3;
+       if (s1.contains("|")) {
+         s3=VhdlDocGen::getIndexWord(s1.data(),0);
+         s1=VhdlDocGen::getIndexWord(s1.data(),1);
+       }
+
+       addCompInst(s.lower().data(),s1.lower().data(),s3.data(),getLine());
     }
     if (!hasError) {
     
@@ -5151,7 +5157,7 @@ assert(false);
 }
 
 
-QCString VhdlParser::instantiation_unit() {QCString s,s1,s2;
+QCString VhdlParser::instantiation_unit() {QCString s,s1,s2;Token *tok;
     switch ((jj_ntk==-1)?jj_ntk_f():jj_ntk) {
     case COMPONENT_T:
     case BASIC_IDENTIFIER:
@@ -5206,7 +5212,7 @@ s1="component "; return s;
       }
       if (!hasError) {
       
-s="entity "+s2;
+s="entity|"+s2;
       }
       if (!hasError) {
       
@@ -5401,6 +5407,7 @@ return s;
             if (!hasError) {
             
 if (parse_sec==GEN_SEC)
+
     addVhdlType(s.data(),getLine(),Entry::VARIABLE_SEC,currP,s1.data(),0,Public);
     return s;
             }
@@ -5710,7 +5717,7 @@ QCString VhdlParser::library_clause() {QCString s;if (!hasError) {
     
     }
     
-if ( parse_sec==0 && Config_getBool("SHOW_INCLUDE_FILES") )
+if ( parse_sec==0 && Config_getBool(SHOW_INCLUDE_FILES) )
                    {
                            addVhdlType(s.data(),getLine(),Entry::VARIABLE_SEC,VhdlDocGen::LIBRARY,s.data(),"_library_",Public);
                    }
@@ -10397,7 +10404,7 @@ QStringList ql1=QStringList::split(",",s,FALSE);
                    {
                     QStringList ql=QStringList::split(".",ql1[j],FALSE);
                     QCString it=ql[1].utf8();
-                     if ( parse_sec==0 && Config_getBool("SHOW_INCLUDE_FILES") )
+                     if ( parse_sec==0 && Config_getBool(SHOW_INCLUDE_FILES) )
                      {
                        VhdlParser::addVhdlType(it.data(),getLine(),Entry::VARIABLE_SEC,VhdlDocGen::USE,it.data(),"_use_",Public);
                      }
@@ -12754,8 +12761,9 @@ param_sec=PARAM_SEC;
 if(tok)
                      {
                       s = tok->image.data();
-                         param_sec=0;
+
                     }
+                      param_sec=0;
                       return s+"("+s1+")";
 assert(false);
 }

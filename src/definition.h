@@ -257,6 +257,7 @@ class Definition : public DefinitionIntf
     SrcLangExt getLanguage() const;
 
     GroupList *partOfGroups() const;
+    bool isLinkableViaGroup() const;
 
     QList<ListItemInfo> *xrefListItems() const;
 
@@ -326,7 +327,6 @@ class Definition : public DefinitionIntf
     // --- actions ----
     //-----------------------------------------------------------------------------------
 
-    QCString convertNameToFile(const char *name,bool allowDots=FALSE) const;
     void writeSourceDef(OutputList &ol,const char *scopeName);
     void writeInlineCode(OutputList &ol,const char *scopeName);
     void writeSourceRefs(OutputList &ol,const char *scopeName);

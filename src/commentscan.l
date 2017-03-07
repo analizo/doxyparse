@@ -254,6 +254,7 @@ static DocCmdMap docCmdMap[] =
   { "result",          0,                       TRUE  },
   { "return",          0,                       TRUE  },
   { "returns",         0,                       TRUE  },
+  { "exception",       0,                       TRUE  },
   { "retval",          0,                       TRUE  },
   { "sa",              0,                       TRUE  },
   { "see",             0,                       TRUE  },
@@ -1153,7 +1154,7 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
 <Comment>{B}*{CMD}"~"[a-z_A-Z-]*		{ // language switch command
                                           QCString langId = QString(yytext).stripWhiteSpace().data()+2;
 			       	          if (!langId.isEmpty() &&
-					      qstricmp(Config_getEnum("OUTPUT_LANGUAGE"),langId)!=0)
+					      qstricmp(Config_getEnum(OUTPUT_LANGUAGE),langId)!=0)
 				          { // enable language specific section
 				            BEGIN(SkipLang);
 				          }
@@ -2176,7 +2177,7 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
 <SkipLang>[\\@]"~"[a-zA-Z-]*        { /* language switch */
                                      QCString langId = &yytext[2];
 				     if (langId.isEmpty() ||
-					 qstricmp(Config_getEnum("OUTPUT_LANGUAGE"),langId)==0)
+					 qstricmp(Config_getEnum(OUTPUT_LANGUAGE),langId)==0)
 				     { // enable language specific section
 				       BEGIN(Comment);
 				     }
@@ -2722,7 +2723,7 @@ static bool handleHideCallergraph(const QCString &)
 
 static bool handleInternal(const QCString &)
 {
-  if (!Config_getBool("INTERNAL_DOCS"))
+  if (!Config_getBool(INTERNAL_DOCS))
   {
     // make sure some whitespace before a \internal command
     // is not treated as "documentation"

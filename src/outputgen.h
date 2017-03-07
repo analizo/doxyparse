@@ -299,6 +299,8 @@ class BaseOutputDocInterface : public CodeOutputInterface
     virtual void writeNonBreakableSpace(int) = 0;
     virtual void startDescTable(const char *title) = 0;
     virtual void endDescTable() = 0;
+    virtual void startDescTableRow() = 0;
+    virtual void endDescTableRow() = 0;
     virtual void startDescTableTitle() = 0;
     virtual void endDescTableTitle() = 0;
     virtual void startDescTableData() = 0;
@@ -402,7 +404,7 @@ class OutputGenerator : public BaseOutputDocInterface
     virtual void endMemberGroup(bool) = 0;
     virtual void insertMemberAlign(bool) = 0;
     virtual void startMemberDoc(const char *,const char *,
-                                const char *,const char *,bool) = 0;
+                                const char *,const char *,int,int,bool) = 0;
     virtual void endMemberDoc(bool) = 0;
     virtual void startDoxyAnchor(const char *fName,const char *manName,
                                  const char *anchor,const char *name,
@@ -468,8 +470,8 @@ class OutputGenerator : public BaseOutputDocInterface
     virtual void endConstraintDocs() = 0;
     virtual void endConstraintList() = 0;
 
-    virtual void startMemberDocSimple() = 0;
-    virtual void endMemberDocSimple() = 0;
+    virtual void startMemberDocSimple(bool) = 0;
+    virtual void endMemberDocSimple(bool) = 0;
     virtual void startInlineMemberType() = 0;
     virtual void endInlineMemberType() = 0;
     virtual void startInlineMemberName() = 0;

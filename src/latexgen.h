@@ -208,7 +208,7 @@ class LatexGenerator : public OutputGenerator
     void startDescItem();
     void endDescItem();
     void lineBreak(const char *style=0);
-    void startMemberDoc(const char *,const char *,const char *,const char *,bool);
+    void startMemberDoc(const char *,const char *,const char *,const char *,int,int,bool);
     void endMemberDoc(bool);
     void startDoxyAnchor(const char *,const char *,const char *,const char *,const char *);
     void endDoxyAnchor(const char *,const char *);
@@ -259,23 +259,16 @@ class LatexGenerator : public OutputGenerator
     void startContents() {}
     void endContents() {}
     void writeNonBreakableSpace(int);
-    
-    void startDescTable(const char *title)
-    { startSimpleSect(EnumValues,0,0,title);
-      startDescForItem();
-      t << "\\begin{description}" << endl; }
-    void endDescTable()
-    { t << "\\end{description}" << endl; 
-      endDescForItem();
-      endSimpleSect();
-    }
-    void startDescTableTitle()
-    { t << "\\item[{\\em " << endl; }
-    void endDescTableTitle()
-    { t << "}]"; }
-    void startDescTableData() {}
-    void endDescTableData() {}
-    void lastIndexPage() {}
+
+    void startDescTable(const char *title);
+    void endDescTable();
+    void startDescTableRow();
+    void endDescTableRow();
+    void startDescTableTitle();
+    void endDescTableTitle();
+    void startDescTableData();
+    void endDescTableData();
+    void lastIndexPage();
 
     void startDotGraph();
     void endDotGraph(const DotClassGraph &);
@@ -293,7 +286,7 @@ class LatexGenerator : public OutputGenerator
     void endTextBlock(bool) {}
 
     void startMemberDocPrefixItem() {}
-    void endMemberDocPrefixItem() {}
+    void endMemberDocPrefixItem() { t << "\\\\" << endl; }
     void startMemberDocName(bool) {}
     void endMemberDocName() {}
     void startParameterType(bool,const char *);
@@ -313,8 +306,8 @@ class LatexGenerator : public OutputGenerator
     void endConstraintDocs();
     void endConstraintList();
 
-    void startMemberDocSimple();
-    void endMemberDocSimple();
+    void startMemberDocSimple(bool);
+    void endMemberDocSimple(bool);
     void startInlineMemberType();
     void endInlineMemberType();
     void startInlineMemberName();
