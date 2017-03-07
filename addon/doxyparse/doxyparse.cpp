@@ -100,7 +100,7 @@ static void findXRefSymbols(FileDef *fd)
 static bool ignoreStaticExternalCall(MemberDef *context, MemberDef *md) {
   if (md->isStatic()) {
     if(md->getFileDef()) {
-      if(md->getFileDef()->getFileBase() == context->getFileDef()->getFileBase())
+      if(md->getFileDef()->getOutputFileBase() == context->getFileDef()->getOutputFileBase())
         // TODO ignore prefix of file
         return false;
       else
@@ -147,7 +147,7 @@ static void printWhereItWasDefined(MemberDef * md) {
     printf("defined in %s\n", md->getClassDef()->name().data());
   }
   else if (md->getFileDef()) {
-    printf("defined in %s\n", md->getFileDef()->getFileBase().data());
+    printf("defined in %s\n", md->getFileDef()->getOutputFileBase().data());
   }
   else {
     printf("\n");
@@ -158,7 +158,7 @@ static void printCStructMember(MemberDef * md) {
   printType(md);
   printf("%s::", md->getClassDef()->name().data());
   printSignature(md);
-  printf("defined in %s\n", md->getClassDef()->getFileDef()->getFileBase().data());
+  printf("defined in %s\n", md->getClassDef()->getFileDef()->getOutputFileBase().data());
 }
 
 static int isPartOfCStruct(MemberDef * md) {
@@ -302,7 +302,7 @@ static void printFile(FileDef* fd) {
   printf("file %s\n", fd->absFilePath().data());
   MemberList *ml = fd->getMemberList(MemberListType_allMembersList);
   if (ml && ml->count() > 0) {
-    printf("module %s\n", fd->getFileBase().data());
+    printf("module %s\n", fd->getOutputFileBase().data());
     listMembers(ml);
   }
 }
