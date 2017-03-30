@@ -357,6 +357,14 @@ static bool writeDefArgumentList(OutputList &ol,Definition *scope,MemberDef *md)
   {
     ol.docify(" volatile");
   }
+  if (defArgList->refQualifier==RefQualifierLValue)
+  {
+    ol.docify(" &");
+  }
+  else if (defArgList->refQualifier==RefQualifierRValue)
+  {
+    ol.docify(" &&");
+  }
   if (!defArgList->trailingReturnType.isEmpty())
   {
     linkifyText(TextGeneratorOLImpl(ol), // out
@@ -1075,7 +1083,7 @@ void MemberDef::_computeLinkableInProject()
     m_isLinkableCached = 1; // not a valid or a dummy name
     return;
   }
-  if (!hasDocumentation() && !isReference())
+  if (!hasDocumentation() || isReference())
   {
     //printf("no docs or reference\n");
     m_isLinkableCached = 1; // no documentation
@@ -3006,26 +3014,7 @@ void MemberDef::writeDocumentation(MemberList *ml,
   //if (Config_getBool(EXTRACT_ALL) && !hasDocs) ol.enable(OutputGenerator::Latex);
   ol.popGeneratorState();
 
-  //------------------------------------------------
-
-  if (!Config_getBool(EXTRACT_ALL) &&
-      Config_getBool(WARN_IF_UNDOCUMENTED) &&
-      Config_getBool(WARN_NO_PARAMDOC) &&
-      !Doxygen::suppressDocWarnings)
-  {
-    if (!hasDocumentedParams())
-    {
-      warn_doc_error(getDefFileName(),getDefLine(),
-          "parameters of member %s are not (all) documented",
-          qPrint(qualifiedName()));
-    }
-    if (!hasDocumentedReturnType() && isFunction() && hasDocumentation())
-    {
-      warn_doc_error(getDefFileName(),getDefLine(),
-          "return type of member %s is not documented",
-          qPrint(qualifiedName()));
-    }
-  }
+  warnIfUndocumentedParams();
 }
 
 // strip scope and field name from the type
@@ -3260,9 +3249,35 @@ void MemberDef::warnIfUndocumented()
     warn_undoc(getDefFileName(),getDefLine(),"Member %s%s (%s) of %s %s is not documented.",
          qPrint(name()),qPrint(argsString()),qPrint(memberTypeName()),t,qPrint(d->name()));
   }
+  else if (!isDetailedSectionLinkable())
+  {
+    warnIfUndocumentedParams();
+  }
 }
 
 
+void MemberDef::warnIfUndocumentedParams()
+{
+  if (!Config_getBool(EXTRACT_ALL) &&
+      Config_getBool(WARN_IF_UNDOCUMENTED) &&
+      Config_getBool(WARN_NO_PARAMDOC) &&
+      !Doxygen::suppressDocWarnings)
+  {
+    if (!hasDocumentedParams())
+    {
+      warn_doc_error(getDefFileName(),getDefLine(),
+          "parameters of member %s are not (all) documented",
+          qPrint(qualifiedName()));
+    }
+    if (!hasDocumentedReturnType() &&
+        isFunction() && hasDocumentation())
+    {
+      warn_doc_error(getDefFileName(),getDefLine(),
+          "return type of member %s is not documented",
+          qPrint(qualifiedName()));
+    }
+  }
+}
 
 bool MemberDef::isFriendClass() const
 {

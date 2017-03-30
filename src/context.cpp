@@ -1522,6 +1522,7 @@ class DefinitionContext
         case SrcLangExt_Fortran:  result="fortran";  break;
         case SrcLangExt_VHDL:     result="vhdl";     break;
         case SrcLangExt_XML:      result="xml";      break;
+        case SrcLangExt_SQL:      result="sql";      break;
         case SrcLangExt_Tcl:      result="tcl";      break;
         case SrcLangExt_Markdown: result="markdown"; break;
       }
@@ -1989,7 +1990,7 @@ class ClassContext::Private : public DefinitionContext<ClassContext::Private>
               t << "<img src=\"";
               t << relPathAsString() << m_classDef->getOutputFileBase();
               t << ".png\" usemap=\"#" << convertToId(name) << "_map\" alt=\"\"/>" << endl;
-              t << "<map id=\"" << convertToId(name) << "_map\" name=\"" << name << "_map\">" << endl;
+              t << "<map id=\"" << convertToId(name) << "_map\" name=\"" << convertToId(name) << "_map\">" << endl;
               d.writeImage(t,g_globals.outputDir,
                            relPathAsString(),
                            m_classDef->getOutputFileBase());
@@ -3813,7 +3814,7 @@ class TextGeneratorLatex : public TextGeneratorIntf
       }
       else
       {
-        m_ts << "{\\bf ";
+        m_ts << "\\textbf{ ";
         filterLatexString(m_ts,text);
         m_ts << "}";
       }
@@ -3969,6 +3970,8 @@ class MemberContext::Private : public DefinitionContext<MemberContext::Private>
         s_inst.addProperty("parameters",          &Private::parameters);
         s_inst.addProperty("hasConstQualifier",   &Private::hasConstQualifier);
         s_inst.addProperty("hasVolatileQualifier",&Private::hasVolatileQualifier);
+        s_inst.addProperty("hasRefQualifierLValue", &Private::hasRefQualifierLValue);
+        s_inst.addProperty("hasRefQualifierRValue", &Private::hasRefQualifierRValue);
         s_inst.addProperty("trailingReturnType",  &Private::trailingReturnType);
         s_inst.addProperty("extraTypeChars",      &Private::extraTypeChars);
         s_inst.addProperty("templateDecls",       &Private::templateDecls);
@@ -4570,6 +4573,16 @@ class MemberContext::Private : public DefinitionContext<MemberContext::Private>
     {
       ArgumentList *al = getDefArgList();
       return al ? al->volatileSpecifier : FALSE;
+    }
+    TemplateVariant hasRefQualifierLValue() const
+    {
+      ArgumentList *al = getDefArgList();
+      return al ? al->refQualifier==RefQualifierLValue : FALSE;
+    }
+    TemplateVariant hasRefQualifierRValue() const
+    {
+      ArgumentList *al = getDefArgList();
+      return al ? al->refQualifier==RefQualifierRValue : FALSE;
     }
     TemplateVariant trailingReturnType() const
     {

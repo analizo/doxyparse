@@ -72,6 +72,7 @@
 #include "pyscanner.h"
 #include "fortranscanner.h"
 #include "xmlscanner.h"
+#include "sqlscanner.h"
 #include "tclscanner.h"
 #include "code.h"
 #include "objcache.h"
@@ -2592,7 +2593,7 @@ static MemberDef *addVariableToFile(
   }
 
   Debug::print(Debug::Variables,0,
-    "    new variable, nd=%s!\n",nd?qPrint(nd->name()):"<global>");
+    "    new variable, nd=%s tagInfo=%p!\n",nd?qPrint(nd->name()):"<global>",rootNav->tagInfo());
   // new global variable, enum value or typedef
   MemberDef *md=new MemberDef(
       fileName,root->startLine,root->startColumn,
@@ -2869,11 +2870,6 @@ static void addVariable(EntryNav *rootNav,int isFuncPtr=-1)
           root->args.prepend(") ");
           //printf("root->type=%s root->args=%s\n",root->type.data(),root->args.data());
         }
-      }
-      else if (root->type.find("typedef ")!=-1 && root->type.right(2)=="()") // typedef void (func)(int)
-      {
-        root->type=root->type.left(root->type.length()-1);
-        root->args.prepend(") ");
       }
     }
 
@@ -10007,6 +10003,7 @@ void initDoxygen()
   Doxygen::parserManager->registerParser("fortranfixed", new FortranLanguageScannerFixed);
   Doxygen::parserManager->registerParser("vhdl",         new VHDLLanguageScanner);
   Doxygen::parserManager->registerParser("xml",          new XMLScanner);
+  Doxygen::parserManager->registerParser("sql",          new SQLScanner);
   Doxygen::parserManager->registerParser("tcl",          new TclLanguageScanner);
   Doxygen::parserManager->registerParser("md",           new MarkdownFileParser);
 
