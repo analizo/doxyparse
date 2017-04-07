@@ -1947,7 +1947,6 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
   					  g_code->codify(yytext);
 					  if (*yytext=='{')
 					  {
-					    g_curlyCount++;
   					    if (g_searchingForBody)
 					    {
 					      g_searchingForBody=FALSE;
@@ -2070,11 +2069,6 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
 <SkipCPP>"//"				{ 
   					  g_code->codify(yytext);
 					}
-<Body,FuncCall>"}"			{ 
-                                          g_theVarContext.popScope();
-					  g_yyColNr++;
-					  g_code->codify(yytext);
-					}
 <Body,FuncCall>"{"			{ 
                                           g_theVarContext.pushScope();
 
@@ -2087,7 +2081,6 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
 					    g_insideBody=TRUE;
 					  }
   					  g_code->codify(yytext);
-  					  g_curlyCount++;
 					  if (g_insideBody) 
 					  {
 					    g_bodyCurlyCount++;
@@ -2096,7 +2089,7 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
 					  g_name.resize(0);
 					  BEGIN( Body );
 					}
-<Body,MemberCall,MemberCall2>"}"	{ 
+<Body,FuncCall,MemberCall,MemberCall2>"}"  { 
                                           g_theVarContext.popScope();
   					  g_type.resize(0); 
 					  g_name.resize(0);
@@ -2269,7 +2262,6 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
 <Bases,ClassName,ClassVar,CppCliTypeModifierFollowup>{B}*"{"{B}* {
                                           g_theVarContext.pushScope();
   					  g_code->codify(yytext);
-					  g_curlyCount++;
 					  if (YY_START==ClassVar && g_curClassName.isEmpty())
 					  {
 					    g_curClassName = g_name.copy();
@@ -3206,7 +3198,6 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
 					    g_insideBody=TRUE;
 					  }
 					  if (g_insideBody) g_bodyCurlyCount++;
-					  g_curlyCount++;
   					  g_type.resize(0); g_name.resize(0);
 					  BEGIN( Body );
   					}
@@ -3261,7 +3252,6 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
   					}
 <SkipInits>"{"				{ 
   					  g_code->codify(yytext);
-					  g_curlyCount++; 
   					  if (g_searchingForBody)
 					  {
 					    g_searchingForBody=FALSE;
