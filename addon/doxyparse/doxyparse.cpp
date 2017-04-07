@@ -370,13 +370,16 @@ int main(int argc,char **argv) {
   // initialize data structures
   initDoxygen();
 
+  // check and finalize the configuration
+  checkConfiguration();
+  adjustConfiguration();
+
   // setup the non-default configuration options
 
   // we need a place to put intermediate files
   std::ostringstream tmpdir;
   tmpdir << "/tmp/doxyparse-" << getpid();
   Config_getString(OUTPUT_DIRECTORY)= tmpdir.str().c_str();
-
   // enable HTML (fake) output to omit warning about missing output format
   Config_getBool(GENERATE_HTML)=TRUE;
   // disable latex output
@@ -418,10 +421,6 @@ int main(int argc,char **argv) {
   if (Config_getList(INPUT).isEmpty()) {
     exit(0);
   }
-
-  // check and finalize the configuration
-  checkConfiguration();
-  adjustConfiguration();
 
   // parse the files
   parseInput();
