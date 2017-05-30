@@ -18,7 +18,7 @@ include_directories(
 )
 
 add_executable(doxyparse
-doxyparse.cpp
+main.cpp
 )
 target_link_libraries(doxyparse
 _doxygen

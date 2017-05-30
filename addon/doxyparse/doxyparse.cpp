@@ -1,337 +1,25 @@
-/******************************************************************************
- *
- * Copyright (C) 2009 by Joenio Costa.
- *
- * Permission to use, copy, modify, and distribute this software and its
- * documentation under the terms of the GNU General Public License is hereby
- * granted. No representations are made about the suitability of this software
- * for any purpose. It is provided "as is" without express or implied warranty.
- * See the GNU General Public License for more details.
- *
- * Documents produced by Doxygen are derivative works derived from the
- * input used in their production; they are not affected by this license.
- *
- */
+#include "doxyparse.h"
 
-/** @file
- *  @brief Code parse based on doxyapp by Dimitri van Heesch
- *
- */
-
-#include "doxyparseinterface.h"
-#include <stdlib.h>
-#include <unistd.h>
-#include "doxygen.h"
-#include "outputgen.h"
-#include "parserintf.h"
-#include "classlist.h"
-#include "config.h"
-#include "filedef.h"
-#include "util.h"
-#include "filename.h"
-#include "arguments.h"
-#include "memberlist.h"
-#include "types.h"
-#include <string>
-#include <cstdlib>
-#include <sstream>
-
-static bool is_c_code = true;
-
-static void findXRefSymbols(FileDef *fd)
+Doxyparse::Doxyparse()
 {
-  // get the interface to a parser that matches the file extension
-  ParserInterface *pIntf=Doxygen::parserManager->getParser(fd->getDefFileExtension());
-
-  // get the programming language from the file name
-  SrcLangExt lang = getLanguageFromFileName(fd->name());
-
-  // reset the parsers state
-  pIntf->resetCodeParserState();
-
-  // create a new backend object
-  DoxyparseInterface *parse = new DoxyparseInterface(fd);
-
-  // parse the source code
-  pIntf->parseCode(*parse, 0, fileToString(fd->absFilePath()), lang, FALSE, 0, fd);
-
-  // dismiss the object.
-  delete parse;
+  is_c_code = true;
 }
 
-static bool ignoreStaticExternalCall(MemberDef *context, MemberDef *md) {
-  if (md->isStatic()) {
-    if(md->getFileDef()) {
-      if(md->getFileDef()->getOutputFileBase() == context->getFileDef()->getOutputFileBase())
-        // TODO ignore prefix of file
-        return false;
-      else
-        return true;
-    }
-    else {
-      return false;
-    }
-  }
-  else {
-    return false;
-  }
-}
+Doxyparse::~Doxyparse() {}
 
-void printArgumentList(MemberDef* md) {
-  ArgumentList *argList = md->argumentList();
-  ArgumentListIterator iterator(*argList);
-
-  printf("(");
-  Argument * argument = iterator.toFirst();
-  if(argument != NULL) {
-    printf("%s", argument->type.data());
-    for(++iterator; (argument = iterator.current()) ;++iterator){
-      printf(",%s", argument->type.data());
-    }
-  }
-  printf(")");
-}
-
-void printType(MemberDef* md) {
-  printf("%s ", md->memberTypeName().data());
-}
-
-void printSignature(MemberDef* md) {
-  printf("%s", md->name().data());
-  if(md->isFunction()){
-    printArgumentList(md);
-  }
-  printf(" ");
-}
-
-static void printWhereItWasDefined(MemberDef * md) {
-  if (md->getClassDef()) {
-    printf("defined in %s\n", md->getClassDef()->name().data());
-  }
-  else if (md->getFileDef()) {
-    printf("defined in %s\n", md->getFileDef()->getOutputFileBase().data());
-  }
-  else {
-    printf("\n");
-  }
-}
-
-static void printCStructMember(MemberDef * md) {
-  printType(md);
-  printf("%s::", md->getClassDef()->name().data());
-  printSignature(md);
-  printf("defined in %s\n", md->getClassDef()->getFileDef()->getOutputFileBase().data());
-}
-
-static int isPartOfCStruct(MemberDef * md) {
-  return is_c_code && md->getClassDef() != NULL;
-}
-
-static void printReferenceTo(MemberDef* md) {
-  printf("      uses ");
-  if (isPartOfCStruct(md)) {
-    printCStructMember(md);
-  }
-  else {
-    printType(md);
-    printSignature(md);
-    printWhereItWasDefined(md);
-  }
-}
-
-static void printReferencesMembers(MemberDef *md) {
-  MemberSDict *defDict = md->getReferencesMembers();
-  if (defDict) {
-    MemberSDict::Iterator msdi(*defDict);
-    MemberDef *rmd;
-    for (msdi.toFirst(); (rmd=msdi.current()); ++msdi) {
-      if (rmd->definitionType() == Definition::TypeMember && !ignoreStaticExternalCall(md, rmd)) {
-        printReferenceTo(rmd);
-      }
-    }
-  }
-}
-
-void printDefinitionLine(MemberDef* md) {
-  printf("in line %d\n", md->getDefLine());
-}
-
-void printDefinition(MemberDef* md) {
-  printf("   ");
-  printType(md);
-  printSignature(md);
-  printDefinitionLine(md);
-}
-
-static void printProtection(MemberDef* md) {
-  if (md->protection() == Public) {
-    printf("      protection public\n");
-  }
-}
-
-void printNumberOfLines(MemberDef* md) {
-  int size = md->getEndBodyLine() - md->getStartBodyLine() + 1;
-  printf("      %d lines of code\n", size);
-}
-
-void printNumberOfArguments(MemberDef* md) {
-  ArgumentList *argList = md->argumentList();
-  printf("      %d parameters\n", argList->count());
-}
-
-void printNumberOfConditionalPaths(MemberDef* md) {
-  printf("      %d conditional paths\n", md->numberOfFlowKeyWords());
-}
-
-void printFunctionInformation(MemberDef* md) {
-  printNumberOfLines(md);
-  printNumberOfArguments(md);
-  printNumberOfConditionalPaths(md);
-  printReferencesMembers(md);
-}
-
-static void lookupSymbol(Definition *d) {
-  if (d->definitionType() == Definition::TypeMember) {
-    MemberDef *md = (MemberDef *)d;
-    printDefinition(md);
-    printProtection(md);
-    if (md->isFunction()) {
-      printFunctionInformation(md);
-    }
-  }
-}
-
-void listMembers(MemberList *ml) {
-  if (ml) {
-    MemberListIterator mli(*ml);
-    MemberDef *md;
-    for (mli.toFirst(); (md=mli.current()); ++mli) {
-      lookupSymbol((Definition*) md);
-    }
-  }
-}
-
-static void printInheritance(ClassDef* cd) {
-  BaseClassList* baseClasses = cd->baseClasses();
-  if (baseClasses) {
-    BaseClassListIterator bci(*baseClasses);
-    BaseClassDef* bcd;
-    for (bci.toFirst(); (bcd = bci.current()); ++bci) {
-      printf("   inherits from %s\n", bcd->classDef->name().data());
-    }
-  }
-}
-
-void printCModule(ClassDef* cd) {
-  MemberList* ml = cd->getMemberList(MemberListType_variableMembers);
-  if (ml) {
-    MemberListIterator mli(*ml);
-    MemberDef* md;
-    for (mli.toFirst(); (md=mli.current()); ++mli) {
-      printf("   variable %s::%s in line %d\n", cd->name().data(), md->name().data(), md->getDefLine());
-      printProtection(md);
-    }
-  }
-}
-
-void listAllMembers(ClassDef* cd) {
-  // methods
-  listMembers(cd->getMemberList(MemberListType_functionMembers));
-  // constructors
-  listMembers(cd->getMemberList(MemberListType_constructors));
-  // attributes
-  listMembers(cd->getMemberList(MemberListType_variableMembers));
-}
-
-void printClassInformation(ClassDef* cd) {
-  printf("module %s\n", cd->name().data());
-  printInheritance(cd);
-  if(cd->isAbstract()) {
-    printf("   abstract class\n");
-  }
-  listAllMembers(cd);
-}
-
-static void printClass(ClassDef* cd) {
-  if (is_c_code) {
-    printCModule(cd);
-  } else {
-    printClassInformation(cd);
-  }
-}
-
-static void printFile(FileDef* fd) {
-  printf("file %s\n", fd->absFilePath().data());
-  MemberList *ml = fd->getMemberList(MemberListType_allMembersList);
-  if (ml && ml->count() > 0) {
-    printf("module %s\n", fd->getOutputFileBase().data());
-    listMembers(ml);
-  }
-}
-
-static bool checkLanguage(std::string& filename, std::string extension) {
-  if (filename.find(extension, filename.size() - extension.size()) != std::string::npos) {
-    return true;
-  } else {
-    return false;
-  }
-}
-
-/* Detects the programming language of the project. Actually, we only care
- * about whether it is a C project or not. */
-static void detectProgrammingLanguage(FileNameListIterator& fnli) {
-  FileName* fn;
-  for (fnli.toFirst(); (fn=fnli.current()); ++fnli) {
-    std::string filename = fn->fileName();
-    if (
-        checkLanguage(filename, ".cc") ||
-        checkLanguage(filename, ".cxx") ||
-        checkLanguage(filename, ".cpp") ||
-        checkLanguage(filename, ".java") ||
-        checkLanguage(filename, ".py") ||
-        checkLanguage(filename, ".pyw")
-       ) {
-      is_c_code = false;
-    }
-  }
-}
-
-static void listSymbols() {
-  // iterate over the input files
-  FileNameListIterator fnli(*Doxygen::inputNameList);
-  FileName *fn;
-
-  detectProgrammingLanguage(fnli);
-
-  // for each file
-  for (fnli.toFirst(); (fn=fnli.current()); ++fnli) {
-    FileNameIterator fni(*fn);
-    FileDef *fd;
-    for (; (fd=fni.current()); ++fni) {
-      printFile(fd);
-
-      ClassSDict *classes = fd->getClassSDict();
-      if (classes) {
-        ClassSDict::Iterator cli(*classes);
-        ClassDef *cd;
-        for (cli.toFirst(); (cd = cli.current()); ++cli) {
-          printClass(cd);
-        }
-      }
-    }
-  }
-  // TODO print external symbols referenced
-}
-
-int main(int argc,char **argv) {
-  if (argc < 2) {
-    printf("Usage: %s [source_file | source_dir]\n",argv[0]);
-    exit(1);
-  }
-
+void Doxyparse::initializeDoxygen()
+{
   // initialize data structures
   initDoxygen();
+}
 
+void Doxyparse::doxygenParseInput()
+{
+  parseInput();
+}
+
+void Doxyparse::setConfiguration()
+{
   // check and finalize the configuration
   checkConfiguration();
   Config_getBool(MODIFY_SPECIAL_CHARS)=FALSE;
@@ -340,7 +28,6 @@ int main(int argc,char **argv) {
   // setup the non-default configuration options
 
   // we need a place to put intermediate files
-  std::ostringstream tmpdir;
   tmpdir << "/tmp/doxyparse-" << getpid();
   Config_getString(OUTPUT_DIRECTORY)= tmpdir.str().c_str();
   // enable HTML (fake) output to omit warning about missing output format
@@ -365,6 +52,10 @@ int main(int argc,char **argv) {
   Config_getBool(CALL_GRAPH)=TRUE;
   // loop recursive over input files
   Config_getBool(RECURSIVE)=TRUE;
+}
+
+void Doxyparse::setInput(int argc, char **argv)
+{
   // set the input
   Config_getList(INPUT).clear();
   for (int i = 1; i < argc; i++) {
@@ -384,10 +75,10 @@ int main(int argc,char **argv) {
   if (Config_getList(INPUT).isEmpty()) {
     exit(0);
   }
+}
 
-  // parse the files
-  parseInput();
-
+void Doxyparse::parseReferences()
+{
   // iterate over the input files
   FileNameListIterator fnli(*Doxygen::inputNameList);
   FileName *fn;
@@ -401,18 +92,332 @@ int main(int argc,char **argv) {
       findXRefSymbols(fd);
     }
   }
+}
 
+void Doxyparse::removeOutputDir()
+{
   // remove temporary files
   if (!Doxygen::objDBFileName.isEmpty()) unlink(Doxygen::objDBFileName);
   if (!Doxygen::entryDBFileName.isEmpty()) unlink(Doxygen::entryDBFileName);
   // clean up after us
   rmdir(Config_getString(OUTPUT_DIRECTORY));
+}
 
-  listSymbols();
-
+void Doxyparse::removeTemporaryDir()
+{
   std::string cleanup_command = "rm -rf ";
   cleanup_command += tmpdir.str();
   system(cleanup_command.c_str());
+}
 
-  exit(0);
+void Doxyparse::findXRefSymbols(FileDef *fd)
+{
+  // get the interface to a parser that matches the file extension
+  ParserInterface *pIntf=Doxygen::parserManager->getParser(fd->getDefFileExtension());
+
+  // get the programming language from the file name
+  SrcLangExt lang = getLanguageFromFileName(fd->name());
+
+  // reset the parsers state
+  pIntf->resetCodeParserState();
+
+  // create a new backend object
+  DoxyparseInterface *parse = new DoxyparseInterface(fd);
+
+  // parse the source code
+  pIntf->parseCode(*parse, 0, fileToString(fd->absFilePath()), lang, FALSE, 0, fd);
+
+  // dismiss the object.
+  delete parse;
+}
+
+bool Doxyparse::ignoreStaticExternalCall(MemberDef *context, MemberDef *md)
+{
+  if (md->isStatic()) {
+    if(md->getFileDef()) {
+      if(md->getFileDef()->getOutputFileBase() == context->getFileDef()->getOutputFileBase())
+        // TODO ignore prefix of file
+        return false;
+      else
+        return true;
+    }
+    else {
+      return false;
+    }
+  }
+  else {
+    return false;
+  }
+}
+
+void Doxyparse::printArgumentList(MemberDef *md)
+{
+  ArgumentList *argList = md->argumentList();
+  ArgumentListIterator iterator(*argList);
+
+  printf("(");
+  Argument * argument = iterator.toFirst();
+  if(argument != NULL) {
+    printf("%s", argument->type.data());
+    for(++iterator; (argument = iterator.current()) ;++iterator){
+      printf(",%s", argument->type.data());
+    }
+  }
+  printf(")");
+}
+
+void Doxyparse::printType(MemberDef *md)
+{
+  printf("%s ", md->memberTypeName().data());
+}
+
+void Doxyparse::printSignature(MemberDef* md)
+{
+  printf("%s", md->name().data());
+  if(md->isFunction()){
+    printArgumentList(md);
+  }
+  printf(" ");
+}
+
+void Doxyparse::printWhereItWasDefined(MemberDef *md)
+{
+  if (md->getClassDef()) {
+    printf("defined in %s\n", md->getClassDef()->name().data());
+  }
+  else if (md->getFileDef()) {
+    printf("defined in %s\n", md->getFileDef()->getOutputFileBase().data());
+  }
+  else {
+    printf("\n");
+  }
+}
+
+void Doxyparse::printCStructMember(MemberDef *md)
+{
+  printType(md);
+  printf("%s::", md->getClassDef()->name().data());
+  printSignature(md);
+  printf("defined in %s\n", md->getClassDef()->getFileDef()->getOutputFileBase().data());
+}
+
+int Doxyparse::isPartOfCStruct(MemberDef *md)
+{
+  return is_c_code && md->getClassDef() != NULL;
+}
+
+void Doxyparse::printReferenceTo(MemberDef *md)
+{
+  printf("      uses ");
+  if (isPartOfCStruct(md)) {
+    printCStructMember(md);
+  }
+  else {
+    printType(md);
+    printSignature(md);
+    printWhereItWasDefined(md);
+  }
+}
+
+void Doxyparse::printReferencesMembers(MemberDef *md)
+{
+  MemberSDict *defDict = md->getReferencesMembers();
+  if (defDict) {
+    MemberSDict::Iterator msdi(*defDict);
+    MemberDef *rmd;
+    for (msdi.toFirst(); (rmd=msdi.current()); ++msdi) {
+      if (rmd->definitionType() == Definition::TypeMember && !ignoreStaticExternalCall(md, rmd)) {
+        printReferenceTo(rmd);
+      }
+    }
+  }
+}
+
+void Doxyparse::printDefinitionLine(MemberDef *md)
+{
+  printf("in line %d\n", md->getDefLine());
+}
+
+void Doxyparse::printDefinition(MemberDef *md)
+{
+  printf("   ");
+  printType(md);
+  printSignature(md);
+  printDefinitionLine(md);
+}
+
+void Doxyparse::printProtection(MemberDef *md)
+{
+  if (md->protection() == Public) {
+    printf("      protection public\n");
+  }
+}
+
+void Doxyparse::printNumberOfLines(MemberDef *md)
+{
+  int size = md->getEndBodyLine() - md->getStartBodyLine() + 1;
+  printf("      %d lines of code\n", size);
+}
+
+void Doxyparse::printNumberOfArguments(MemberDef *md)
+{
+  ArgumentList *argList = md->argumentList();
+  printf("      %d parameters\n", argList->count());
+}
+
+void Doxyparse::printNumberOfConditionalPaths(MemberDef *md)
+{
+  printf("      %d conditional paths\n", md->numberOfFlowKeyWords());
+}
+
+void Doxyparse::printFunctionInformation(MemberDef *md)
+{
+  printNumberOfLines(md);
+  printNumberOfArguments(md);
+  printNumberOfConditionalPaths(md);
+  printReferencesMembers(md);
+}
+
+void Doxyparse::lookupSymbol(Definition *d)
+{
+  if (d->definitionType() == Definition::TypeMember) {
+    MemberDef *md = (MemberDef *)d;
+    printDefinition(md);
+    printProtection(md);
+    if (md->isFunction()) {
+      printFunctionInformation(md);
+    }
+  }
+}
+
+void Doxyparse::listMembers(MemberList *ml)
+{
+  if (ml) {
+    MemberListIterator mli(*ml);
+    MemberDef *md;
+    for (mli.toFirst(); (md=mli.current()); ++mli) {
+      lookupSymbol((Definition*) md);
+    }
+  }
+}
+
+void Doxyparse::printInheritance(ClassDef *cd)
+{
+  BaseClassList* baseClasses = cd->baseClasses();
+  if (baseClasses) {
+    BaseClassListIterator bci(*baseClasses);
+    BaseClassDef* bcd;
+    for (bci.toFirst(); (bcd = bci.current()); ++bci) {
+      printf("   inherits from %s\n", bcd->classDef->name().data());
+    }
+  }
+}
+
+void Doxyparse::printCModule(ClassDef *cd)
+{
+  MemberList* ml = cd->getMemberList(MemberListType_variableMembers);
+  if (ml) {
+    MemberListIterator mli(*ml);
+    MemberDef* md;
+    for (mli.toFirst(); (md=mli.current()); ++mli) {
+      printf("   variable %s::%s in line %d\n", cd->name().data(), md->name().data(), md->getDefLine());
+      printProtection(md);
+    }
+  }
+}
+
+void Doxyparse::listAllMembers(ClassDef *cd)
+{
+  // methods
+  listMembers(cd->getMemberList(MemberListType_functionMembers));
+  // constructors
+  listMembers(cd->getMemberList(MemberListType_constructors));
+  // attributes
+  listMembers(cd->getMemberList(MemberListType_variableMembers));
+}
+
+void Doxyparse::printClassInformation(ClassDef *cd)
+{
+  printf("module %s\n", cd->name().data());
+  printInheritance(cd);
+  if(cd->isAbstract()) {
+    printf("   abstract class\n");
+  }
+  listAllMembers(cd);
+}
+
+void Doxyparse::printClass(ClassDef *cd)
+{
+  if (is_c_code) {
+    printCModule(cd);
+  } else {
+    printClassInformation(cd);
+  }
+}
+
+void Doxyparse::printFile(FileDef *fd)
+{
+  printf("file %s\n", fd->absFilePath().data());
+  MemberList *ml = fd->getMemberList(MemberListType_allMembersList);
+  if (ml && ml->count() > 0) {
+    printf("module %s\n", fd->getOutputFileBase().data());
+    listMembers(ml);
+  }
+}
+
+bool Doxyparse::checkLanguage(std::string &filename, std::string extension)
+{
+  if (filename.find(extension, filename.size() - extension.size()) != std::string::npos) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+/* Detects the programming language of the project. Actually, we only care
+ * about whether it is a C project or not. */
+void Doxyparse::detectProgrammingLanguage(FileNameListIterator &fnli)
+{
+  FileName* fn;
+  for (fnli.toFirst(); (fn=fnli.current()); ++fnli) {
+    std::string filename = fn->fileName();
+    if (
+        checkLanguage(filename, ".cc") ||
+        checkLanguage(filename, ".cxx") ||
+        checkLanguage(filename, ".cpp") ||
+        checkLanguage(filename, ".java") ||
+        checkLanguage(filename, ".py") ||
+        checkLanguage(filename, ".pyw")
+       ) {
+      is_c_code = false;
+    }
+  }
+}
+
+void Doxyparse::listSymbols()
+{
+  // iterate over the input files
+  FileNameListIterator fnli(*Doxygen::inputNameList);
+  FileName *fn;
+
+  detectProgrammingLanguage(fnli);
+
+  // for each file
+  for (fnli.toFirst(); (fn=fnli.current()); ++fnli) {
+    FileNameIterator fni(*fn);
+    FileDef *fd;
+    for (; (fd=fni.current()); ++fni) {
+      printFile(fd);
+
+      ClassSDict *classes = fd->getClassSDict();
+      if (classes) {
+        ClassSDict::Iterator cli(*classes);
+        ClassDef *cd;
+        for (cli.toFirst(); (cd = cli.current()); ++cli) {
+          printClass(cd);
+        }
+      }
+    }
+  }
+  // TODO print external symbols referenced
 }
