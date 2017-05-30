@@ -18,6 +18,7 @@
  *
  */
 
+#include "doxyparseinterface.h"
 #include <stdlib.h>
 #include <unistd.h>
 #include "doxygen.h"
@@ -35,45 +36,6 @@
 #include <cstdlib>
 #include <sstream>
 
-class Doxyparse : public CodeOutputInterface
-{
-  public:
-    Doxyparse(FileDef *fd) : m_fd(fd) {}
-   ~Doxyparse() {}
-
-    // these are just null functions, they can be used to produce a syntax highlighted
-    // and cross-linked version of the source code, but who needs that anyway ;-)
-    void codify(const char *) {}
-    void writeCodeLink(const char *,const char *,const char *,const char *,const char *)  {}
-    void startCodeLine() {}
-    void endCodeLine() {}
-    void startCodeAnchor(const char *) {}
-    void endCodeAnchor() {}
-    void startFontClass(const char *) {}
-    void endFontClass() {}
-    void writeCodeAnchor(const char *) {}
-    void writeLineNumber(const char *,const char *,const char *,int) {}
-    virtual void writeTooltip(const char *,const DocLinkInfo &,
-                              const char *,const char *,const SourceLinkInfo &,
-                              const SourceLinkInfo &) {}
-    void startCodeLine(bool) {}
-    void setCurrentDoc(Definition *,const char *,bool) {}
-    void addWord(const char *,bool) {}
-
-    void linkableSymbol(int l, const char *sym, Definition *symDef, Definition *context)
-    {
-      if (!symDef) {
-        // in this case we have a local or external symbol
-
-        // TODO record use of external symbols
-        // TODO must have a way to differentiate external symbols from local variables
-      }
-    }
-
-  private:
-    FileDef *m_fd;
-};
-
 static bool is_c_code = true;
 
 static void findXRefSymbols(FileDef *fd)
@@ -88,7 +50,7 @@ static void findXRefSymbols(FileDef *fd)
   pIntf->resetCodeParserState();
 
   // create a new backend object
-  Doxyparse *parse = new Doxyparse(fd);
+  DoxyparseInterface *parse = new DoxyparseInterface(fd);
 
   // parse the source code
   pIntf->parseCode(*parse, 0, fileToString(fd->absFilePath()), lang, FALSE, 0, fd);
