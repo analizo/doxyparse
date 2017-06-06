@@ -327,7 +327,8 @@ static void detectProgrammingLanguage(FileNameListIterator& fnli) {
         checkLanguage(filename, ".cpp") ||
         checkLanguage(filename, ".java") ||
         checkLanguage(filename, ".py") ||
-        checkLanguage(filename, ".pyw")
+        checkLanguage(filename, ".pyw") ||
+        checkLanguage(filename, ".cs")
        ) {
       is_c_code = false;
     }
