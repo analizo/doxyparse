@@ -1,8 +1,8 @@
 #ifndef DOXYPARSEINTERFACE_H
 #define DOXYPARSEINTERFACE_H
 
-#include "outputgen.h"
 #include "filedef.h"
+#include "outputgen.h"
 
 class DoxyparseInterface : public CodeOutputInterface
 {

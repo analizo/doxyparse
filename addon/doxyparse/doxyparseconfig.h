@@ -3,10 +3,9 @@
 
 #include "doxygen.h"
 #include "config.h"
-#include <string>
 #include <sstream>
+#include <string>
 #include <unistd.h>
-#include <cstdlib>
 
 
 class DoxyparseConfig

@@ -6,7 +6,6 @@
 #include "doxyparseinput.h"
 #include "doxyparser.h"
 #include "doxyparseresults.h"
-#include <cstdlib>
 
 class Doxyparse
 {

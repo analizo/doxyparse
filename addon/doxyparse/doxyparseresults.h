@@ -1,19 +1,12 @@
 #ifndef DOXYPARSERESULTS_H
 #define DOXYPARSERESULTS_H
 
-#include <unistd.h>
-#include <string>
 #include "doxygen.h"
-#include "outputgen.h"
-#include "parserintf.h"
+#include "arguments.h"
 #include "classlist.h"
 #include "filedef.h"
-#include "util.h"
 #include "filename.h"
-#include "arguments.h"
-#include "memberlist.h"
-#include "types.h"
-#include <cstdlib>
+#include <string>
 
 class DoxyparseResults
 {
