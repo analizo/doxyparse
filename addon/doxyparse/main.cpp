@@ -28,14 +28,16 @@ int main(int argc,char **argv) {
 
   Doxyparse doxyparse;
 
-  doxyparse.initializeDoxygen();
-  doxyparse.setConfiguration();
-  doxyparse.setInput(argc, argv);
-  doxyparse.doxygenParseInput();
-  doxyparse.parseReferences();
-  doxyparse.removeOutputDir();
-  doxyparse.listSymbols();
-  doxyparse.removeTemporaryDir();
+  doxyparse.configure();
+
+  if(!doxyparse.setInput(argc, argv))
+  {
+    exit(1);
+  }
+
+  doxyparse.parse();
+
+  doxyparse.listResults();
 
   exit(0);
 }

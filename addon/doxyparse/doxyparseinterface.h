@@ -1,5 +1,5 @@
-#ifndef DOXYPARSE_INTERFACE_H
-#define DOXYPARSE_INTERFACE_H
+#ifndef DOXYPARSEINTERFACE_H
+#define DOXYPARSEINTERFACE_H
 
 #include "outputgen.h"
 #include "filedef.h"
