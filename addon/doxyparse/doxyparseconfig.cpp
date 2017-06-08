@@ -12,19 +12,14 @@ DoxyparseConfig::~DoxyparseConfig()
 
 void DoxyparseConfig::config()
 {
-  checkConfiguration(); // Doxygen
+  checkConfiguration();
   setDoxyparseConfiguration();
-  adjustConfiguration(); // Doxygen
-}
-
-const char* DoxyparseConfig::getTemporaryDirectoryPath()
-{
-  return temporaryDirectory.str().c_str();
+  adjustConfiguration();
 }
 
 void DoxyparseConfig::setDoxyparseConfiguration()
 {
-  // We need the special chars as they are
+  // We need special chars as they are
   Config_getBool(MODIFY_SPECIAL_CHARS)=FALSE;
 
   Config_getString(OUTPUT_DIRECTORY)= getTemporaryDirectoryPath();
@@ -51,10 +46,17 @@ void DoxyparseConfig::setDoxyparseConfiguration()
   // Extract source browse information, needed
   // to make doxygen gather the cross reference info
   Config_getBool(SOURCE_BROWSER)=TRUE;
+
   // find functions call between modules
   Config_getBool(CALL_GRAPH)=TRUE;
+
   // loop recursive over input files
   Config_getBool(RECURSIVE)=TRUE;
+}
+
+const char* DoxyparseConfig::getTemporaryDirectoryPath()
+{
+  return temporaryDirectory.str().c_str();
 }
 
 void DoxyparseConfig::removeTemporaryDirectory()

@@ -12,6 +12,9 @@ class DoxyparseInput
 
     bool set(int argc, char **argv);
     void parse();
+
+  private:
+    void append_through_filenames();
 };
 
 #endif

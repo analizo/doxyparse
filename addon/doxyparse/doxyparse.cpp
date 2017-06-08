@@ -2,7 +2,7 @@
 
 Doxyparse::Doxyparse()
 {
-  initDoxygen(); // Doxygen
+  initDoxygen();
 }
 
 Doxyparse::~Doxyparse()
@@ -19,7 +19,7 @@ void Doxyparse::configure()
 bool Doxyparse::setInput(int argc, char **argv)
 {
   DoxyparseInput doxyparseInput;
-  bool successful_set_the_input = doxyparseInput.set(argc, argv);
+  const bool successful_set_the_input = doxyparseInput.set(argc, argv);
   if(successful_set_the_input)
   {
     doxyparseInput.parse();

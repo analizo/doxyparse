@@ -14,8 +14,6 @@ class DoxyparseConfig
     DoxyparseConfig();
    ~DoxyparseConfig();
 
-    const char* getTemporaryDirectoryPath();
-
     void config();
 
   private:
@@ -23,6 +21,7 @@ class DoxyparseConfig
 
     void setDoxyparseConfiguration();
     void removeTemporaryDirectory();
+    const char* getTemporaryDirectoryPath();
 };
 
 #endif
