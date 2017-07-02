@@ -138,7 +138,7 @@ static void printDefines() {
   modules[current_module] = true;
 }
 static void printDefinition(std::string type, std::string signature, int line) {
-  printf("      - %s:\n", signature.c_str());
+  printf("      - \"%s\":\n", signature.c_str());
   printf("          type: %s\n", type.c_str());
   printf("          line: %d\n", line);
 }
@@ -155,7 +155,7 @@ static void printUses() {
   printf("          uses:\n");
 }
 static void printReferenceTo(std::string type, std::string signature, std::string defined_in) {
-  printf("            - %s:\n", signature.c_str());
+  printf("            - \"%s\":\n", signature.c_str());
   printf("                type: %s\n", type.c_str());
   printf("                defined_in: %s\n", defined_in.c_str());
 }
