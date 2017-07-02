@@ -245,7 +245,7 @@ static void lookupSymbol(Definition *d) {
     std::string signature = functionSignature(md);
     printDefinition(type, signature, md->getDefLine());
     if (md->protection() == Public) {
-      printProtection("protection public");
+      printProtection("public");
     }
     if (md->isFunction()) {
       functionInformation(md);
