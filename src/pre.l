@@ -15,6 +15,8 @@
  *
  */
 %option never-interactive
+%option prefix="preYY"
+
 %{
 
 /*
@@ -454,7 +456,7 @@ static FileState *checkAndOpenFile(const QCString &fileName,bool &alreadyInclude
   QFileInfo fi(fileName);
   if (fi.exists() && fi.isFile())
   {
-    static QStrList &exclPatterns = Config_getList("EXCLUDE_PATTERNS");
+    static QStrList &exclPatterns = Config_getList(EXCLUDE_PATTERNS);
     if (patternMatch(fi,&exclPatterns)) return 0;
 
     QCString absName = fi.absFilePath().utf8();
@@ -1048,7 +1050,7 @@ static int getNextId(const QCString &expr,int p,int *l)
   return -1;
 }
 
-/*! preforms recursive macro expansion on the string \a expr
+/*! performs recursive macro expansion on the string \a expr
  *  starting at position \a pos.
  *  May read additional characters from the input while re-scanning!
  *  If \a expandAll is \c TRUE then all macros in the expression are
@@ -1461,7 +1463,7 @@ static inline void outputArray(const char *a,int len)
 
 static void readIncludeFile(const QCString &inc)
 {
-  static bool searchIncludes = Config_getBool("SEARCH_INCLUDES");
+  static bool searchIncludes = Config_getBool(SEARCH_INCLUDES);
   uint i=0;
 
   // find the start of the include file name
@@ -1507,7 +1509,7 @@ static void readIncludeFile(const QCString &inc)
 	}
 	else if (searchIncludes) // search in INCLUDE_PATH as well
 	{
-	  QStrList &includePath = Config_getList("INCLUDE_PATH");
+	  QStrList &includePath = Config_getList(INCLUDE_PATH);
 	  char *s=includePath.first();
 	  while (s)
 	  {
@@ -1737,6 +1739,7 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
 %x	SkipString
 %x	CopyLine
 %x	CopyString
+%x	CopyStringFtn
 %x      Include
 %x      IncludeID
 %x      EndImport
@@ -1789,7 +1792,7 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
                                         }
 <Start>^{B}*[_A-Z][_A-Z0-9]+{B}*"("[^\(\)\n]*"("[^\)\n]*")"[^\)\n]*")"{B}*\n | // function list macro with one (...) argument, e.g. for K_GLOBAL_STATIC_WITH_ARGS
 <Start>^{B}*[_A-Z][_A-Z0-9]+{B}*"("[^\)\n]*")"{B}*\n { // function like macro
-  					  static bool skipFuncMacros = Config_getBool("SKIP_FUNCTION_MACROS");
+  					  static bool skipFuncMacros = Config_getBool(SKIP_FUNCTION_MACROS);
 					  QCString name(yytext);
 					  name=name.left(name.find('(')).stripWhiteSpace();
 
@@ -1850,6 +1853,11 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
 					  outputChar(*yytext);
 					  BEGIN( CopyString );
 					}
+<CopyLine>\'				{
+                                          if (getLanguageFromFileName(g_yyFileName)!=SrcLangExt_Fortran) REJECT;
+					  outputChar(*yytext);
+					  BEGIN( CopyStringFtn );
+					}
 <CopyString>[^\"\\\r\n]+		{
   					  outputArray(yytext,(int)yyleng);
 					}
@@ -1857,6 +1865,16 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
 					  outputArray(yytext,(int)yyleng);
 					}
 <CopyString>\"				{
+					  outputChar(*yytext);
+					  BEGIN( CopyLine );
+					}
+<CopyStringFtn>[^\'\\\r\n]+		{
+  					  outputArray(yytext,(int)yyleng);
+					}
+<CopyStringFtn>\\.			{
+					  outputArray(yytext,(int)yyleng);
+					}
+<CopyStringFtn>\'			{
 					  outputChar(*yytext);
 					  BEGIN( CopyLine );
 					}
@@ -2454,7 +2472,7 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
   					  outputArray(yytext,(int)yyleng);
   					}
 <SkipCComment>^({B}*"*"+)?{B}{0,3}"~~~"[~]*   {
-                                          static bool markdownSupport = Config_getBool("MARKDOWN_SUPPORT");
+                                          static bool markdownSupport = Config_getBool(MARKDOWN_SUPPORT);
                                           if (!markdownSupport)
                                           {
                                             REJECT;
@@ -2467,7 +2485,7 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
                                           }
                                         }
 <SkipCComment>^({B}*"*"+)?{B}{0,3}"```"[`]*            {
-                                          static bool markdownSupport = Config_getBool("MARKDOWN_SUPPORT");
+                                          static bool markdownSupport = Config_getBool(MARKDOWN_SUPPORT);
                                           if (!markdownSupport)
                                           {
                                             REJECT;
@@ -2640,10 +2658,17 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
 <SkipCComment,SkipVerbatim>.		{
   					  outputChar(*yytext);
   					}
-<CopyCComment>[^*a-z_A-Z\x80-\xFF\n]+		{
+<CopyCComment>[^*a-z_A-Z\x80-\xFF\n]*[^*a-z_A-Z\x80-\xFF\\\n] {
 					  g_defLitText+=yytext;
 					  g_defText+=escapeAt(yytext);
-  					}
+					}
+<CopyCComment>\\[\r]?\n                 {
+                                          g_defLitText+=yytext;
+                                          outputChar('\n');
+                                          g_defText+=" ";
+                                          g_yyLineNr++;
+                                          g_yyMLines++;
+                                        }
 <CopyCComment>"*/"			{
 					  g_defLitText+=yytext;
 					  g_defText+=yytext;
@@ -2735,7 +2760,7 @@ CHARLIT   (("'"\\[0-7]{1,3}"'")|("'"\\."'")|("'"[^'\\\n]{1,4}"'"))
 					  g_defLitText+=yytext;
 					  g_defText+=yytext;
   					}
-<DefineText>\\[\r]?\n			{ 
+<DefineText>\\[\r]?\n			{
 					  g_defLitText+=yytext;
 					  outputChar('\n');
 					  g_defText += ' ';
@@ -2999,8 +3024,8 @@ void preprocessFile(const char *fileName,BufStr &input,BufStr &output)
   //printf("##########################\n%s\n####################\n",
   //    input.data());
 
-  g_macroExpansion = Config_getBool("MACRO_EXPANSION");
-  g_expandOnlyPredef = Config_getBool("EXPAND_ONLY_PREDEF");
+  g_macroExpansion = Config_getBool(MACRO_EXPANSION);
+  g_expandOnlyPredef = Config_getBool(EXPAND_ONLY_PREDEF);
   g_skip=FALSE;
   g_curlyCount=0;
   g_nospaces=FALSE;
@@ -3024,7 +3049,7 @@ void preprocessFile(const char *fileName,BufStr &input,BufStr &output)
   {
     // add predefined macros
     char *defStr;
-    QStrList &predefList = Config_getList("PREDEFINED");
+    QStrList &predefList = Config_getList(PREDEFINED);
     QStrListIterator sli(predefList);
     for (sli.toFirst();(defStr=sli.current());++sli)
     {

@@ -15,6 +15,8 @@
  *
  */
 %option never-interactive
+%option prefix="scannerYY"
+
 %{
 
 /*
@@ -215,7 +217,7 @@ static void initParser()
   autoGroupStack.setAutoDelete(TRUE);
   insideFormula = FALSE;
   insideCode=FALSE;
-  insideCli=Config_getBool("CPP_CLI_SUPPORT");
+  insideCli=Config_getBool(CPP_CLI_SUPPORT);
   previous = 0;
   firstTypedefEntry = 0;
   tempEntry = 0;
@@ -284,7 +286,7 @@ static void initEntry()
 
 static void lineCount()
 {
-  static int tabSize = Config_getInt("TAB_SIZE");
+  static int tabSize = Config_getInt(TAB_SIZE);
   const char *p;
   for (p = yytext ; *p ; ++p )
   {
@@ -307,7 +309,7 @@ static void lineCount()
 static inline int computeIndent(const char *s,int startIndent)
 {
   int col=startIndent;
-  static int tabSize=Config_getInt("TAB_SIZE");
+  static int tabSize=Config_getInt(TAB_SIZE);
   const char *p=s;
   char c;
   while ((c=*p++))
@@ -1012,7 +1014,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
   					  current->name = yytext;
   					}
 <CliPropertyType>"["		        { // C++/CLI indexed property
-  					  current->name += yytext;
+  					  current->args = "[";
 					  BEGIN( CliPropertyIndex );
   					}
 <CliPropertyType>"{"			{
@@ -1035,10 +1037,10 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
   					}
 <CliPropertyIndex>"]"			{
                                           BEGIN( CliPropertyType );
-  					  current->name+=yytext;
+  					  current->args+=yytext;
   					}
 <CliPropertyIndex>.			{
-  					  current->name+=yytext;
+  					  current->args+=yytext;
   					}
   /*
 <FindMembers>{B}*"property"{BN}+        { 
@@ -1721,7 +1723,8 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
                                           bool isVolatile=decl.find("volatile")!=-1;
   					  current->section = Entry::CLASS_SEC ;
 					  current->spec    = Entry::Struct |
-					    (current->spec & Entry::Published); // preserve UNO IDL
+					    (current->spec & Entry::Published) |
+                                            (current->spec & Entry::Inline); // preserve UNO IDL & Inline attributes
 					  // bug 582676: can be a struct nested in an interface so keep insideObjC state
 					  //current->objc    = insideObjC = FALSE;
 					  addType( current ) ;
@@ -1977,6 +1980,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					    current->section=Entry::USINGDECL_SEC;
 					  }
 					  current_root->addSubEntry(current);
+                                          previous = current;
 					  current = new Entry ;
 					  initEntry();
 					  BEGIN(Using);
@@ -2029,8 +2033,8 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 <UsingAlias>";"{BN}*("/**"|"//!"|"/*!"|"///")"<" {
 					  docBlockContext   = UsingAliasEnd;
 					  docBlockInBody    = FALSE;
-					  docBlockAutoBrief = ( yytext[yyleng-2]=='*' && Config_getBool("JAVADOC_AUTOBRIEF") ) ||
-					                      ( yytext[yyleng-2]=='!' && Config_getBool("QT_AUTOBRIEF") );
+					  docBlockAutoBrief = ( yytext[yyleng-2]=='*' && Config_getBool(JAVADOC_AUTOBRIEF) ) ||
+					                      ( yytext[yyleng-2]=='!' && Config_getBool(QT_AUTOBRIEF) );
                                           QCString indent;
                                           indent.fill(' ',computeIndent(yytext,g_column));
                                           docBlock=indent;
@@ -2048,6 +2052,9 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					    BEGIN( DocBlock );
 					  }
   					}
+<UsingAlias>">>"                        {
+                                          previous->args+="> >"; // see bug769552
+                                        }
 <UsingAlias>.                           {
                                           previous->args+=yytext;
                                         }
@@ -2671,8 +2678,8 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  }
 					  docBlockContext   = YY_START;
 					  docBlockInBody    = FALSE;
-					  docBlockAutoBrief = ( yytext[yyleng-2]=='*' && Config_getBool("JAVADOC_AUTOBRIEF") ) ||
-					                      ( yytext[yyleng-2]=='!' && Config_getBool("QT_AUTOBRIEF") );
+					  docBlockAutoBrief = ( yytext[yyleng-2]=='*' && Config_getBool(JAVADOC_AUTOBRIEF) ) ||
+					                      ( yytext[yyleng-2]=='!' && Config_getBool(QT_AUTOBRIEF) );
 
                                           QCString indent;
                                           indent.fill(' ',computeIndent(yytext,g_column));
@@ -2701,8 +2708,8 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 <MemberSpec,FindFields,FindMembers,NextSemi,EnumBaseType,BitFields,ReadInitializer,OldStyleArgs>","{BN}*("/**"|"//!"|"/*!"|"///")"<" {
 					  docBlockContext   = YY_START;
 					  docBlockInBody    = FALSE;
-					  docBlockAutoBrief = ( yytext[yyleng-2]=='*' && Config_getBool("JAVADOC_AUTOBRIEF") ) ||
-					                      ( yytext[yyleng-2]=='!' && Config_getBool("QT_AUTOBRIEF") );
+					  docBlockAutoBrief = ( yytext[yyleng-2]=='*' && Config_getBool(JAVADOC_AUTOBRIEF) ) ||
+					                      ( yytext[yyleng-2]=='!' && Config_getBool(QT_AUTOBRIEF) );
 
                                           QCString indent;
                                           indent.fill(' ',computeIndent(yytext,g_column));
@@ -2734,8 +2741,8 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  }
 					  docBlockContext   = YY_START;
 					  docBlockInBody    = FALSE;
-					  docBlockAutoBrief = ( yytext[yyleng-2]=='*' && Config_getBool("JAVADOC_AUTOBRIEF") ) ||
-					                      ( yytext[yyleng-2]=='!' && Config_getBool("QT_AUTOBRIEF") );
+					  docBlockAutoBrief = ( yytext[yyleng-2]=='*' && Config_getBool(JAVADOC_AUTOBRIEF) ) ||
+					                      ( yytext[yyleng-2]=='!' && Config_getBool(QT_AUTOBRIEF) );
                                           QCString indent;
                                           indent.fill(' ',computeIndent(yytext,g_column));
                                           docBlock=indent;
@@ -2793,8 +2800,8 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					      docBlockContext   = YY_START;
 					      docBlockInBody    = FALSE;
 					      docBlock.resize(0);
-					      docBlockAutoBrief = ( yytext[yyleng-2]=='*' && Config_getBool("JAVADOC_AUTOBRIEF") ) ||
-					                          ( yytext[yyleng-2]=='!' && Config_getBool("QT_AUTOBRIEF") );
+					      docBlockAutoBrief = ( yytext[yyleng-2]=='*' && Config_getBool(JAVADOC_AUTOBRIEF) ) ||
+					                          ( yytext[yyleng-2]=='!' && Config_getBool(QT_AUTOBRIEF) );
 					      docBlockTerm = 0;
 					      startCommentBlock(FALSE);
 					      BEGIN(DocBlock);
@@ -3396,7 +3403,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					    idlProp.resize(0);
 					    current->mtype = mtype;
 
-					    if (Config_getBool("IDL_PROPERTY_SUPPORT") &&
+					    if (Config_getBool(IDL_PROPERTY_SUPPORT) &&
 					         current->mtype == Property)
 					    { // we are inside the properties section of a dispinterface
 					      odlProp = true;
@@ -3436,14 +3443,14 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  }
 					}
 <IDLAttribute>"propput"	                {
-                                          if (Config_getBool("IDL_PROPERTY_SUPPORT"))
+                                          if (Config_getBool(IDL_PROPERTY_SUPPORT))
 					  {
 					    current->mtype = Property;
 					  }
 					  current->spec |= Entry::Settable;
 					}
 <IDLAttribute>"propget" 		{
-                                          if (Config_getBool("IDL_PROPERTY_SUPPORT"))
+                                          if (Config_getBool(IDL_PROPERTY_SUPPORT))
 					  {
 					    current->mtype = Property;
 					  }
@@ -3459,7 +3466,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
                            current->spec |= Entry::Optional;
                          }
 <IDLAttribute>"readonly" { // on UNO IDL attribute or property
-					  if (Config_getBool("IDL_PROPERTY_SUPPORT") && odlProp)
+					  if (Config_getBool(IDL_PROPERTY_SUPPORT) && odlProp)
 					  {
 					    current->spec ^= Entry::Settable;
 					  }
@@ -3967,7 +3974,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  if (!msName.isEmpty() 
 					      /*&& msName!=current->name*/) // skip typedef T {} T;, removed due to bug608493
 					  {
-					    static bool typedefHidesStruct = Config_getBool("TYPEDEF_HIDES_STRUCT");
+					    static bool typedefHidesStruct = Config_getBool(TYPEDEF_HIDES_STRUCT);
 					    // case 1: typedef struct _S { ... } S_t; 
 					    // -> omit typedef and use S_t as the struct name
 					    if (typedefHidesStruct && 
@@ -4234,7 +4241,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 <FuncFuncType>.				{
   					  current->type += *yytext;
   					}
-<FindMembers>"("/{BN}*{ID}{BN}*"*"{BN}*{ID}*")(" { // for catching typedef void (__stdcall *f)() like definitions
+<FindMembers>"("/{BN}*{ID}{BN}*"*"{BN}*{ID}*")"{BN}*"(" { // for catching typedef void (__stdcall *f)() like definitions
                                           if (current->type.left(7)=="typedef" && current->bodyLine==-1) 
 					    // the bodyLine check is to prevent this guard to be true more than once
 					  {
@@ -4656,6 +4663,15 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  roundCount=0;
                                           BEGIN(CopyRound);
                                         }
+<FuncQual>{BN}*"&"                      {
+                                          current->args += " &";
+                                          current->argList->refQualifier=RefQualifierLValue;
+                                        }
+<FuncQual>{BN}*"&&"                     {
+                                          current->args += " &&";
+                                          current->argList->refQualifier=RefQualifierRValue;
+                                        }
+
 <FuncQual,TrailingReturn>{BN}*"="{BN}*"0"{BN}*  	{ // pure virtual member function
   					  lineCount() ; 
 					  current->args += " = 0"; 
@@ -5079,8 +5095,8 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 
 					    docBlockContext   = SkipCurlyEndDoc;
 					    docBlockInBody    = FALSE;
-					    docBlockAutoBrief = ( yytext[yyleng-2]=='*' && Config_getBool("JAVADOC_AUTOBRIEF") ) ||
-					                        ( yytext[yyleng-2]=='!' && Config_getBool("QT_AUTOBRIEF") );
+					    docBlockAutoBrief = ( yytext[yyleng-2]=='*' && Config_getBool(JAVADOC_AUTOBRIEF) ) ||
+					                        ( yytext[yyleng-2]=='!' && Config_getBool(QT_AUTOBRIEF) );
 					    docBlock.resize(0);
 					    docBlockTerm = '}';
 					    if (yytext[yyleng-3]=='/')
@@ -5098,8 +5114,8 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 <SkipCurlyEndDoc>"}"{BN}*("/*!"|"/**"|"//!"|"///")"<" { // desc is followed by another one
 					  docBlockContext   = SkipCurlyEndDoc;
 					  docBlockInBody    = FALSE;
-					  docBlockAutoBrief = ( yytext[yyleng-2]=='*' && Config_getBool("JAVADOC_AUTOBRIEF") ) ||
-					                      ( yytext[yyleng-2]=='!' && Config_getBool("QT_AUTOBRIEF") );
+					  docBlockAutoBrief = ( yytext[yyleng-2]=='*' && Config_getBool(JAVADOC_AUTOBRIEF) ) ||
+					                      ( yytext[yyleng-2]=='!' && Config_getBool(QT_AUTOBRIEF) );
 					  docBlock.resize(0);
 					  docBlockTerm = '}';
 					  if (yytext[yyleng-3]=='/')
@@ -5318,7 +5334,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 <ClassTemplSpec>">"({BN}*"::"{BN}*{SCOPENAME})?	{
 					  current->name += yytext;
 					  lineCount();
-  					  if (--sharpCount<=0)
+  					  if (roundCount==0 && --sharpCount<=0)
 					  {
 					    current->name = removeRedundantWhiteSpace(current->name);
 					    if (current->spec & Entry::Protocol)
@@ -5733,7 +5749,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  {
 					    if (current->section==Entry::NAMESPACE_SEC) // allow reopening of anonymous namespaces
 					    {
-					      if (Config_getBool("EXTRACT_ANON_NSPACES")) // use visible name
+					      if (Config_getBool(EXTRACT_ANON_NSPACES)) // use visible name
 					      {
 					        current->name="anonymous_namespace{"+stripPath(current->fileName)+"}";
 					      }
@@ -5770,7 +5786,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 <BasesProt>"virtual"{BN}+               { lineCount(); baseVirt = Virtual; }
 <BasesProt>"public"{BN}+                { lineCount(); baseProt = Public; }
 <BasesProt>"protected"{BN}+             { lineCount(); baseProt = Protected; }
-<BasesProt>"internal"{BN}+              { lineCount(); baseProt = Package; }
+<BasesProt>"internal"{BN}+              { if (!insideCli) REJECT ; lineCount(); baseProt = Package; }
 <BasesProt>"private"{BN}+               { lineCount(); baseProt = Private; }
 <BasesProt>{BN}				{ lineCount(); }
 <BasesProt>.				{ unput(*yytext); BEGIN(Bases); }
@@ -6033,7 +6049,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
                                           }
 					  docBlockContext   = YY_START;
 					  docBlockInBody    = YY_START==SkipCurly;
-					  docBlockAutoBrief = Config_getBool("QT_AUTOBRIEF");
+					  docBlockAutoBrief = Config_getBool(QT_AUTOBRIEF);
 
                                           QCString indent;
                                           indent.fill(' ',computeIndent(yytext,g_column));
@@ -6060,7 +6076,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  current->docFile = yyFileName;
 					  docBlockContext = YY_START;
 					  docBlockInBody  = YY_START==SkipCurly;
-                                          static bool javadocAutoBrief = Config_getBool("JAVADOC_AUTOBRIEF");
+                                          static bool javadocAutoBrief = Config_getBool(JAVADOC_AUTOBRIEF);
 					  docBlockAutoBrief = javadocAutoBrief;
 
                                           QCString indent;
@@ -6182,6 +6198,14 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  }
   					}
 <CSAccessorDecl>"{"			{ curlyCount++; }
+<CSAccessorDecl>"}"{B}*"="		{
+					  // fall back to next rule if it's not the right bracket
+					  if (curlyCount != 0) REJECT;
+					  current->initializer = "=";
+					  current->endBodyLine=yyLineNr;
+					  lastInitializerContext = FindMembers;
+					  BEGIN(ReadInitializer);
+					}
 <CSAccessorDecl>"}"			{ 
                                           if (curlyCount) 
                                           {
@@ -6191,6 +6215,8 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  {
   					    mtype = Method;
                                             virt = Normal;
+					    // not really important, but while we are at it
+					    current->endBodyLine=yyLineNr;
                                             unput(';');
 					    BEGIN(FindMembers);
 					  }
@@ -6215,12 +6241,18 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
  /**********************************************************************************/
 
  /* ---- Single line comments ------ */
-<DocLine>[^\n]*"\n"[ \t]*"//"[/!]       { // continuation of multiline C++-style comment
+<DocLine>[^\n]*"\n"[ \t]*"//"[/!][<]?   { // continuation of multiline C++-style comment
 				           docBlock+=yytext;
-          		                   docBlock.resize(docBlock.length() - 3);
+                                           int markerLen = yytext[yyleng-1]=='<' ? 4 : 3;
+          		                   docBlock.resize(docBlock.length() - markerLen);
                                            lineCount();
                                         }
 <DocLine>{B}*"///"[/]+{B}*/"\n"		{ // ignore marker line (see bug700345)
+					  handleCommentBlock(docBlock.data(),current->brief.isEmpty());
+					  BEGIN( docBlockContext );
+  					}
+<DocLine>[^\n]*/"\n"{B}*"//"[!/]{B}*{CMD}"}"	{ // next line is an end group marker, see bug 752712
+  					  docBlock+=yytext;
 					  handleCommentBlock(docBlock.data(),current->brief.isEmpty());
 					  BEGIN( docBlockContext );
   					}
@@ -6621,7 +6653,7 @@ static void newEntry()
 
 static void handleCommentBlock(const QCString &doc,bool brief)
 {
-  static bool hideInBodyDocs = Config_getBool("HIDE_IN_BODY_DOCS");
+  static bool hideInBodyDocs = Config_getBool(HIDE_IN_BODY_DOCS);
   int position=0;
   bool needsEntry=FALSE;
   if (docBlockInBody && hideInBodyDocs) return;
@@ -6767,7 +6799,7 @@ static void parseCompounds(Entry *rt)
       initEntry();
 
       // deep copy group list from parent (see bug 727732)
-      static bool autoGroupNested = Config_getBool("GROUP_NESTED_COMPOUNDS");
+      static bool autoGroupNested = Config_getBool(GROUP_NESTED_COMPOUNDS);
       if (autoGroupNested && rt->groups && ce->section!=Entry::ENUM_SEC && !(ce->spec&Entry::Enum))
       {
         QListIterator<Grouping> gli(*rt->groups);

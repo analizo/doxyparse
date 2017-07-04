@@ -21,6 +21,7 @@
 #include "message.h"
 #include "docparser.h"
 #include "doxygen.h"
+#include "index.h"
 #include "util.h"
 #include "ftextstream.h"
 
@@ -101,22 +102,22 @@ void writeMscGraphFromFile(const char *inFile,const char *outDir,
   // go to the html output directory (i.e. path)
   QDir::setCurrent(outDir);
   //printf("Going to dir %s\n",QDir::currentDirPath().data());
-  QCString mscExe = Config_getString("MSCGEN_PATH")+"mscgen"+portable_commandExtension();
+  QCString mscExe = Config_getString(MSCGEN_PATH)+"mscgen"+portable_commandExtension();
   QCString mscArgs;
-  QCString extension;
+  QCString imgName = outFile;
   switch (format)
   {
     case MSC_BITMAP:
       mscArgs+="-T png";
-      extension=".png";
+      imgName+=".png";
       break;
     case MSC_EPS:
       mscArgs+="-T eps";
-      extension=".eps";
+      imgName+=".eps";
       break;
     case MSC_SVG:
       mscArgs+="-T svg";
-      extension=".svg";
+      imgName+=".svg";
       break;
     default:
       goto error; // I am not very fond of goto statements, but when in Rome...
@@ -125,8 +126,7 @@ void writeMscGraphFromFile(const char *inFile,const char *outDir,
   mscArgs+=inFile;
  
   mscArgs+="\" -o \"";
-  mscArgs+=outFile;
-  mscArgs+=extension+"\"";
+  mscArgs+=imgName+"\"";
   int exitCode;
 //  printf("*** running: %s %s outDir:%s %s\n",mscExe.data(),mscArgs.data(),outDir,outFile);
   portable_sysTimerStart();
@@ -136,7 +136,7 @@ void writeMscGraphFromFile(const char *inFile,const char *outDir,
     goto error;
   }
   portable_sysTimerStop();
-  if ( (format==MSC_EPS) && (Config_getBool("USE_PDFLATEX")) )
+  if ( (format==MSC_EPS) && (Config_getBool(USE_PDFLATEX)) )
   {
     QCString epstopdfArgs(maxCmdLine);
     epstopdfArgs.sprintf("\"%s.eps\" --outfile=\"%s.pdf\"",
@@ -148,6 +148,8 @@ void writeMscGraphFromFile(const char *inFile,const char *outDir,
     }
     portable_sysTimerStop();
   }
+
+  Doxygen::indexList->addImageFile(imgName);
 
 error:
   QDir::setCurrent(oldDir);
@@ -166,7 +168,7 @@ QCString getMscImageMapFromFile(const QCString& inFile, const QCString& outDir,
   QDir::setCurrent(outDir);
   //printf("Going to dir %s\n",QDir::currentDirPath().data());
 
-  QCString mscExe = Config_getString("MSCGEN_PATH")+"mscgen"+portable_commandExtension();
+  QCString mscExe = Config_getString(MSCGEN_PATH)+"mscgen"+portable_commandExtension();
   QCString mscArgs = "-T ismap -i \"";
   mscArgs+=inFile;
   mscArgs+="\" -o \"";

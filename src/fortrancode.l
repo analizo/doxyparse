@@ -24,6 +24,9 @@
        - references to variables
 **/
 %option never-interactive
+%option case-insensitive
+%option prefix="fortrancodeYY"
+
 %{
 
 /*
@@ -356,7 +359,7 @@ static void codifyLines(QCString str)
 static void writeMultiLineCodeLink(CodeOutputInterface &ol,
                   Definition *d,const char *text)
 {
-  static bool sourceTooltips = Config_getBool("SOURCE_TOOLTIPS");
+  static bool sourceTooltips = Config_getBool(SOURCE_TOOLTIPS);
   TooltipManager::instance()->addTooltip(d);
   QCString ref  = d->getReference();
   QCString file = d->getOutputFileBase();
@@ -484,7 +487,7 @@ static bool getFortranDefs(const QCString &memberName, const QCString &moduleNam
 
   if (mn) // name is known
   {
-      MemberListIterator mli(*mn);
+      MemberNameIterator mli(*mn);
       for (mli.toFirst();(md=mli.current());++mli) // all found functions with given name
       {
         FileDef  *fd=md->getFileDef();
@@ -925,7 +928,12 @@ PREFIX    (RECURSIVE{BS_}|IMPURE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,3}(RECURSIVE|I
 					  startScope();
 					  generateLink(*g_code,yytext);
                                         }
-<Subprog>"(".*                          { // ignore rest of line 
+<Subprog>"result"/{BS}"("[^)]*")"       {
+   					  startFontClass("keyword");
+ 					  codifyLines(yytext);
+					  endFontClass();
+                                        }
+<Subprog>"("[^)]*")"                    { // ignore rest of line 
  					  codifyLines(yytext);
                                         }
 <Subprog,Subprogend>"\n"                { codifyLines(yytext);
@@ -1086,7 +1094,7 @@ PREFIX    (RECURSIVE{BS_}|IMPURE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,3}(RECURSIVE|I
    					}
 <DocBlock>"\n"        			{ // comment block ends at the end of this line
                                           // remove special comment (default config)
-  					  if (Config_getBool("STRIP_CODE_COMMENTS"))
+  					  if (Config_getBool(STRIP_CODE_COMMENTS))
 					  {
 					    g_yyLineNr+=((QCString)docBlock).contains('\n');
               g_yyLineNr+=1;
@@ -1120,6 +1128,16 @@ PREFIX    (RECURSIVE{BS_}|IMPURE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,3}(RECURSIVE|I
                                           if(! g_isFixedForm) YY_FTN_REJECT;
 
   					  startFontClass("comment");
+  					  codifyLines(yytext);
+					  endFontClass();
+					}
+<*>"assignment"/{BS}"("{BS}"="{BS}")"   {
+  					  startFontClass("keyword");
+  					  codifyLines(yytext);
+					  endFontClass();
+					}
+<*>"operator"/{BS}"("[^)]*")"           {
+  					  startFontClass("keyword");
   					  codifyLines(yytext);
 					  endFontClass();
 					}
@@ -1206,7 +1224,7 @@ PREFIX    (RECURSIVE{BS_}|IMPURE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,3}(RECURSIVE|I
                                         }
 <*><<EOF>>                              {
                                           if (YY_START == DocBlock) {
-                                            if (!Config_getBool("STRIP_CODE_COMMENTS"))
+                                            if (!Config_getBool(STRIP_CODE_COMMENTS))
                                             {
                                               startFontClass("comment");
                                               codifyLines(docBlock);
@@ -1248,15 +1266,16 @@ void parseFortranCode(CodeOutputInterface &od,const char *className,const QCStri
   g_needsTermination = FALSE;
   g_searchCtx = searchCtx;
   g_collectXRefs = collectXRefs;
-  if (endLine!=-1)
-    g_inputLines  = endLine+1;
-  else
-    g_inputLines  = countLines();
-
   if (startLine!=-1)
     g_yyLineNr    = startLine;
   else
     g_yyLineNr    = 1;
+
+  if (endLine!=-1)
+    g_inputLines  = endLine+1;
+  else
+    g_inputLines  = g_yyLineNr + countLines() - 1;
+
 
   g_exampleBlock  = exBlock; 
   g_exampleName   = exName;

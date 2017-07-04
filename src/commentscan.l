@@ -14,6 +14,8 @@
  */
 
 %option never-interactive
+%option prefix="commentscanYY"
+
 %{
 
 /*
@@ -123,6 +125,8 @@ static bool handleCopyBrief(const QCString &);
 static bool handleCopyDetails(const QCString &);
 static bool handleParBlock(const QCString &);
 static bool handleEndParBlock(const QCString &);
+static bool handleParam(const QCString &);
+static bool handleRetval(const QCString &);
 
 typedef bool (*DocCmdFunc)(const QCString &name);
 
@@ -245,7 +249,7 @@ static DocCmdMap docCmdMap[] =
   { "line",            0,                       TRUE  },
   { "note",            0,                       TRUE  },
   { "par",             0,                       TRUE  },
-  { "param",           0,                       TRUE  },
+  { "param",           &handleParam,            TRUE  },
   { "tparam",          0,                       TRUE  },
   { "post",            0,                       TRUE  },
   { "pre",             0,                       TRUE  },
@@ -254,7 +258,8 @@ static DocCmdMap docCmdMap[] =
   { "result",          0,                       TRUE  },
   { "return",          0,                       TRUE  },
   { "returns",         0,                       TRUE  },
-  { "retval",          0,                       TRUE  },
+  { "exception",       0,                       TRUE  },
+  { "retval",          &handleRetval,           TRUE  },
   { "sa",              0,                       TRUE  },
   { "see",             0,                       TRUE  },
   { "since",           0,                       TRUE  },
@@ -968,6 +973,7 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
 %x      XRefItemParam2
 %x      XRefItemParam3
 %x      FileDocArg1
+%x      ParamArg1
 %x	EnumDocArg1
 %x	NameSpaceDocArg1
 %x	PackageDocArg1
@@ -1153,7 +1159,7 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
 <Comment>{B}*{CMD}"~"[a-z_A-Z-]*		{ // language switch command
                                           QCString langId = QString(yytext).stripWhiteSpace().data()+2;
 			       	          if (!langId.isEmpty() &&
-					      qstricmp(Config_getEnum("OUTPUT_LANGUAGE"),langId)!=0)
+					      qstricmp(Config_getEnum(OUTPUT_LANGUAGE),langId)!=0)
 				          { // enable language specific section
 				            BEGIN(SkipLang);
 				          }
@@ -1560,6 +1566,30 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
 					  addOutput('\n');
 					  BEGIN( Comment );
 					}
+
+  /* --------- handle arguments of the param command ------------ */
+<ParamArg1>{ID}/{B}*","                 {
+                                          if (yytext[0]=='_' && Config_getBool(MARKDOWN_SUPPORT))
+                                          {
+                                            addOutput('\\');
+                                          }
+                                          addOutput(yytext);
+                                        }
+<ParamArg1>","                          {
+                                          addOutput(" , ");
+                                        }
+<ParamArg1>{ID}                         {
+                                          if (yytext[0]=='_' && Config_getBool(MARKDOWN_SUPPORT))
+                                          {
+                                            addOutput('\\');
+                                          }
+                                          addOutput(yytext);
+                                          BEGIN( Comment );
+                                        }
+<ParamArg1>.                            {
+                                          unput(yytext[0]);
+                                          BEGIN( Comment );
+                                        }
 
   /* --------- handle arguments of the file/dir/example command ------------ */
 
@@ -2176,7 +2206,7 @@ RCSTAG    "$"{ID}":"[^\n$]+"$"
 <SkipLang>[\\@]"~"[a-zA-Z-]*        { /* language switch */
                                      QCString langId = &yytext[2];
 				     if (langId.isEmpty() ||
-					 qstricmp(Config_getEnum("OUTPUT_LANGUAGE"),langId)==0)
+					 qstricmp(Config_getEnum(OUTPUT_LANGUAGE),langId)==0)
 				     { // enable language specific section
 				       BEGIN(Comment);
 				     }
@@ -2395,6 +2425,22 @@ static bool handleFile(const QCString &)
   }
   BEGIN( FileDocArg1 );
   return stop;
+}
+
+static bool handleParam(const QCString &)
+{
+  // we need process param and retval arguments to escape leading underscores in case of
+  // markdown processing, see bug775493
+  addOutput("@param ");
+  BEGIN( ParamArg1 );
+  return FALSE;
+}
+
+static bool handleRetval(const QCString &)
+{
+  addOutput("@retval ");
+  BEGIN( ParamArg1 );
+  return FALSE;
 }
 
 static bool handleDir(const QCString &)
@@ -2722,7 +2768,7 @@ static bool handleHideCallergraph(const QCString &)
 
 static bool handleInternal(const QCString &)
 {
-  if (!Config_getBool("INTERNAL_DOCS"))
+  if (!Config_getBool(INTERNAL_DOCS))
   {
     // make sure some whitespace before a \internal command
     // is not treated as "documentation"

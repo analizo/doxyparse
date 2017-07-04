@@ -22,6 +22,8 @@
  */
 
 %option never-interactive
+%option prefix="pyscannerYY"
+
 %{
 
 /*
@@ -181,7 +183,7 @@ static void newFunction()
 static inline int computeIndent(const char *s)
 {
   int col=0;
-  static int tabSize=Config_getInt("TAB_SIZE");
+  static int tabSize=Config_getInt(TAB_SIZE);
   const char *p=s;
   char c;
   while ((c=*p++))
@@ -368,7 +370,7 @@ static void initTriDoubleQuoteBlock()
   docBlockContext   = YY_START;
   docBlockInBody    = FALSE;
   docBlockJavaStyle = TRUE;
-  docBlockSpecial   = yytext[3]=='!';
+  docBlockSpecial   = yytext[strlen(yytext) - 1]=='!';
   docBlock.resize(0);
   g_doubleQuote = TRUE;
   startCommentBlock(FALSE);
@@ -379,7 +381,7 @@ static void initTriSingleQuoteBlock()
   docBlockContext   = YY_START;
   docBlockInBody    = FALSE;
   docBlockJavaStyle = TRUE;
-  docBlockSpecial   = yytext[3]=='!';
+  docBlockSpecial   = yytext[strlen(yytext) - 1]=='!';
   docBlock.resize(0);
   g_doubleQuote = FALSE;
   startCommentBlock(FALSE);
@@ -470,8 +472,10 @@ IDENTIFIER        ({LETTER}|"_")({LETTER}|{DIGIT}|"_")*
 SCOPE             {IDENTIFIER}("."{IDENTIFIER})*
 BORDER            ([^A-Za-z0-9])
 
-TRISINGLEQUOTE    "'''"(!)?
-TRIDOUBLEQUOTE    "\"\"\""(!)?
+TRISINGLEQUOTE    {STRINGPREFIX}?"'''"(!)?
+TRIDOUBLEQUOTE    {STRINGPREFIX}?"\"\"\""(!)?
+ENDTRISINGLEQUOTE "'''"
+ENDTRIDOUBLEQUOTE "\"\"\""
 LONGSTRINGCHAR    [^\\"']
 ESCAPESEQ         ("\\")(.)
 LONGSTRINGITEM    ({LONGSTRINGCHAR}|{ESCAPESEQ})
@@ -1203,51 +1207,49 @@ STARTDOCSYMS      "##"
 			current->initializer += " ";
                       }
    {B}                { // spaces
+			current->initializer += yytext;
 	              }
    {INTNUMBER}	      { // integer value
-			current->type = "int";
+			if (current-> type.isEmpty()) current->type = "int";
 			current->initializer += yytext;
-			BEGIN(VariableEnd);
 		      }
    {FLOATNUMBER}      { // floating point value
-			current->type = "float";
+			if (current->type.isEmpty()) current->type = "float";
 			current->initializer += yytext;
-			BEGIN(VariableEnd);
 		      }
    {BOOL}             { // boolean value
-			current->type = "bool";
+			if (current->type.isEmpty()) current->type = "bool";
 			current->initializer += yytext;
-			BEGIN(VariableEnd);
 		      }
    {STRINGPREFIX}?"'" { // string
-			current->type = "string";
+			if (current->type.isEmpty()) current->type = "string";
 			current->initializer += yytext;
 			g_copyString=&current->initializer;
-       			g_stringContext=VariableEnd;
+       			g_stringContext=VariableDec;
                         BEGIN( SingleQuoteString );
      		      }
    {STRINGPREFIX}?"\"" { // string
-			current->type = "string";
+			if (current->type.isEmpty()) current->type = "string";
 			current->initializer += yytext;
 			g_copyString=&current->initializer;
-       			g_stringContext=VariableEnd;
+       			g_stringContext=VariableDec;
                         BEGIN( DoubleQuoteString );
      		      }
    {TRIDOUBLEQUOTE}   { // start of a comment block
-			current->type = "string";
+			if (current->type.isEmpty()) current->type = "string";
 			current->initializer += yytext;
 			g_doubleQuote=TRUE;
 			g_copyString=&current->initializer;
-       			g_stringContext=VariableEnd;
+       			g_stringContext=VariableDec;
 			BEGIN(TripleString);
                       }
 
    {TRISINGLEQUOTE}   { // start of a comment block
-			current->type = "string";
+			if (current->type.isEmpty()) current->type = "string";
 			current->initializer += yytext;
 			g_doubleQuote=FALSE;
 			g_copyString=&current->initializer;
-       			g_stringContext=VariableEnd;
+       			g_stringContext=VariableDec;
 			BEGIN(TripleString);
                       }
    "("		      { // tuple, only when direct after =
@@ -1281,6 +1283,20 @@ STARTDOCSYMS      "##"
                         BEGIN( VariableEnd ); 
                       }
    {IDENTIFIER}	      {
+			// do something based on the type of the IDENTIFIER
+			if (current->type.isEmpty())
+                        {
+                          QListIterator<Entry> eli(*(current_root->children()));
+                          Entry *child;
+                          for (eli.toFirst();(child=eli.current());++eli)
+                          {
+                            if (child->name == QCString(yytext))
+                            {
+                               current->type = child->type;
+                               break;
+                            }
+                          }
+                        }
                         g_start_init = FALSE;
       		        current->initializer+=yytext;
 	              }
@@ -1369,8 +1385,8 @@ STARTDOCSYMS      "##"
 }
 
 <TripleComment>{
-    {TRIDOUBLEQUOTE}   | 
-    {TRISINGLEQUOTE}   {
+    {ENDTRIDOUBLEQUOTE}   | 
+    {ENDTRISINGLEQUOTE}   {
 			  // printf("Expected module block %d special=%d\n",g_expectModuleDocs,g_specialBlock);
 			  if (g_doubleQuote==(yytext[0]=='"')) 
 			  {
@@ -1515,8 +1531,8 @@ STARTDOCSYMS      "##"
 }
 
 <TripleString>{
-    {TRIDOUBLEQUOTE}    | 
-    {TRISINGLEQUOTE}    {
+    {ENDTRIDOUBLEQUOTE}    | 
+    {ENDTRISINGLEQUOTE}    {
                           *g_copyString += yytext;
 			  if (g_doubleQuote==(yytext[0]=='"')) 
 			  {

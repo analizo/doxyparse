@@ -383,7 +383,7 @@ class MemberDef : public Definition
     void writeDeclaration(OutputList &ol,
                    ClassDef *cd,NamespaceDef *nd,FileDef *fd,GroupDef *gd,
                    bool inGroup, ClassDef *inheritFrom=0,const char *inheritId=0); 
-    void writeDocumentation(MemberList *ml,OutputList &ol,
+    void writeDocumentation(MemberList *ml,int memCount,int memTotal,OutputList &ol,
                             const char *scopeName,Definition *container,
                             bool inGroup,bool showEnumValues=FALSE,bool
                             showInline=FALSE);
@@ -392,6 +392,7 @@ class MemberDef : public Definition
             ClassDef *cd,NamespaceDef *nd,FileDef *fd,GroupDef *gd);
     void writeTagFile(FTextStream &);
     void warnIfUndocumented();
+    void warnIfUndocumentedParams();
     
     MemberDef *createTemplateInstanceMember(ArgumentList *formalArgs,
                ArgumentList *actualArgs);

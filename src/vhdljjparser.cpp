@@ -341,9 +341,6 @@ void VhdlParser::handleCommentBlock(const char* doc1,bool brief)
 
   bool needsEntry=FALSE;
   Protection protection=Public;
-  int lineNr;
-  if (iDocLine==-1)
-    lineNr=yyLineNr;
 
   if (oldEntry==current)
   {
@@ -705,7 +702,7 @@ void VhdlParser::mapLibPackage( Entry* root)
 
 bool VhdlParser::addLibUseClause(const QCString &type)
 {
-  static bool showIEEESTD=Config_getBool("FORCE_LOCAL_INCLUDES");
+  static bool showIEEESTD=Config_getBool(FORCE_LOCAL_INCLUDES);
 
   if (showIEEESTD) // all standard packages and libraries will not be shown
   {

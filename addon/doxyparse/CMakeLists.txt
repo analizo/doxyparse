@@ -15,6 +15,7 @@ include_directories(
 	${GENERATED_SRC}
 	${CMAKE_SOURCE_DIR}/qtools
 	${ICONV_INCLUDE_DIR}
+	${CLANG_INCLUDEDIR}
 )
 
 add_executable(doxyparse
@@ -30,6 +31,7 @@ ${ICONV_LIBRARIES}
 ${CMAKE_THREAD_LIBS_INIT}
 ${SQLITE3_LIBRARIES}
 ${EXTRA_LIBS}
+${CLANG_LIBS}
 )
 
 install(TARGETS doxyparse DESTINATION bin)

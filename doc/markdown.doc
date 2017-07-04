@@ -41,9 +41,9 @@ the extensions that doxygen supports.
 Finally section \ref markdown_dox discusses some specifics for doxygen's
 implementation of the Markdown standard.
 
-[markdown]: http://daringfireball.net/projects/markdown 
-[mdextra]:  http://michelf.com/projects/php-markdown/extra/
-[github]:   http://github.github.com/github-flavored-markdown/
+[markdown]: http://daringfireball.net/projects/markdown/ 
+[mdextra]:  https://michelf.ca/projects/php-markdown/extra/
+[github]:   https://github.github.com/github-flavored-markdown/
 
 \section markdown_std Standard Markdown
 
@@ -303,7 +303,7 @@ Note that using `[TOC]` is the same as using a
 \subsection md_tables Tables
 
 Of the features defined by "Markdown Extra" is support for
-<a href="http://michelf.com/projects/php-markdown/extra/#table">simple tables</a>:
+<a href="https://michelf.ca/projects/php-markdown/extra/#table">simple tables</a>:
 
 A table consists of a header line, a separator line, and at least one
 row line. Table columns are separated by the pipe (|) character.
@@ -337,12 +337,46 @@ which will look as follows:
 | 10    | 10     | 10    |
 | 1000  | 1000   | 1000  |
 
+Additionally, column and row spans are supported.  Using a caret ("^")
+in a cell indicates that the cell above should span rows.  Sequences
+of carets may be used for any number of row spans.  For example:
+
+    | Right | Center | Left  |
+    | ----: | :----: | :---- |
+    | 10    | 10     | 10    |
+    | ^     | 1000   | 1000  |
+
+which will look as follows:
+
+| Right | Center | Left  |
+| ----: | :----: | :---- |
+| 10    | 10     | 10    |
+| ^     | 1000   | 1000  |
+
+Column spans are supported by means of directly adjacent vertical bars
+("|").  Each additional vertical bar indicates an additional column to
+be spanned.  To put it another way, a single vertical bar indicates a
+single column span, two vertical bars indicates a 2 columns span, and
+so on.  For example:
+
+    | Right | Center | Left  |
+    | ----: | :----: | :---- |
+    | 10    | 10     | 10    |
+    | 1000  |||
+
+which will look as follows:
+
+| Right | Center | Left  |
+| ----: | :----: | :---- |
+| 10    | 10     | 10    |
+| 1000  |||   
+
 For more complex tables in doxygen please have a look at: \ref tables
 
 \subsection md_fenced Fenced Code Blocks
 
 Another feature defined by "Markdown Extra" is support for
-<a href="http://michelf.com/projects/php-markdown/extra/#fenced-code-blocks">
+<a href="https://michelf.ca/projects/php-markdown/extra/#fenced-code-blocks">
 fenced code blocks</a>:
 
 A fenced code block does not require indentation, and is
@@ -511,7 +545,7 @@ is noticeable:
        code
 
 In this case Markdown will put the word code in a code block,
-whereas Doxygen will treat it as normal text, since although the absolute
+whereas doxygen will treat it as normal text, since although the absolute
 indentation is 4, the indentation with respect to the previous paragraph
 is only 1.
 

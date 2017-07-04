@@ -123,6 +123,7 @@ struct DocParserContext
   QStack<DocStyleChange> initialStyleStack;
   QList<Definition> copyStack;
   QCString fileName;
+  int lineNo;
   QCString relPath;
 
   bool         hasParamCommand;
@@ -144,7 +145,6 @@ struct DocParserContext
 static QStack<DocParserContext> g_parserStack;
 
 //---------------------------------------------------------------------------
-
 static void docParserPushContext(bool saveParamInfo=TRUE)
 {
   //QCString indent;
@@ -163,6 +163,7 @@ static void docParserPushContext(bool saveParamInfo=TRUE)
   ctx->initialStyleStack  = g_initialStyleStack;
   ctx->copyStack          = g_copyStack;
   ctx->fileName           = g_fileName;
+  ctx->lineNo             = doctokenizerYYlineno;
   ctx->relPath            = g_relPath;
 
   if (saveParamInfo)
@@ -201,6 +202,7 @@ static void docParserPopContext(bool keepParamInfo=FALSE)
   g_initialStyleStack   = ctx->initialStyleStack;
   g_copyStack           = ctx->copyStack;
   g_fileName            = ctx->fileName;
+  doctokenizerYYlineno  = ctx->lineNo;
   g_relPath             = ctx->relPath;
 
   if (!keepParamInfo)
@@ -282,20 +284,20 @@ static QCString findAndCopyImage(const char *fileName,DocImage::Type type)
       switch(type)
       {
         case DocImage::Html:
-	  if (!Config_getBool("GENERATE_HTML")) return result;
-	  outputDir = Config_getString("HTML_OUTPUT");
+	  if (!Config_getBool(GENERATE_HTML)) return result;
+	  outputDir = Config_getString(HTML_OUTPUT);
 	  break;
         case DocImage::Latex:
-	  if (!Config_getBool("GENERATE_LATEX")) return result;
-	  outputDir = Config_getString("LATEX_OUTPUT");
+	  if (!Config_getBool(GENERATE_LATEX)) return result;
+	  outputDir = Config_getString(LATEX_OUTPUT);
 	  break;
         case DocImage::DocBook:
-	  if (!Config_getBool("GENERATE_DOCBOOK")) return result;
-	  outputDir = Config_getString("DOCBOOK_OUTPUT");
+	  if (!Config_getBool(GENERATE_DOCBOOK)) return result;
+	  outputDir = Config_getString(DOCBOOK_OUTPUT);
 	  break;
         case DocImage::Rtf:
-	  if (!Config_getBool("GENERATE_RTF")) return result;
-	  outputDir = Config_getString("RTF_OUTPUT");
+	  if (!Config_getBool(GENERATE_RTF)) return result;
+	  outputDir = Config_getString(RTF_OUTPUT);
 	  break;
       }
       QCString outputFile = outputDir+"/"+result;
@@ -336,11 +338,11 @@ static QCString findAndCopyImage(const char *fileName,DocImage::Type type)
 	  "could not open image %s",qPrint(fileName));
     }
 
-    if (type==DocImage::Latex && Config_getBool("USE_PDFLATEX") && 
+    if (type==DocImage::Latex && Config_getBool(USE_PDFLATEX) && 
 	fd->name().right(4)==".eps"
        )
     { // we have an .eps image in pdflatex mode => convert it to a pdf.
-      QCString outputDir = Config_getString("LATEX_OUTPUT");
+      QCString outputDir = Config_getString(LATEX_OUTPUT);
       QCString baseName  = fd->name().left(fd->name().length()-4);
       QCString epstopdfArgs(4096);
       epstopdfArgs.sprintf("\"%s/%s.eps\" --outfile=\"%s/%s.pdf\"",
@@ -385,7 +387,7 @@ static QCString findAndCopyImage(const char *fileName,DocImage::Type type)
  */
 static void checkArgumentName(const QCString &name,bool isParam)
 {                
-  if (!Config_getBool("WARN_IF_DOC_ERROR")) return;
+  if (!Config_getBool(WARN_IF_DOC_ERROR)) return;
   if (g_memberDef==0) return; // not a member
   ArgumentList *al=g_memberDef->isDocsForDefinition() ? 
 		   g_memberDef->argumentList() :
@@ -454,7 +456,7 @@ static void checkArgumentName(const QCString &name,bool isParam)
  */
 static void checkUndocumentedParams()
 {
-  if (g_memberDef && g_hasParamCommand && Config_getBool("WARN_IF_DOC_ERROR"))
+  if (g_memberDef && g_hasParamCommand && Config_getBool(WARN_IF_DOC_ERROR))
   {
     ArgumentList *al=g_memberDef->isDocsForDefinition() ? 
       g_memberDef->argumentList() :
@@ -526,7 +528,7 @@ static void checkUndocumentedParams()
  */
 static void detectNoDocumentedParams()
 {
-  if (g_memberDef && Config_getBool("WARN_NO_PARAMDOC"))
+  if (g_memberDef && Config_getBool(WARN_NO_PARAMDOC))
   {
     ArgumentList *al     = g_memberDef->argumentList();
     ArgumentList *declAl = g_memberDef->declArgumentList();
@@ -1054,7 +1056,7 @@ static void handleUnclosedStyleCommands()
 static void handleLinkedWord(DocNode *parent,QList<DocNode> &children,bool ignoreAutoLinkFlag=FALSE)
 {
   QCString name = linkToText(SrcLangExt_Unknown,g_token->name,TRUE);
-  static bool autolinkSupport = Config_getBool("AUTOLINK_SUPPORT");
+  static bool autolinkSupport = Config_getBool(AUTOLINK_SUPPORT);
   if (!autolinkSupport && !ignoreAutoLinkFlag) // no autolinking -> add as normal word
   {
     children.append(new DocWord(parent,name));
@@ -1264,9 +1266,6 @@ static void defaultHandleTitleAndSize(const int cmd, DocNode *parent, QList<DocN
     if (tok==TK_WORD && (g_token->name=="width=" || g_token->name=="height="))
     {
       // special case: no title, but we do have a size indicator
-      doctokenizerYYsetStateTitleAttrValue();
-      // strip =
-      g_token->name = g_token->name.left(g_token->name.length()-1);
       break;
     }
     if (!defaultHandleToken(parent,tok,children))
@@ -1293,21 +1292,32 @@ static void defaultHandleTitleAndSize(const int cmd, DocNode *parent, QList<DocN
   {
     tok=doctokenizerYYlex();
   }
-  while (tok==TK_WORD) // there are values following the title
+  while (tok==TK_WHITESPACE || tok==TK_WORD) // there are values following the title
   {
-    if (g_token->name=="width")
+    if(tok == TK_WORD)
     {
-      width = g_token->chars;
+      if (g_token->name=="width=" || g_token->name=="height=")
+      {
+        doctokenizerYYsetStateTitleAttrValue();
+        g_token->name = g_token->name.left(g_token->name.length()-1);
+      }
+
+      if (g_token->name=="width")
+      {
+        width = g_token->chars;
+      }
+      else if (g_token->name=="height")
+      {
+        height = g_token->chars;
+      }
+      else
+      {
+        warn_doc_error(g_fileName,doctokenizerYYlineno,"Unknown option '%s' after \\%s command, expected 'width' or 'height'",
+                       qPrint(g_token->name), Mappers::cmdMapper->find(cmd).data());
+        break;
+      }
     }
-    else if (g_token->name=="height")
-    {
-      height = g_token->chars;
-    }
-    else
-    {
-      warn_doc_error(g_fileName,doctokenizerYYlineno,"Unknown option '%s' after \\%s command, expected 'width' or 'height'",
-                     qPrint(g_token->name), Mappers::cmdMapper->find(cmd).data());
-    }
+
     tok=doctokenizerYYlex();
   }
   doctokenizerYYsetStatePara();
@@ -1760,11 +1770,11 @@ static void readTextFileByName(const QCString &file,QCString &text)
     QFileInfo fi(file);
     if (fi.exists())
     {
-      text = fileToString(file,Config_getBool("FILTER_SOURCE_FILES"));
+      text = fileToString(file,Config_getBool(FILTER_SOURCE_FILES));
       return;
     }
   }
-  QStrList &examplePathList = Config_getList("EXAMPLE_PATH");
+  QStrList &examplePathList = Config_getList(EXAMPLE_PATH);
   char *s=examplePathList.first();
   while (s)
   {
@@ -1772,7 +1782,7 @@ static void readTextFileByName(const QCString &file,QCString &text)
     QFileInfo fi(absFileName);
     if (fi.exists())
     {
-      text = fileToString(absFileName,Config_getBool("FILTER_SOURCE_FILES"));
+      text = fileToString(absFileName,Config_getBool(FILTER_SOURCE_FILES));
       return;
     }
     s=examplePathList.next(); 
@@ -1783,7 +1793,7 @@ static void readTextFileByName(const QCString &file,QCString &text)
   FileDef *fd;
   if ((fd=findFileDef(Doxygen::exampleNameDict,file,ambig)))
   {
-    text = fileToString(fd->absFilePath(),Config_getBool("FILTER_SOURCE_FILES"));
+    text = fileToString(fd->absFilePath(),Config_getBool(FILTER_SOURCE_FILES));
   }
   else if (ambig)
   {
@@ -1921,6 +1931,7 @@ void DocInclude::parse()
       readTextFileByName(m_file,m_text);
       break;
     case Snippet:
+    case SnipWithLines:
       readTextFileByName(m_file,m_text);
       // check here for the existence of the blockId inside the file, so we
       // only generate the warning once.
@@ -1930,6 +1941,11 @@ void DocInclude::parse()
         warn_doc_error(g_fileName,doctokenizerYYlineno,"block marked with %s for \\snippet should appear twice in file %s, found it %d times\n",
             m_blockId.data(),m_file.data(),count);
       }
+      break;
+    case DocInclude::SnippetDoc: 
+    case DocInclude::IncludeDoc: 
+      err("Internal inconsistency: found switch SnippetDoc / IncludeDoc in file: %s"
+          "Please create a bug report\n",__FILE__);
       break;
   }
 }
@@ -2162,10 +2178,10 @@ bool DocXRefItem::parse()
   if (refList && 
       (
        // either not a built-in list or the list is enabled
-       (m_key!="todo"       || Config_getBool("GENERATE_TODOLIST")) && 
-       (m_key!="test"       || Config_getBool("GENERATE_TESTLIST")) && 
-       (m_key!="bug"        || Config_getBool("GENERATE_BUGLIST"))  && 
-       (m_key!="deprecated" || Config_getBool("GENERATE_DEPRECATEDLIST"))
+       (m_key!="todo"       || Config_getBool(GENERATE_TODOLIST)) && 
+       (m_key!="test"       || Config_getBool(GENERATE_TESTLIST)) && 
+       (m_key!="bug"        || Config_getBool(GENERATE_BUGLIST))  && 
+       (m_key!="deprecated" || Config_getBool(GENERATE_DEPRECATEDLIST))
       ) 
      )
   {
@@ -2599,7 +2615,7 @@ void DocRef::parse()
 
 DocCite::DocCite(DocNode *parent,const QCString &target,const QCString &) //context)
 {
-  static uint numBibFiles = Config_getList("CITE_BIB_FILES").count();
+  static uint numBibFiles = Config_getList(CITE_BIB_FILES).count();
   m_parent = parent;
   //printf("DocCite::DocCite(target=%s)\n",target.data());
   ASSERT(!target.isEmpty());
@@ -5132,7 +5148,6 @@ endref:
   doctokenizerYYsetStatePara();
 }
 
-
 void DocPara::handleInclude(const QCString &cmdName,DocInclude::Type t)
 {
   DBG(("handleInclude(%s)\n",qPrint(cmdName)));
@@ -5160,7 +5175,7 @@ void DocPara::handleInclude(const QCString &cmdName,DocInclude::Type t)
   }
   QCString fileName = g_token->name;
   QCString blockId;
-  if (t==DocInclude::Snippet)
+  if (t==DocInclude::Snippet || t==DocInclude::SnipWithLines || t==DocInclude::SnippetDoc)
   {
     if (fileName == "this") fileName=g_fileName;
     doctokenizerYYsetStateSnippet();
@@ -5174,9 +5189,31 @@ void DocPara::handleInclude(const QCString &cmdName,DocInclude::Type t)
     }
     blockId = "["+g_token->name+"]";
   }
-  DocInclude *inc = new DocInclude(this,fileName,g_context,t,g_isExample,g_exampleName,blockId);
-  m_children.append(inc);
-  inc->parse();
+
+  // This is the only place to handle the \includedoc and \snippetdoc commands,
+  // as the content is included here as if it is really here.
+  if (t==DocInclude::IncludeDoc || t==DocInclude::SnippetDoc)
+  {
+     QCString inc_text;
+     int inc_line  = 1;
+     readTextFileByName(fileName,inc_text);
+     if (t==DocInclude::SnippetDoc)
+     {
+       inc_line = lineBlock(inc_text, blockId);
+       inc_text = extractBlock(inc_text, blockId);
+     }
+     docParserPushContext();
+     g_fileName = fileName;
+     doctokenizerYYlineno=inc_line;
+     internalValidatingParseDoc(this,m_children,inc_text);
+     docParserPopContext();
+  }
+  else
+  {
+    DocInclude *inc = new DocInclude(this,fileName,g_context,t,g_isExample,g_exampleName,blockId);
+    m_children.append(inc);
+    inc->parse();
+  }
 }
 
 void DocPara::handleSection(const QCString &cmdName)
@@ -5411,15 +5448,15 @@ int DocPara::handleCommand(const QCString &cmdName)
       break;
     case CMD_LI:
       {
-	DocSimpleList *sl=new DocSimpleList(this);
-	m_children.append(sl);
+        DocSimpleList *sl=new DocSimpleList(this);
+        m_children.append(sl);
         retval = sl->parse();
       }
       break;
     case CMD_SECTION:
       {
         handleSection(cmdName);
-	retval = RetVal_Section;
+        retval = RetVal_Section;
       }
       break;
     case CMD_SUBSECTION:
@@ -5543,7 +5580,7 @@ int DocPara::handleCommand(const QCString &cmdName)
       break;
     case CMD_STARTUML:
       {
-        static QCString jarPath = Config_getString("PLANTUML_JAR_PATH");
+        static QCString jarPath = Config_getString(PLANTUML_JAR_PATH);
         doctokenizerYYsetStatePlantUMLOpt();
         retval = doctokenizerYYlex();
         QCString plantFile(g_token->sectionId);
@@ -5664,6 +5701,15 @@ int DocPara::handleCommand(const QCString &cmdName)
       break;
     case CMD_SNIPPET:
       handleInclude(cmdName,DocInclude::Snippet);
+      break;
+    case CMD_SNIPWITHLINES:
+      handleInclude(cmdName,DocInclude::SnipWithLines);
+      break;
+    case CMD_INCLUDEDOC:
+      handleInclude(cmdName,DocInclude::IncludeDoc);
+      break;
+    case CMD_SNIPPETDOC:
+      handleInclude(cmdName,DocInclude::SnippetDoc);
       break;
     case CMD_SKIP:
       handleIncludeOperator(cmdName,DocIncOperator::Skip);
@@ -5964,7 +6010,7 @@ int DocPara::handleHtmlStartTag(const QCString &tagName,const HtmlAttribList &ta
         {
           if (paramName.isEmpty())
           {
-            if (Config_getBool("WARN_NO_PARAMDOC"))
+            if (Config_getBool(WARN_NO_PARAMDOC))
             {
               warn_doc_error(g_fileName,doctokenizerYYlineno,"empty 'name' attribute for <param%s> tag.",tagId==XML_PARAM?"":"type");
             }
@@ -6152,8 +6198,7 @@ int DocPara::handleHtmlStartTag(const QCString &tagName,const HtmlAttribList &ta
   case XML_INHERITDOC:
       handleInheritDoc();
       break;
-	  
-    default:
+  default:
       // we should not get here!
       ASSERT(0);
       break;
@@ -7190,7 +7235,7 @@ DocRoot *validatingParseDoc(const char *fileName,int startLine,
   //g_token = new TokenInfo;
 
   // store parser state so we can re-enter this function if needed
-  //bool fortranOpt = Config_getBool("OPTIMIZE_FOR_FORTRAN");
+  //bool fortranOpt = Config_getBool(OPTIMIZE_FOR_FORTRAN);
   docParserPushContext();
 
   if (ctx && ctx!=Doxygen::globalScope &&

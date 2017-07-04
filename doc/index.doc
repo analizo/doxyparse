@@ -118,7 +118,7 @@ The third part provides information for developers:
 \addindex license
 \addindex GPL
 
-Copyright &copy; 1997-2015 by 
+Copyright &copy; 1997-2016 by 
 <a href="mailto:dimitri@stack.nl">Dimitri van Heesch</a>.<p>
 
 Permission to use, copy, modify, and distribute this software and its
@@ -180,7 +180,7 @@ Thanks go to:
 <li>Talin for adding support for C# style comments with XML markup.
 <li>Petr Prikryl for coordinating the internationalization support.
     All language maintainers for providing translations into many languages.
-<li>The band <a href="http://www.porcupinetree.com">Porcupine Tree</a> for 
+<li>The band <a href="http://www.porcupinetree.com/">Porcupine Tree</a> for 
     providing hours of great music to listen to while coding.
 <li>many, many others for suggestions, patches and bug reports.
 </ul>

@@ -1,6 +1,20 @@
-This directory contains an "source parsing engine" based on doxyapp code. 
+doxyparse
+=========
 
-More info and source code repository: http://gitorious.org/doxygen/
+This directory contains an "source parsing engine" based on doxyapp code.
 
----
-Joenio Costa <joenio@perl.org.br>
+More info and source code repository: https://github.com/analizo/doxygen
+
+## build
+
+  cmake -G "Unix Makefiles" -Dbuild_parse=ON
+  make
+
+AUTHORS
+=======
+
+Antonio Terceiro <terceiro@softwarelivre.org>
+João M. Miranda <joaomm88@gmail.com>
+Joenio Costa <joenio@colivre.coop.br>
+Paulo Meirelles <paulo@softwarelivre.org>
+Vinicius Daros <vkdaros@mercurio.eclipse.ime.usp.br>

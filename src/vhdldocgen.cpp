@@ -162,7 +162,7 @@ static int compareString(const QCString& s1,const QCString& s2)
 
 static void createSVG()
 {
-    QCString ov =Config_getString("HTML_OUTPUT");
+    QCString ov =Config_getString(HTML_OUTPUT);
     QCString dir="-o \""+ov+"/vhdl_design_overview.html\"";
     ov+="/vhdl_design.dot";
 
@@ -192,7 +192,7 @@ void VhdlDocGen::writeOverview()
 
   if (!found) return;
 
-  QCString ov =Config_getString("HTML_OUTPUT");
+  QCString ov =Config_getString(HTML_OUTPUT);
   QCString fileName=ov+"/vhdl_design.dot";
   QFile f(fileName);
   FTextStream  t(&f);
@@ -570,7 +570,7 @@ VhdlDocGen::~VhdlDocGen()
 void VhdlDocGen::init()
 {
 
- // vhdl keywords inlcuded VHDL 2008
+ // vhdl keywords included VHDL 2008
 const char* g_vhdlKeyWordMap0[] =
 {
   "abs","access","after","alias","all","and","architecture","array","assert","assume","assume_guarantee","attribute",
@@ -840,7 +840,7 @@ MemberDef* VhdlDocGen::findMemberDef(ClassDef* cd,const QCString& key,MemberList
   }
   MemberListIterator fmni(*ml);
   //int l=ml->count();
-  //	fprintf(stderr,"\n loading enity %s %s: %d",cd->symbolName().data(),keyType.data(),l);
+  //	fprintf(stderr,"\n loading entity %s %s: %d",cd->symbolName().data(),keyType.data(),l);
 
   for (fmni.toFirst();(md=fmni.current());++fmni)
   {
@@ -1065,7 +1065,7 @@ void VhdlDocGen::writeInlineClassLink(const ClassDef* cd ,OutputList& ol)
 }// write
 
 /*
- * finds all architectures which belongs to an entiy
+ * finds all architectures which belongs to an entity
  */
 void VhdlDocGen::findAllArchitectures(QList<QCString>& qll,const ClassDef *cd)
 {
@@ -1989,7 +1989,7 @@ void VhdlDocGen::writeVHDLDeclaration(MemberDef* mdef,OutputList &ol,
   QCString cfname = d->getOutputFileBase();
 
   //HtmlHelp *htmlHelp=0;
-  //  bool hasHtmlHelp = Config_getBool("GENERATE_HTML") && Config_getBool("GENERATE_HTMLHELP");
+  //  bool hasHtmlHelp = Config_getBool(GENERATE_HTML) && Config_getBool(GENERATE_HTMLHELP);
   //  if (hasHtmlHelp) htmlHelp = HtmlHelp::getInstance();
 
   // search for the last anonymous scope in the member type
@@ -2242,7 +2242,7 @@ void VhdlDocGen::writeVHDLDeclaration(MemberDef* mdef,OutputList &ol,
   }
 
   bool htmlOn = ol.isEnabled(OutputGenerator::Html);
-  if (htmlOn && /*Config_getBool("HTML_ALIGN_MEMBERS") &&*/ !ltype.isEmpty())
+  if (htmlOn && /*Config_getBool(HTML_ALIGN_MEMBERS) &&*/ !ltype.isEmpty())
   {
     ol.disable(OutputGenerator::Html);
   }
@@ -2261,7 +2261,7 @@ void VhdlDocGen::writeVHDLDeclaration(MemberDef* mdef,OutputList &ol,
   //    name().data(),annoClassDef,annEnumType);
  // if(mm!=VhdlDocGen::MISCELLANEOUS)
   ol.endMemberItem();
-  if (!mdef->briefDescription().isEmpty() &&   Config_getBool("BRIEF_MEMBER_DESC") /* && !annMemb */)
+  if (!mdef->briefDescription().isEmpty() &&   Config_getBool(BRIEF_MEMBER_DESC) /* && !annMemb */)
   {
  	 QCString s=mdef->briefDescription();
 	 ol.startMemberDescription(mdef->anchor());
@@ -2802,7 +2802,7 @@ bool VhdlDocGen::findConstraintFile(LayoutNavEntry *lne)
   QCString co("Constraints");
 
   QCString imgExt = getDotImageExtension();
-  if (Config_getBool("HAVE_DOT") && imgExt=="svg")
+  if (Config_getBool(HAVE_DOT) && imgExt=="svg")
   {
     QCString ov = theTranslator->trDesignOverview();
     QCString ofile("vhdl_design_overview");
@@ -3926,8 +3926,7 @@ void  FlowChart::printUmlTree()
   }
   qcs+="\n";
 
-  QCString & outDir = Config_getString("OUTPUT_DIRECTORY");
-  QCString & htmlOutDir = Config_getString("HTML_OUTPUT");
+  QCString & htmlOutDir = Config_getString(HTML_OUTPUT);
 
   QCString n=convertNameToFileName();
   QCString tmp=htmlOutDir;
@@ -3988,7 +3987,7 @@ const char* FlowChart::getNodeType(int c)
 void FlowChart::createSVG()
 {
   QCString qcs("/");
-  QCString ov = Config_getString("HTML_OUTPUT");
+  QCString ov = Config_getString(HTML_OUTPUT);
 
   qcs+=FlowChart::convertNameToFileName()+".svg";
 
@@ -4024,7 +4023,7 @@ void FlowChart::writeFlowChart()
 {
   //  assert(VhdlDocGen::flowMember);
 
-  QCString ov = Config_getString("HTML_OUTPUT");
+  QCString ov = Config_getString(HTML_OUTPUT);
   QCString fileName = ov+"/flow_design.dot";
   QFile f(fileName);
   FTextStream t(&f);
