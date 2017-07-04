@@ -1,4 +1,4 @@
-doxyparse (1.8.14~rc1) UNRELEASED; urgency=medium
+doxyparse (1.8.14~rc1) unstable; urgency=medium
 
   [ Joenio Costa ]
   * Extensions .py, .pyw (python) and .cs (csharp) added as non-C files
