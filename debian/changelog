@@ -1,3 +1,15 @@
+doxyparse (1.8.14~rc1) UNRELEASED; urgency=medium
+
+  [ Joenio Costa ]
+  * Extensions .py, .pyw (python) and .cs (csharp) added as non-C files
+  * The output format now is YAML
+  * Doxyparse master branch rebased with Doxygen upstream master branch
+
+  [ Jonathan Moraes ]
+  * new Doxyfile option: MODIFY_SPECIAL_CHARS
+
+ -- Joenio Costa <joenio@joenio.me>  Tue, 04 Jul 2017 14:13:58 -0300
+
 doxyparse (1.8.11-1) unstable; urgency=low
 
   [ Joenio Costa ]
