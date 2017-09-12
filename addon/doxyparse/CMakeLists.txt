@@ -19,8 +19,15 @@ include_directories(
 )
 
 add_executable(doxyparse
+main.cpp
 doxyparse.cpp
+doxyparseconfig.cpp
+doxyparseinput.cpp
+doxyparseinterface.cpp
+doxyparser.cpp
+doxyparseresults.cpp
 )
+
 target_link_libraries(doxyparse
 _doxygen
 qtools
