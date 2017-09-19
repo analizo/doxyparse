@@ -1,4 +1,5 @@
 #include "doxyparseresults.h"
+#include <yaml-cpp/yaml.h>
 
 DoxyparseResults::DoxyparseResults()
 {
@@ -67,12 +68,20 @@ bool DoxyparseResults::checkLanguage(std::string &filename, std::string extensio
 
 void DoxyparseResults::printFile(FileDef *fd)
 {
-  printf("file %s\n", fd->absFilePath().data());
+  yaml << YAML::BeginMap;
+  yaml << YAML::Key << fd->absFilePath().data() << YAML::Value;
+
+  // printf("file %s\n", fd->absFilePath().data());
   MemberList *ml = fd->getMemberList(MemberListType_allMembersList);
   if (ml && ml->count() > 0) {
-    printf("module %s\n", fd->getOutputFileBase().data());
+
+    yaml << YAML::BeginMap;
+    yaml << YAML::Key << fd->getOutputFileBase().data() << YAML::Value;
+    // printf("module %s\n", fd->getOutputFileBase().data());
     listMembers(ml);
+    yaml << YAML::EndMap;
   }
+  yaml << YAML::EndMap;
 }
 
 void DoxyparseResults::listMembers(MemberList *ml)
@@ -80,9 +89,18 @@ void DoxyparseResults::listMembers(MemberList *ml)
   if (ml) {
     MemberListIterator mli(*ml);
     MemberDef *md;
+    yaml << YAML::BeginMap;
+    yaml << YAML::Key << "defines" << YAML::Value;
+
+    yaml << YAML::BeginSeq;
+
     for (mli.toFirst(); (md=mli.current()); ++mli) {
       lookupSymbol((Definition*) md);
     }
+
+    yaml << YAML::EndSeq;
+    yaml << YAML::EndMap;
+    printf("%s\n", yaml.c_str());
   }
 }
 
@@ -90,19 +108,21 @@ void DoxyparseResults::lookupSymbol(Definition *d)
 {
   if (d->definitionType() == Definition::TypeMember) {
     MemberDef *md = (MemberDef *)d;
-    printDefinition(md);
-    printProtection(md);
-    if (md->isFunction()) {
-      printFunctionInformation(md);
-    }
+    yaml << YAML::BeginMap;
+    // printDefinition(md);
+    // printProtection(md);
+    // if (md->isFunction()) {
+    //   printFunctionInformation(md);
+    // }
+    yaml << YAML::EndMap;
   }
 }
 
 void DoxyparseResults::printDefinition(MemberDef *md)
 {
-  printf("   ");
-  printType(md);
+  // printf("   ");
   printSignature(md);
+  printType(md);
   printDefinitionLine(md);
 }
 
@@ -113,11 +133,13 @@ void DoxyparseResults::printType(MemberDef *md)
 
 void DoxyparseResults::printSignature(MemberDef* md)
 {
-  printf("%s", md->name().data());
-  if(md->isFunction()){
-    printArgumentList(md);
-  }
-  printf(" ");
+  // yaml << YAML::Key << functionSignature(md);
+
+  // printf("%s", md->name().data());
+  // if(md->isFunction()){
+  //   printArgumentList(md);
+  // }
+  // printf(" ");
 }
 
 void DoxyparseResults::printArgumentList(MemberDef *md)

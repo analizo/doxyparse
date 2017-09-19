@@ -7,6 +7,7 @@
 #include "filedef.h"
 #include "filename.h"
 #include <string>
+#include <yaml-cpp/yaml.h>
 
 class DoxyparseResults
 {
@@ -18,6 +19,8 @@ class DoxyparseResults
 
   private:
     bool is_c_code;
+
+    YAML::Emitter yaml;
 
     void detectProgrammingLanguage(FileNameListIterator &fnli);
     bool checkLanguage(std::string &filename, std::string extension);
