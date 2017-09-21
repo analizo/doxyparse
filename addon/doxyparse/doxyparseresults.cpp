@@ -201,21 +201,9 @@ void DoxyparseResults::printNumberOfConditionalPaths(MemberDef* md) {
 }
 
 bool DoxyparseResults::ignoreStaticExternalCall(MemberDef *context, MemberDef *md) {
-  if (md->isStatic()) {
-    if(md->getFileDef()) {
-      if(md->getFileDef()->getOutputFileBase() == context->getFileDef()->getOutputFileBase())
-        // TODO ignore prefix of file
-        return false;
-      else
-        return true;
-    }
-    else {
-      return false;
-    }
-  }
-  else {
-    return false;
-  }
+  return md->isStatic() &&
+         md->getFileDef() &&
+         !(md->getFileDef()->getOutputFileBase() == context->getFileDef()->getOutputFileBase());
 }
 
 void DoxyparseResults::referenceTo(MemberDef* md) {
