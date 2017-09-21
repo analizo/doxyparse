@@ -25,8 +25,14 @@ void DoxyparseResults::listSymbols()
     *yaml << YAML::BeginMap;
     for (; (fd=fni.current()); ++fni) {
       printFile(fd->absFilePath().data());
-      *yaml << YAML::BeginMap;
+      ClassSDict *classes = fd->getClassSDict();
       MemberList *ml = fd->getMemberList(MemberListType_allMembersList);
+      if (ml && ml->count() > 0 || classes){
+        *yaml << YAML::BeginMap;
+      } else {
+        *yaml << "";
+      }
+
       if (ml && ml->count() > 0) {
         printModule(fd->getOutputFileBase().data());
         *yaml << YAML::BeginMap;
@@ -34,7 +40,6 @@ void DoxyparseResults::listSymbols()
         *yaml << YAML::EndMap;
       }
 
-      ClassSDict *classes = fd->getClassSDict();
       if (classes) {
         ClassSDict::Iterator cli(*classes);
         ClassDef *cd;
@@ -42,7 +47,10 @@ void DoxyparseResults::listSymbols()
           classInformation(cd);
         }
       }
-      *yaml << YAML::EndMap;
+
+      if (ml && ml->count() > 0 || classes){
+        *yaml << YAML::EndMap;
+      }
     }
     *yaml << YAML::EndMap;
     printf("%s\n", (*yaml).c_str());
@@ -254,20 +262,22 @@ void DoxyparseResults::classInformation(ClassDef* cd) {
   } else {
     printModule(cd->name().data());
     BaseClassList* baseClasses = cd->baseClasses();
-    if (baseClasses) {
-      BaseClassListIterator bci(*baseClasses);
-      BaseClassDef* bcd;
-      for (bci.toFirst(); (bcd = bci.current()); ++bci) {
-        printInheritance(bcd->classDef->name().data());
-      }
-    }
-    if(cd->isAbstract()) {
+    if(baseClasses || cd->isAbstract()){
       *yaml << YAML::BeginMap;
-      printClassInformation("abstract class");
+      if (baseClasses) {
+        BaseClassListIterator bci(*baseClasses);
+        BaseClassDef* bcd;
+        for (bci.toFirst(); (bcd = bci.current()); ++bci) {
+          printInheritance(bcd->classDef->name().data());
+        }
+      }
+      if(cd->isAbstract()) {
+        printClassInformation("abstract class");
+      }
       printDefines();
     }
     listAllMembers(cd);
-    if(cd->isAbstract()) {
+    if(baseClasses || cd->isAbstract()){
       *yaml << YAML::EndMap;
     }
   }
