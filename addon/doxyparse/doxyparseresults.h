@@ -21,18 +21,18 @@ class DoxyparseResults
     bool is_c_code;
     std::map<std::string, bool> modules;
     std::string current_module;
-    YAML::Emitter yaml;
+    YAML::Emitter *yaml;
 
     void detectProgrammingLanguage(FileNameListIterator& fnli);
     bool checkLanguage(std::string& filename, std::string extension);
     void printFile(std::string file);
     void printModule(std::string module);
     void listMembers(MemberList *ml);
+    void listMembers2(MemberList *ml);
     void printDefines();
     void lookupSymbol(Definition *d);
     void printDefinition(std::string type, std::string signature,
                          int line, Definition *d);
-    void printProtection(std::string protection);
     void functionInformation(MemberDef* md);
     void printNumberOfLines(int lines);
     void printNumberOfArguments(int arguments);
