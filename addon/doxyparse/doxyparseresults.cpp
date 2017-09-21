@@ -28,7 +28,9 @@ void DoxyparseResults::listSymbols()
       MemberList *ml = fd->getMemberList(MemberListType_allMembersList);
       if (ml && ml->count() > 0) {
         printModule(fd->getOutputFileBase().data());
+        yaml << YAML::BeginMap;
         listMembers(ml);
+        yaml << YAML::EndMap;
       }
 
       ClassSDict *classes = fd->getClassSDict();
@@ -91,22 +93,23 @@ void DoxyparseResults::listMembers(MemberList *ml) {
   if (ml) {
     MemberListIterator mli(*ml);
     MemberDef *md;
-    yaml << YAML::BeginMap;
     printDefines();
-    yaml << YAML::BeginSeq;
     for (mli.toFirst(); (md=mli.current()); ++mli) {
       yaml << YAML::BeginMap;
       lookupSymbol((Definition*) md);
       yaml << YAML::EndMap;
     }
-    yaml << YAML::EndSeq;
-    yaml << YAML::EndMap;
+    if(! modules[current_module])
+    {
+      yaml << YAML::EndSeq;
+    }
   }
 }
 
 void DoxyparseResults::printDefines() {
   if (! modules[current_module]) {
     yaml << YAML::Key << "defines" << YAML::Value;
+    yaml << YAML::BeginSeq;
     // printf("    defines:\n");
   }
   modules[current_module] = true;
@@ -317,10 +320,12 @@ void DoxyparseResults::printClassInformation(std::string information) {
 }
 
 void DoxyparseResults::listAllMembers(ClassDef* cd) {
+  yaml << YAML::BeginMap;
   // methods
   listMembers(cd->getMemberList(MemberListType_functionMembers));
   // constructors
   listMembers(cd->getMemberList(MemberListType_constructors));
   // attributes
   listMembers(cd->getMemberList(MemberListType_variableMembers));
+  yaml << YAML::EndMap;
 }
