@@ -30,7 +30,8 @@ class DoxyparseResults
     void listMembers(MemberList *ml);
     void printDefines();
     void lookupSymbol(Definition *d);
-    void printDefinition(std::string type, std::string signature, int line);
+    void printDefinition(std::string type, std::string signature,
+                         int line, Definition *d);
     void printProtection(std::string protection);
     void functionInformation(MemberDef* md);
     void printNumberOfLines(int lines);

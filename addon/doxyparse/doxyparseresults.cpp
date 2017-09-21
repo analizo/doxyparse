@@ -21,8 +21,10 @@ void DoxyparseResults::listSymbols()
   for (fnli.toFirst(); (fn=fnli.current()); ++fnli) {
     FileNameIterator fni(*fn);
     FileDef *fd;
+    yaml << YAML::BeginMap;
     for (; (fd=fni.current()); ++fni) {
       printFile(fd->absFilePath().data());
+      yaml << YAML::BeginMap;
       MemberList *ml = fd->getMemberList(MemberListType_allMembersList);
       if (ml && ml->count() > 0) {
         printModule(fd->getOutputFileBase().data());
@@ -37,8 +39,11 @@ void DoxyparseResults::listSymbols()
           classInformation(cd);
         }
       }
+      yaml << YAML::EndMap;
     }
+    yaml << YAML::EndMap;
   }
+  printf("%s\n", yaml.c_str());
   // TODO print external symbols referenced
 }
 
@@ -71,28 +76,38 @@ bool DoxyparseResults::checkLanguage(std::string& filename, std::string extensio
 }
 
 void DoxyparseResults::printFile(std::string file) {
-  printf("%s:\n", file.c_str());
+  yaml << YAML::Key << file << YAML::Value;
+  // printf("%s:\n", file.c_str());
 }
 
 void DoxyparseResults::printModule(std::string module) {
   current_module = module;
-  printf("  %s:\n", module.c_str());
+  yaml << YAML::Key << module << YAML::Value;
+
+  // printf("  %s:\n", module.c_str());
 }
 
 void DoxyparseResults::listMembers(MemberList *ml) {
   if (ml) {
     MemberListIterator mli(*ml);
     MemberDef *md;
+    yaml << YAML::BeginMap;
     printDefines();
+    yaml << YAML::BeginSeq;
     for (mli.toFirst(); (md=mli.current()); ++mli) {
+      yaml << YAML::BeginMap;
       lookupSymbol((Definition*) md);
+      yaml << YAML::EndMap;
     }
+    yaml << YAML::EndSeq;
+    yaml << YAML::EndMap;
   }
 }
 
 void DoxyparseResults::printDefines() {
   if (! modules[current_module]) {
-    printf("    defines:\n");
+    yaml << YAML::Key << "defines" << YAML::Value;
+    // printf("    defines:\n");
   }
   modules[current_module] = true;
 }
@@ -102,20 +117,30 @@ void DoxyparseResults::lookupSymbol(Definition *d) {
     MemberDef *md = (MemberDef *)d;
     std::string type = md->memberTypeName().data();
     std::string signature = functionSignature(md);
-    printDefinition(type, signature, md->getDefLine());
-    if (md->protection() == Public) {
-      printProtection("public");
-    }
-    if (md->isFunction()) {
-      functionInformation(md);
-    }
+    printDefinition(type, signature, md->getDefLine(), d);
   }
 }
 
-void DoxyparseResults::printDefinition(std::string type, std::string signature, int line) {
-  printf("      - \"%s\":\n", signature.c_str());
-  printf("          type: %s\n", type.c_str());
-  printf("          line: %d\n", line);
+void DoxyparseResults::printDefinition(std::string type,
+                                       std::string signature,
+                                       int line,
+                                       Definition *d) {
+  MemberDef *md = (MemberDef *)d;
+  yaml << YAML::Key << signature << YAML::Value;
+  yaml << YAML::BeginMap;
+  yaml << YAML::Key << "type" << YAML::Value << type;
+  yaml << YAML::Key << "line" << YAML::Value << line;
+  if (md->protection() == Public) {
+    yaml << YAML::Key << "protection" << YAML::Value << "public";
+    // printProtection("public");
+  }
+  if (md->isFunction()) {
+    functionInformation(md);
+  }
+  yaml << YAML::EndMap;
+  // printf("      - \"%s\":\n", signature.c_str());
+  // printf("          type: %s\n", type.c_str());
+  // printf("          line: %d\n", line);
 }
 
 void DoxyparseResults::printProtection(std::string protection) {
@@ -129,39 +154,54 @@ void DoxyparseResults::functionInformation(MemberDef* md) {
   printNumberOfArguments(argList->count());
   printNumberOfConditionalPaths(md);
   MemberSDict *defDict = md->getReferencesMembers();
+// printf("#%s\n", defDict);
   if (defDict) {
     MemberSDict::Iterator msdi(*defDict);
     MemberDef *rmd;
     printUses();
+    yaml << YAML::BeginSeq;
     for (msdi.toFirst(); (rmd=msdi.current()); ++msdi) {
+      yaml << YAML::BeginMap;
       if (rmd->definitionType() == Definition::TypeMember && !ignoreStaticExternalCall(md, rmd)) {
         referenceTo(rmd);
       }
+      yaml << YAML::EndMap;
     }
+    yaml << YAML::EndSeq;
   }
 }
 
 void DoxyparseResults::printNumberOfLines(int lines) {
-  printf("          lines_of_code: %d\n", lines);
+  yaml << YAML::Key << "lines_of_code" << YAML::Value << lines;
+  // printf("          lines_of_code: %d\n", lines);
 }
 
 void DoxyparseResults::printNumberOfArguments(int arguments) {
-  printf("          parameters: %d\n", arguments);
+  yaml << YAML::Key << "parameters" << YAML::Value << arguments;
+  // printf("          parameters: %d\n", arguments);
 }
 
 void DoxyparseResults::printUses() {
-  printf("          uses:\n");
+  yaml << YAML::Key << "uses" << YAML::Value;
+  // printf("          uses:\n");
 }
 
 void DoxyparseResults::printReferenceTo(std::string type, std::string signature,
                       std::string defined_in) {
-  printf("            - \"%s\":\n", signature.c_str());
-  printf("                type: %s\n", type.c_str());
-  printf("                defined_in: %s\n", defined_in.c_str());
+  yaml << YAML::Key << signature << YAML::Value;
+  yaml << YAML::BeginMap;
+  yaml << YAML::Key << "type" << YAML::Value << type;
+  yaml << YAML::Key << "defined_in" << YAML::Value << defined_in;
+  yaml << YAML::EndMap;
+  // printf("            - \"%s\":\n", signature.c_str());
+  // printf("                type: %s\n", type.c_str());
+  // printf("                defined_in: %s\n", defined_in.c_str());
 }
 
 void DoxyparseResults::printNumberOfConditionalPaths(MemberDef* md) {
-  printf("          conditional_paths: %d\n", md->numberOfFlowKeyWords());
+  yaml << YAML::Key << "conditional_paths";
+  yaml << YAML::Value << md->numberOfFlowKeyWords();
+  // printf("          conditional_paths: %d\n", md->numberOfFlowKeyWords());
 }
 
 //#############################################
@@ -204,6 +244,7 @@ void DoxyparseResults::referenceTo(MemberDef* md) {
       defined_in = md->getFileDef()->getOutputFileBase().data();
     }
   }
+  // printf("#-%s\n", signature.c_str());
   printReferenceTo(type, signature, defined_in);
 }
 
@@ -256,20 +297,23 @@ void DoxyparseResults::cModule(ClassDef* cd) {
     MemberListIterator mli(*ml);
     MemberDef* md;
     for (mli.toFirst(); (md=mli.current()); ++mli) {
-      printDefinition("variable", cd->name().data() + std::string("::") + md->name().data(), md->getDefLine());
-      if (md->protection() == Public) {
-        printProtection("public");
-      }
+      printDefinition("variable", cd->name().data() + std::string("::") + md->name().data(), md->getDefLine(), md);
+      // if (md->protection() == Public) {
+      //   printProtection("public");
+      // }
     }
   }
 }
 
 void DoxyparseResults::printInheritance(std::string base_class) {
-  printf("    inherits: %s\n", base_class.c_str());
+
+  yaml << YAML::Key << "inherits" << YAML::Value << base_class;
+  // printf("    inherits: %s\n", base_class.c_str());
 }
 
 void DoxyparseResults::printClassInformation(std::string information) {
-  printf("    informations: %s\n", information.c_str());
+  yaml << YAML::Key << "informations" << YAML::Value << information;
+  // printf("    informations: %s\n", information.c_str());
 }
 
 void DoxyparseResults::listAllMembers(ClassDef* cd) {
