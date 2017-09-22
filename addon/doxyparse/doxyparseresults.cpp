@@ -274,7 +274,8 @@ void DoxyparseResults::classInformation(ClassDef* cd) {
       if(cd->isAbstract()) {
         printClassInformation("abstract class");
       }
-      printDefines();
+      *yaml << YAML::Key << "defines" << YAML::Value;
+      // printDefines();
     }
     listAllMembers(cd);
     if(baseClasses || cd->isAbstract()){
