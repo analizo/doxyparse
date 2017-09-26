@@ -196,7 +196,7 @@ void DoxyparseResults::printUses() {
 
 void DoxyparseResults::printReferenceTo(std::string type, std::string signature,
                       std::string defined_in) {
-  *yaml << YAML::Key << signature << YAML::Value;
+  *yaml << YAML::Key << YAML::DoubleQuoted << signature << YAML::Value;
   *yaml << YAML::BeginMap;
   *yaml << YAML::Key << "type" << YAML::Value << type;
   *yaml << YAML::Key << "defined_in" << YAML::Value << defined_in;
