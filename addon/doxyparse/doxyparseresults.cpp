@@ -28,9 +28,9 @@ void DoxyparseResults::listSymbols()
       ClassSDict *classes = fd->getClassSDict();
       MemberList *ml = fd->getMemberList(MemberListType_allMembersList);
       if (ml && ml->count() > 0 || classes){
-        *yaml << YAML::BeginMap;
+        *yaml << YAML::Value << YAML::BeginMap;
       } else {
-        *yaml << "";
+        *yaml << YAML::Value << "~";
       }
 
       if (ml && ml->count() > 0) {
@@ -88,7 +88,7 @@ bool DoxyparseResults::checkLanguage(std::string& filename, std::string extensio
 }
 
 void DoxyparseResults::printFile(std::string file) {
-  *yaml << YAML::Key << file << YAML::Value;
+  *yaml << YAML::Key << file;
 }
 
 void DoxyparseResults::printModule(std::string module) {
@@ -145,7 +145,7 @@ void DoxyparseResults::printDefinition(std::string type,
                                        int line,
                                        Definition *d) {
   MemberDef *md = (MemberDef *)d;
-  *yaml << YAML::Key << signature << YAML::Value;
+  *yaml << YAML::Key << YAML::DoubleQuoted << signature << YAML::Value;
   *yaml << YAML::BeginMap;
   *yaml << YAML::Key << "type" << YAML::Value << type;
   *yaml << YAML::Key << "line" << YAML::Value << line;
