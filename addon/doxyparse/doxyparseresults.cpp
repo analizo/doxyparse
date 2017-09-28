@@ -165,18 +165,17 @@ void DoxyparseResults::functionInformation(MemberDef* md) {
   printNumberOfArguments(argList->count());
   printNumberOfConditionalPaths(md);
   MemberSDict *defDict = md->getReferencesMembers();
-// printf("#%s\n", defDict);
   if (defDict) {
     MemberSDict::Iterator msdi(*defDict);
     MemberDef *rmd;
     printUses();
     *yaml << YAML::BeginSeq;
     for (msdi.toFirst(); (rmd=msdi.current()); ++msdi) {
-      *yaml << YAML::BeginMap;
       if (rmd->definitionType() == Definition::TypeMember && !ignoreStaticExternalCall(md, rmd)) {
+        *yaml << YAML::BeginMap;
         referenceTo(rmd);
+        *yaml << YAML::EndMap;
       }
-      *yaml << YAML::EndMap;
     }
     *yaml << YAML::EndSeq;
   }
