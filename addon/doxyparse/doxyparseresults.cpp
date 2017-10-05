@@ -127,6 +127,9 @@ void DoxyparseResults::printDefines() {
   if (!modules[current_module]) {
     *yaml << YAML::Key << "defines" << YAML::Value;
     // printf("    defines:\n");
+  } else {
+    *yaml << YAML::Key << "defines" << YAML::Value;
+    // printf("    defines:\n");
   }
   modules[current_module] = true;
 }
@@ -261,25 +264,20 @@ void DoxyparseResults::classInformation(ClassDef* cd) {
   } else {
     printModule(cd->name().data());
     BaseClassList* baseClasses = cd->baseClasses();
-    if(baseClasses || cd->isAbstract()){
-      *yaml << YAML::BeginMap;
-      if (baseClasses) {
-        BaseClassListIterator bci(*baseClasses);
-        BaseClassDef* bcd;
-        for (bci.toFirst(); (bcd = bci.current()); ++bci) {
-          printInheritance(bcd->classDef->name().data());
-        }
+    *yaml << YAML::BeginMap;
+    if (baseClasses) {
+      BaseClassListIterator bci(*baseClasses);
+      BaseClassDef* bcd;
+      for (bci.toFirst(); (bcd = bci.current()); ++bci) {
+        printInheritance(bcd->classDef->name().data());
       }
-      if(cd->isAbstract()) {
-        printClassInformation("abstract class");
-      }
-      *yaml << YAML::Key << "defines" << YAML::Value;
-      // printDefines();
     }
+    if(cd->isAbstract()) {
+      printClassInformation("abstract class");
+    }
+    printDefines();
     listAllMembers(cd);
-    if(baseClasses || cd->isAbstract()){
-      *yaml << YAML::EndMap;
-    }
+    *yaml << YAML::EndMap;
   }
 }
 
