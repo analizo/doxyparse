@@ -33,14 +33,28 @@ void DoxyparseResults::listSymbols()
         *yaml << YAML::Value << "~";
       }
 
+      bool has_struct = false;
       if (ml && ml->count() > 0) {
         printModule(fd->getOutputFileBase().data());
         *yaml << YAML::BeginMap;
+        printDefines();
+        *yaml << YAML::BeginSeq;
         listMembers(ml);
+        if (classes && is_c_code) {
+          *yaml << YAML::BeginMap;
+          has_struct = true;
+          ClassSDict::Iterator cli(*classes);
+          ClassDef *cd;
+          for (cli.toFirst(); (cd = cli.current()); ++cli) {
+            classInformation(cd);
+          }
+          *yaml << YAML::EndMap;
+        }
+        *yaml << YAML::EndSeq;
         *yaml << YAML::EndMap;
       }
 
-      if (classes) {
+      if (classes && !has_struct) {
         ClassSDict::Iterator cli(*classes);
         ClassDef *cd;
         for (cli.toFirst(); (cd = cli.current()); ++cli) {
@@ -100,14 +114,11 @@ void DoxyparseResults::listMembers(MemberList *ml) {
   if (ml) {
     MemberListIterator mli(*ml);
     MemberDef *md;
-    printDefines();
-    *yaml << YAML::BeginSeq;
     for (mli.toFirst(); (md=mli.current()); ++mli) {
       *yaml << YAML::BeginMap;
       lookupSymbol((Definition*) md);
       *yaml << YAML::EndMap;
     }
-    *yaml << YAML::EndSeq;
   }
 }
 
