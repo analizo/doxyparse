@@ -14,6 +14,16 @@ FileNameListIterator DoxyparseResults::getFiles()
     return file_namelist_iterator;
 }
 
+void DoxyparseResults::verifyEmptyMemberListOrClasses(MemberList *member_list, ClassSDict *classes, enum YAML::EMITTER_MANIP value){
+    if (member_list && member_list->count() > 0 || classes){
+      *this->yaml << value;
+  } else if(value == YAML::BeginMap) {
+      *this->yaml << "~";
+  } else{
+      // Nothing to do.
+  }
+}
+
 void DoxyparseResults::listSymbols()
 {
   FileNameListIterator file_namelist_iterator = this->getFiles();
@@ -21,39 +31,38 @@ void DoxyparseResults::listSymbols()
   file_namelist_iterator.toFirst();
 
   for (FileName *file_name; (file_name=file_namelist_iterator.current()); ++file_namelist_iterator) {
-    FileNameIterator fni(*file_name);
+    FileNameIterator file_name_iterator(*file_name);
 
-    yaml = new YAML::Emitter();
-    *yaml << YAML::BeginMap;
-    for (FileDef *fd; (fd=fni.current()); ++fni) {
-      addKeyYaml(fd->absFilePath().data());
-      ClassSDict *classes = fd->getClassSDict();
-      MemberList *ml = fd->getMemberList(MemberListType_allMembersList);
-      if (ml && ml->count() > 0 || classes){
-        *yaml << YAML::Value << YAML::BeginMap;
-      } else {
-        *yaml << YAML::Value << "~";
-      }
+    this->yaml = new YAML::Emitter();
+    *this->yaml << YAML::BeginMap;
+
+    for (FileDef *file_definition; (file_definition=file_name_iterator.current()); ++file_name_iterator) {
+      addKeyYaml(file_definition->absFilePath().data());
+
+      ClassSDict *classes = file_definition->getClassSDict();
+      MemberList *member_list = file_definition->getMemberList(MemberListType_allMembersList);
+
+      this->verifyEmptyMemberListOrClasses(member_list, classes, YAML::BeginMap);
 
       bool has_struct = false;
-      if (ml && ml->count() > 0) {
-        addValue(fd->getOutputFileBase().data());
-        *yaml << YAML::BeginMap;
+      if (member_list && member_list->count() > 0) {
+        addValue(file_definition->getOutputFileBase().data());
+        *this->yaml << YAML::BeginMap;
         addValue(DEFINES);
-        *yaml << YAML::BeginSeq;
-        listMembers(ml);
+        *this->yaml << YAML::BeginSeq;
+        listMembers(member_list);
         if (classes && is_c_code) {
-          *yaml << YAML::BeginMap;
+          *this->yaml << YAML::BeginMap;
           has_struct = true;
           ClassSDict::Iterator cli(*classes);
           ClassDef *cd;
           for (cli.toFirst(); (cd = cli.current()); ++cli) {
             classInformation(cd);
           }
-          *yaml << YAML::EndMap;
+          *this->yaml << YAML::EndMap;
         }
-        *yaml << YAML::EndSeq;
-        *yaml << YAML::EndMap;
+        *this->yaml << YAML::EndSeq;
+        *this->yaml << YAML::EndMap;
       }
 
       if (classes && !has_struct) {
@@ -64,13 +73,11 @@ void DoxyparseResults::listSymbols()
         }
       }
 
-      if (ml && ml->count() > 0 || classes){
-        *yaml << YAML::EndMap;
-      }
+      this->verifyEmptyMemberListOrClasses(member_list, classes, YAML::EndMap);
     }
-    *yaml << YAML::EndMap;
-    printf("%s\n", (*yaml).c_str());
-    delete yaml;
+    *this->yaml << YAML::EndMap;
+    printf("%s\n", (*this->yaml).c_str());
+    delete this->yaml;
   }
   // TODO print external symbols referenced
 }
@@ -119,7 +126,7 @@ void DoxyparseResults::addValue(std::string key) {
 
 //TODO: DELETE METHOD
 void DoxyparseResults::printFile(std::string file) {
-  *yaml << YAML::Key << file;
+  *this->yaml << YAML::Key << file << YAML::Value;
 }
 
 //TODO: DELETE METHOD

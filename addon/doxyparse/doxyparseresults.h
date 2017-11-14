@@ -38,6 +38,9 @@ class DoxyparseResults
     std::string current_module;
     YAML::Emitter *yaml;
 
+    void verifyEmptyMemberListOrClasses(MemberList *member_list,
+                                        ClassSDict *classes,
+                                        enum YAML::EMITTER_MANIP value);
     FileNameListIterator getFiles();
     void detectIsCCode(FileNameListIterator& fnli);
     bool checkLanguage(std::string& filename, std::string extension);
