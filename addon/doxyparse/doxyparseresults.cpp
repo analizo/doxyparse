@@ -125,7 +125,7 @@ void DoxyparseResults::listMembers(MemberList *ml) {
 }
 
 void DoxyparseResults::printDefines() {
-  *yaml << YAML::Key << "defines" << YAML::Value;
+  *yaml << YAML::Key << DEFINES << YAML::Value;
   modules[current_module] = true;
 }
 
@@ -143,10 +143,10 @@ void DoxyparseResults::printDefinition(std::string type,
   MemberDef *md = (MemberDef *)d;
   *yaml << YAML::Key << YAML::DoubleQuoted << signature << YAML::Value;
   *yaml << YAML::BeginMap;
-  *yaml << YAML::Key << "type" << YAML::Value << type;
-  *yaml << YAML::Key << "line" << YAML::Value << line;
+  *yaml << YAML::Key << TYPE << YAML::Value << type;
+  *yaml << YAML::Key << LINE << YAML::Value << line;
   if (md->protection() == Public) {
-    *yaml << YAML::Key << "protection" << YAML::Value << "public";
+    *yaml << YAML::Key << PROTECTION << YAML::Value << PUBLIC;
   }
   if (md->isFunction()) {
     functionInformation(md);
@@ -178,28 +178,28 @@ void DoxyparseResults::functionInformation(MemberDef* md) {
 }
 
 void DoxyparseResults::printNumberOfLines(int lines) {
-  *yaml << YAML::Key << "lines_of_code" << YAML::Value << lines;
+  *yaml << YAML::Key << LINES_OF_CODE << YAML::Value << lines;
 }
 
 void DoxyparseResults::printNumberOfArguments(int arguments) {
-  *yaml << YAML::Key << "parameters" << YAML::Value << arguments;
+  *yaml << YAML::Key << PARAMETERS << YAML::Value << arguments;
 }
 
 void DoxyparseResults::printUses() {
-  *yaml << YAML::Key << "uses" << YAML::Value;
+  *yaml << YAML::Key << USES << YAML::Value;
 }
 
 void DoxyparseResults::printReferenceTo(std::string type, std::string signature,
                       std::string defined_in) {
   *yaml << YAML::Key << YAML::DoubleQuoted << signature << YAML::Value;
   *yaml << YAML::BeginMap;
-  *yaml << YAML::Key << "type" << YAML::Value << type;
-  *yaml << YAML::Key << "defined_in" << YAML::Value << defined_in;
+  *yaml << YAML::Key << TYPE << YAML::Value << type;
+  *yaml << YAML::Key << DEFINED_IN << YAML::Value << defined_in;
   *yaml << YAML::EndMap;
 }
 
 void DoxyparseResults::printNumberOfConditionalPaths(MemberDef* md) {
-  *yaml << YAML::Key << "conditional_paths";
+  *yaml << YAML::Key << CONDITIONAL_PATHS;
   *yaml << YAML::Value << md->numberOfFlowKeyWords();
 }
 
@@ -266,7 +266,7 @@ void DoxyparseResults::classInformation(ClassDef* cd) {
       }
     }
     if(cd->isAbstract()) {
-      printClassInformation("abstract class");
+      printClassInformation(ABSTRACT_CLASS);
     }
     printDefines();
     listAllMembers(cd);
@@ -280,18 +280,18 @@ void DoxyparseResults::cModule(ClassDef* cd) {
     MemberListIterator mli(*ml);
     MemberDef* md;
     for (mli.toFirst(); (md=mli.current()); ++mli) {
-      printDefinition("variable", cd->name().data() + std::string("::") + md->name().data(), md->getDefLine(), md);
+      printDefinition(VARIABLE, cd->name().data() + std::string("::") + md->name().data(), md->getDefLine(), md);
     }
   }
 }
 
 void DoxyparseResults::printInheritance(std::string base_class) {
 
-  *yaml << YAML::Key << "inherits" << YAML::Value << base_class;
+  *yaml << YAML::Key << INHERITS << YAML::Value << base_class;
 }
 
 void DoxyparseResults::printClassInformation(std::string information) {
-  *yaml << YAML::Key << "informations" << YAML::Value << information;
+  *yaml << YAML::Key << INFORMATIONS << YAML::Value << information;
 }
 
 void DoxyparseResults::listAllMembers(ClassDef* cd) {

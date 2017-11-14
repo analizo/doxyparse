@@ -18,6 +18,21 @@ class DoxyparseResults
     void listSymbols();
 
   private:
+    const std::string TYPE = "type";
+    const std::string ABSTRACT_CLASS = "abstract class";
+    const std::string VARIABLE = "variable";
+    const std::string INHERITS = "inherits";
+    const std::string INFORMATIONS = "informations";
+    const std::string DEFINES = "defines";
+    const std::string LINE = "line";
+    const std::string PROTECTION = "protection";
+    const std::string PUBLIC = "public";
+    const std::string LINES_OF_CODE = "lines_of_code";
+    const std::string PARAMETERS = "parameters";
+    const std::string USES = "uses";
+    const std::string DEFINED_IN = "defined_in";
+    const std::string CONDITIONAL_PATHS = "conditional_paths";
+
     bool is_c_code;
     std::map<std::string, bool> modules;
     std::string current_module;
