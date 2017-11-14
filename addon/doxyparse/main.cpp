@@ -32,7 +32,7 @@ int main(int argc,char **argv)
 
   doxyparse.configure();
 
-  if(!doxyparse.setInput(argc, argv))
+  if(!doxyparse.set_input(argc, argv))
   {
     exit(1);
   }
@@ -40,6 +40,5 @@ int main(int argc,char **argv)
   doxyparse.parse();
 
   doxyparse.listResults();
-
   exit(0);
 }

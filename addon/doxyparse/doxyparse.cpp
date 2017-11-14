@@ -16,7 +16,7 @@ void Doxyparse::configure()
   doxyparseConfig.config();
 }
 
-bool Doxyparse::setInput(int argc, char **argv)
+bool Doxyparse::set_input(int argc, char **argv)
 {
   DoxyparseInput doxyparseInput;
   const bool successful_set_the_input = doxyparseInput.set(argc, argv);
