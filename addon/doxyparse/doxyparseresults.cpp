@@ -115,43 +115,25 @@ void DoxyparseResults::listMembers(MemberList *ml) {
     MemberListIterator mli(*ml);
     MemberDef *md;
     for (mli.toFirst(); (md=mli.current()); ++mli) {
-      *yaml << YAML::BeginMap;
-      lookupSymbol((Definition*) md);
-      *yaml << YAML::EndMap;
-    }
-  }
-}
-
-void DoxyparseResults::listMembers2(MemberList *ml) {
-  if (ml) {
-    MemberListIterator mli(*ml);
-    MemberDef *md;
-    for (mli.toFirst(); (md=mli.current()); ++mli) {
-      *yaml << YAML::BeginMap;
-      lookupSymbol((Definition*) md);
-      *yaml << YAML::EndMap;
+      if (md->definitionType() == Definition::TypeMember) {
+        *yaml << YAML::BeginMap;
+        lookupSymbol((Definition*) md);
+        *yaml << YAML::EndMap;
+      }
     }
   }
 }
 
 void DoxyparseResults::printDefines() {
-  if (!modules[current_module]) {
-    *yaml << YAML::Key << "defines" << YAML::Value;
-    // printf("    defines:\n");
-  } else {
-    *yaml << YAML::Key << "defines" << YAML::Value;
-    // printf("    defines:\n");
-  }
+  *yaml << YAML::Key << "defines" << YAML::Value;
   modules[current_module] = true;
 }
 
 void DoxyparseResults::lookupSymbol(Definition *d) {
-  if (d->definitionType() == Definition::TypeMember) {
     MemberDef *md = (MemberDef *)d;
     std::string type = md->memberTypeName().data();
     std::string signature = functionSignature(md);
     printDefinition(type, signature, md->getDefLine(), d);
-  }
 }
 
 void DoxyparseResults::printDefinition(std::string type,
@@ -315,10 +297,10 @@ void DoxyparseResults::printClassInformation(std::string information) {
 void DoxyparseResults::listAllMembers(ClassDef* cd) {
   *yaml << YAML::BeginSeq;
   // methods
-  listMembers2(cd->getMemberList(MemberListType_functionMembers));
+  listMembers(cd->getMemberList(MemberListType_functionMembers));
   // constructors
-  listMembers2(cd->getMemberList(MemberListType_constructors));
+  listMembers(cd->getMemberList(MemberListType_constructors));
   // attributes
-  listMembers2(cd->getMemberList(MemberListType_variableMembers));
+  listMembers(cd->getMemberList(MemberListType_variableMembers));
   *yaml << YAML::EndSeq;
 }
