@@ -64,5 +64,9 @@ class DoxyparseResults
     void printInheritance(std::string base_class);
     void printClassInformation(std::string information);
     void listAllMembers(ClassDef* cd);
+    void addValue(std::string key, std::string value);
+    void addValue(std::string key);
+    void addKeyYaml(std::string key);
+
 };
 #endif

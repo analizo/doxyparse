@@ -24,7 +24,7 @@ void DoxyparseResults::listSymbols()
     yaml = new YAML::Emitter();
     *yaml << YAML::BeginMap;
     for (; (fd=fni.current()); ++fni) {
-      printFile(fd->absFilePath().data());
+      addKeyYaml(fd->absFilePath().data());
       ClassSDict *classes = fd->getClassSDict();
       MemberList *ml = fd->getMemberList(MemberListType_allMembersList);
       if (ml && ml->count() > 0 || classes){
@@ -35,9 +35,9 @@ void DoxyparseResults::listSymbols()
 
       bool has_struct = false;
       if (ml && ml->count() > 0) {
-        printModule(fd->getOutputFileBase().data());
+        addValue(fd->getOutputFileBase().data());
         *yaml << YAML::BeginMap;
-        printDefines();
+        addValue(DEFINES);
         *yaml << YAML::BeginSeq;
         listMembers(ml);
         if (classes && is_c_code) {
@@ -101,10 +101,26 @@ bool DoxyparseResults::checkLanguage(std::string& filename, std::string extensio
   }
 }
 
+void DoxyparseResults::addKeyYaml(std::string key) {
+  *yaml << YAML::Key << key;
+}
+
+void DoxyparseResults::addValue(std::string key, std::string value) {
+  addKeyYaml(key);
+  *yaml << YAML::Value << value;
+}
+
+void DoxyparseResults::addValue(std::string key) {
+  addKeyYaml(key);
+  *yaml << YAML::Value;
+}
+
+//TODO: DELETE METHOD
 void DoxyparseResults::printFile(std::string file) {
   *yaml << YAML::Key << file;
 }
 
+//TODO: DELETE METHOD
 void DoxyparseResults::printModule(std::string module) {
   current_module = module;
   *yaml << YAML::Key << module << YAML::Value;
@@ -124,6 +140,7 @@ void DoxyparseResults::listMembers(MemberList *ml) {
   }
 }
 
+//TODO: DELETE METHOD
 void DoxyparseResults::printDefines() {
   *yaml << YAML::Key << DEFINES << YAML::Value;
   modules[current_module] = true;
@@ -193,8 +210,8 @@ void DoxyparseResults::printReferenceTo(std::string type, std::string signature,
                       std::string defined_in) {
   *yaml << YAML::Key << YAML::DoubleQuoted << signature << YAML::Value;
   *yaml << YAML::BeginMap;
-  *yaml << YAML::Key << TYPE << YAML::Value << type;
-  *yaml << YAML::Key << DEFINED_IN << YAML::Value << defined_in;
+  addValue(TYPE, type);
+  addValue(DEFINED_IN, defined_in);
   *yaml << YAML::EndMap;
 }
 
@@ -255,20 +272,20 @@ void DoxyparseResults::classInformation(ClassDef* cd) {
   if (is_c_code) {
     cModule(cd);
   } else {
-    printModule(cd->name().data());
+    addValue(cd->name().data());
     BaseClassList* baseClasses = cd->baseClasses();
     *yaml << YAML::BeginMap;
     if (baseClasses) {
       BaseClassListIterator bci(*baseClasses);
       BaseClassDef* bcd;
       for (bci.toFirst(); (bcd = bci.current()); ++bci) {
-        printInheritance(bcd->classDef->name().data());
+        addValue(INHERITS, bcd->classDef->name().data());
       }
     }
     if(cd->isAbstract()) {
-      printClassInformation(ABSTRACT_CLASS);
+      addValue(INFORMATIONS, ABSTRACT_CLASS);
     }
-    printDefines();
+    addValue(DEFINES);
     listAllMembers(cd);
     *yaml << YAML::EndMap;
   }
@@ -285,11 +302,14 @@ void DoxyparseResults::cModule(ClassDef* cd) {
   }
 }
 
+//TODO: DELETE METHOD
 void DoxyparseResults::printInheritance(std::string base_class) {
 
   *yaml << YAML::Key << INHERITS << YAML::Value << base_class;
 }
 
+
+//TODO: DELETE METHOD
 void DoxyparseResults::printClassInformation(std::string information) {
   *yaml << YAML::Key << INFORMATIONS << YAML::Value << information;
 }
