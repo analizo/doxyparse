@@ -8,22 +8,24 @@ DoxyparseResults::DoxyparseResults()
 
 DoxyparseResults::~DoxyparseResults() {}
 
+FileNameListIterator DoxyparseResults::getFiles()
+{
+    FileNameListIterator file_namelist_iterator(*Doxygen::inputNameList);
+    return file_namelist_iterator;
+}
 
 void DoxyparseResults::listSymbols()
 {
-  // iterate over the input files
-  FileNameListIterator fnli(*Doxygen::inputNameList);
-  FileName *fn;
+  FileNameListIterator file_namelist_iterator = this->getFiles();
+  this->detectIsCCode(file_namelist_iterator);
+  file_namelist_iterator.toFirst();
 
-  detectProgrammingLanguage(fnli);
+  for (FileName *file_name; (file_name=file_namelist_iterator.current()); ++file_namelist_iterator) {
+    FileNameIterator fni(*file_name);
 
-  // for each file
-  for (fnli.toFirst(); (fn=fnli.current()); ++fnli) {
-    FileNameIterator fni(*fn);
-    FileDef *fd;
     yaml = new YAML::Emitter();
     *yaml << YAML::BeginMap;
-    for (; (fd=fni.current()); ++fni) {
+    for (FileDef *fd; (fd=fni.current()); ++fni) {
       addKeyYaml(fd->absFilePath().data());
       ClassSDict *classes = fd->getClassSDict();
       MemberList *ml = fd->getMemberList(MemberListType_allMembersList);
@@ -75,9 +77,9 @@ void DoxyparseResults::listSymbols()
 
 /* Detects the programming language of the project. Actually, we only care
  * about whether it is a C project or not. */
-void DoxyparseResults::detectProgrammingLanguage(FileNameListIterator& fnli) {
+void DoxyparseResults::detectIsCCode(FileNameListIterator& file_namelist_iterator) {
   FileName* fn;
-  for (fnli.toFirst(); (fn=fnli.current()); ++fnli) {
+  for (file_namelist_iterator.toFirst(); (fn=file_namelist_iterator.current()); ++file_namelist_iterator) {
     std::string filename = fn->fileName();
     if (
         checkLanguage(filename, ".cc") ||
@@ -131,11 +133,21 @@ void DoxyparseResults::listMembers(MemberList *ml) {
     MemberListIterator mli(*ml);
     MemberDef *md;
     for (mli.toFirst(); (md=mli.current()); ++mli) {
-      if (md->definitionType() == Definition::TypeMember) {
-        *yaml << YAML::BeginMap;
-        lookupSymbol((Definition*) md);
-        *yaml << YAML::EndMap;
-      }
+      *yaml << YAML::BeginMap;
+      lookupSymbol((Definition*) md);
+      *yaml << YAML::EndMap;
+    }
+  }
+}
+
+void DoxyparseResults::listMembers2(MemberList *ml) {
+  if (ml) {
+    MemberListIterator mli(*ml);
+    MemberDef *md;
+    for (mli.toFirst(); (md=mli.current()); ++mli) {
+      *yaml << YAML::BeginMap;
+      lookupSymbol((Definition*) md);
+      *yaml << YAML::EndMap;
     }
   }
 }
@@ -147,10 +159,12 @@ void DoxyparseResults::printDefines() {
 }
 
 void DoxyparseResults::lookupSymbol(Definition *d) {
+  if (d->definitionType() == Definition::TypeMember) {
     MemberDef *md = (MemberDef *)d;
     std::string type = md->memberTypeName().data();
     std::string signature = functionSignature(md);
     printDefinition(type, signature, md->getDefLine(), d);
+  }
 }
 
 void DoxyparseResults::printDefinition(std::string type,
@@ -317,10 +331,10 @@ void DoxyparseResults::printClassInformation(std::string information) {
 void DoxyparseResults::listAllMembers(ClassDef* cd) {
   *yaml << YAML::BeginSeq;
   // methods
-  listMembers(cd->getMemberList(MemberListType_functionMembers));
+  listMembers2(cd->getMemberList(MemberListType_functionMembers));
   // constructors
-  listMembers(cd->getMemberList(MemberListType_constructors));
+  listMembers2(cd->getMemberList(MemberListType_constructors));
   // attributes
-  listMembers(cd->getMemberList(MemberListType_variableMembers));
+  listMembers2(cd->getMemberList(MemberListType_variableMembers));
   *yaml << YAML::EndSeq;
 }

@@ -38,7 +38,8 @@ class DoxyparseResults
     std::string current_module;
     YAML::Emitter *yaml;
 
-    void detectProgrammingLanguage(FileNameListIterator& fnli);
+    FileNameListIterator getFiles();
+    void detectIsCCode(FileNameListIterator& fnli);
     bool checkLanguage(std::string& filename, std::string extension);
     void printFile(std::string file);
     void printModule(std::string module);
