@@ -18,11 +18,11 @@ void Doxyparse::configure()
 
 bool Doxyparse::set_input(int argc, char **argv)
 {
-  DoxyparseInput doxyparseInput;
-  const bool successful_set_the_input = doxyparseInput.set(argc, argv);
+  DoxyparseInput doxyparse_input;
+  const bool successful_set_the_input = doxyparse_input.set(argc, argv);
   if(successful_set_the_input)
   {
-    doxyparseInput.parse();
+    doxyparse_input.parse();
   }
   return successful_set_the_input;
 }

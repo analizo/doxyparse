@@ -6,11 +6,13 @@ Doxyparser::~Doxyparser(){}
 void Doxyparser::parseReferences()
 {
   // iterate over the input files
-  FileNameListIterator fnli(*Doxygen::inputNameList);
-  FileName *fn;
+  FileNameListIterator fileNameListIterator(*Doxygen::inputNameList);
+  FileName *fileName;
   // for each file with a certain name
-  for (fnli.toFirst();(fn=fnli.current());++fnli) {
-    FileNameIterator fni(*fn);
+  for (fileNameListIterator.toFirst();(fileName=fileNameListIterator.current());
+    ++fileNameListIterator) {
+
+    FileNameIterator fni(*fileName);
     FileDef *fd;
     // for each file definition
     for (;(fd=fni.current());++fni) {
