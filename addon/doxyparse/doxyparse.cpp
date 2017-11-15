@@ -30,7 +30,7 @@ bool Doxyparse::set_input(int argc, char **argv)
 void Doxyparse::parse()
 {
   Doxyparser doxyparser;
-  doxyparser.parseReferences();
+  doxyparser.parse_references();
 }
 
 void Doxyparse::listResults()

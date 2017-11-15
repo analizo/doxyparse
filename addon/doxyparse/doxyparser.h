@@ -14,10 +14,10 @@ class Doxyparser
     Doxyparser();
    ~Doxyparser();
 
-    void parseReferences();
+    void parse_references();
 
   private:
-    void findXRefSymbols(FileDef *fd);
+    void find_x_ref_symbols(FileDef *fd);
 };
 
 #endif
