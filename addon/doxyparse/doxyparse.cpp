@@ -12,8 +12,8 @@ Doxyparse::~Doxyparse()
 
 void Doxyparse::configure()
 {
-  DoxyparseConfig doxyparseConfig;
-  doxyparseConfig.config();
+  DoxyparseConfig doxyparse_config;
+  doxyparse_config.config();
 }
 
 bool Doxyparse::set_input(int argc, char **argv)
