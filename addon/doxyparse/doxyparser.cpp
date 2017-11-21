@@ -27,8 +27,6 @@ void Doxyparser::find_x_ref_symbols(FileDef *file_def)
   // get the interface to a parser that matches the file extension
   ParserInterface *p_intf = Doxygen::parserManager->getParser(file_def->getDefFileExtension());
 
-  printf("este é o getDefFileExtension: %s" , file_def->getDefFileExtension());
-  printf("terminou");
   // get the programming language from the file name
   SrcLangExt lang = getLanguageFromFileName(file_def->name());
 
