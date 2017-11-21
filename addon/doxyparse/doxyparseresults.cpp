@@ -131,17 +131,6 @@ void DoxyparseResults::addValue(std::string key) {
   *this->yaml << YAML::Value;
 }
 
-//TODO: DELETE METHOD
-void DoxyparseResults::printFile(std::string file) {
-  *this->yaml << YAML::Key << file << YAML::Value;
-}
-
-//TODO: DELETE METHOD
-void DoxyparseResults::printModule(std::string module) {
-  current_module = module;
-  *yaml << YAML::Key << module << YAML::Value;
-}
-
 void DoxyparseResults::listMembers(MemberList *ml) {
   if (ml) {
     MemberListIterator mli(*ml);
@@ -152,12 +141,6 @@ void DoxyparseResults::listMembers(MemberList *ml) {
       *yaml << YAML::EndMap;
     }
   }
-}
-
-//TODO: DELETE METHOD
-void DoxyparseResults::printDefines() {
-  *yaml << YAML::Key << DEFINES << YAML::Value;
-  modules[current_module] = true;
 }
 
 void DoxyparseResults::lookupSymbol(Definition *d) {
@@ -210,21 +193,6 @@ void DoxyparseResults::functionInformation(MemberDef* md) {
   }
 }
 
-//TODO: DELETE METHOD
-void DoxyparseResults::printNumberOfLines(int lines) {
-  *yaml << YAML::Key << LINES_OF_CODE << YAML::Value << lines;
-}
-
-//TODO: DELETE METHOD
-void DoxyparseResults::printNumberOfArguments(int arguments) {
-  *yaml << YAML::Key << PARAMETERS << YAML::Value << arguments;
-}
-
-//TODO: DELETE METHOD
-void DoxyparseResults::printUses() {
-  *yaml << YAML::Key << USES << YAML::Value;
-}
-
 void DoxyparseResults::printReferenceTo(std::string type, std::string signature,
                       std::string defined_in) {
   *yaml << YAML::Key << YAML::DoubleQuoted << signature << YAML::Value;
@@ -232,12 +200,6 @@ void DoxyparseResults::printReferenceTo(std::string type, std::string signature,
   addValue(TYPE, type); //Print type
   addValue(DEFINED_IN, defined_in); //Print line definition
   *yaml << YAML::EndMap;
-}
-
-//TODO: DELETE METHOD
-void DoxyparseResults::printNumberOfConditionalPaths(MemberDef* md) {
-  *yaml << YAML::Key << CONDITIONAL_PATHS;
-  *yaml << YAML::Value << md->numberOfFlowKeyWords();
 }
 
 bool DoxyparseResults::ignoreStaticExternalCall(MemberDef *context, MemberDef *md) {
@@ -320,18 +282,6 @@ void DoxyparseResults::cModule(ClassDef* cd) {
       printDefinition(VARIABLE, cd->name().data() + std::string("::") + md->name().data(), md->getDefLine(), md);
     }
   }
-}
-
-//TODO: DELETE METHOD
-void DoxyparseResults::printInheritance(std::string base_class) {
-
-  *yaml << YAML::Key << INHERITS << YAML::Value << base_class;
-}
-
-
-//TODO: DELETE METHOD
-void DoxyparseResults::printClassInformation(std::string information) {
-  *yaml << YAML::Key << INFORMATIONS << YAML::Value << information;
 }
 
 void DoxyparseResults::listAllMembers(ClassDef* cd) {
