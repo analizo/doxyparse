@@ -44,32 +44,7 @@ void DoxyparseResults::listSymbols()
 
       this->verifyEmptyMemberListOrClasses(member_list, classes, YAML::BeginMap);
 
-      if (member_list && member_list->count() > 0) {
-        addValue(file_definition->getOutputFileBase().data()); //Print module
-        addValue(DEFINES, YAML::BeginMap); //Print defines
-        *this->yaml << YAML::BeginSeq;
-        listMembers(member_list);
-
-        if (classes && is_c_code) {
-          *this->yaml << YAML::BeginMap;
-          ClassSDict::Iterator cli(*classes);
-          ClassDef *cd;
-          for (cli.toFirst(); (cd = cli.current()); ++cli) {
-            classInformation(cd);
-          }
-          *this->yaml << YAML::EndMap;
-        }
-        *this->yaml << YAML::EndSeq;
-        *this->yaml << YAML::EndMap;
-      }
-
-      if (classes && !is_c_code) {
-        ClassSDict::Iterator cli(*classes);
-        ClassDef *cd;
-        for (cli.toFirst(); (cd = cli.current()); ++cli) {
-          classInformation(cd);
-        }
-      }
+      this->loadFileMembersIntoYaml(member_list, file_definition, classes);
 
       this->verifyEmptyMemberListOrClasses(member_list, classes, YAML::EndMap);
     }
@@ -78,6 +53,36 @@ void DoxyparseResults::listSymbols()
     delete this->yaml;
   }
   // TODO print external symbols referenced
+}
+
+void DoxyparseResults::loadFileMembersIntoYaml(MemberList *member_list, FileDef *file_definition, ClassSDict *classes) {
+  if (member_list) {
+
+    this->addValue(file_definition->getOutputFileBase().data());
+    this->addValue(DEFINES, YAML::BeginMap);
+    *this->yaml << YAML::BeginSeq;
+    this->listMembers(member_list);
+
+    if (classes && is_c_code) {
+      *this->yaml << YAML::BeginMap;
+      ClassSDict::Iterator cli(*classes);
+      ClassDef *cd;
+      for (cli.toFirst(); (cd = cli.current()); ++cli) {
+        this->cModule(cd);
+      }
+      *this->yaml << YAML::EndMap;
+    }
+    *this->yaml << YAML::EndSeq;
+    *this->yaml << YAML::EndMap;
+  }
+
+  if (classes && !is_c_code) {
+    ClassSDict::Iterator cli(*classes);
+    ClassDef *cd;
+    for (cli.toFirst(); (cd = cli.current()); ++cli) {
+      this->classInformation(cd);
+    }
+  }
 }
 
 /* Detects the programming language of the project. Actually, we only care
@@ -251,26 +256,22 @@ std::string DoxyparseResults::functionSignature(MemberDef* md) {
 }
 
 void DoxyparseResults::classInformation(ClassDef* cd) {
-  if (is_c_code) {
-    cModule(cd);
-  } else {
-    addValue(cd->name().data()); //Print module name
-    BaseClassList* baseClasses = cd->baseClasses();
-    *yaml << YAML::BeginMap;
-    if (baseClasses) {
-      BaseClassListIterator bci(*baseClasses);
-      BaseClassDef* bcd;
-      for (bci.toFirst(); (bcd = bci.current()); ++bci) {
-        addValue(INHERITS, bcd->classDef->name().data()); //Print inherits
-      }
+  addValue(cd->name().data());
+  BaseClassList* baseClasses = cd->baseClasses();
+  *yaml << YAML::BeginMap;
+  if (baseClasses) {
+    BaseClassListIterator bci(*baseClasses);
+    BaseClassDef* bcd;
+    for (bci.toFirst(); (bcd = bci.current()); ++bci) {
+      addValue(INHERITS, bcd->classDef->name().data());
     }
-    if(cd->isAbstract()) {
-      addValue(INFORMATIONS, ABSTRACT_CLASS); //Print class information
-    }
-    addValue(DEFINES); //Print defines
-    listAllMembers(cd);
-    *yaml << YAML::EndMap;
   }
+  if(cd->isAbstract()) {
+    addValue(INFORMATIONS, ABSTRACT_CLASS);
+  }
+  addValue(DEFINES);
+  listAllMembers(cd);
+  *yaml << YAML::EndMap;
 }
 
 void DoxyparseResults::cModule(ClassDef* cd) {
