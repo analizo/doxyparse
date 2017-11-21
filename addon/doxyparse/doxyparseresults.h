@@ -69,6 +69,7 @@ class DoxyparseResults
     void printClassInformation(std::string information);
     void listAllMembers(ClassDef* cd);
     void addValue(std::string key, std::string value);
+    void addValue(std::string key, int value);
     void addValue(std::string key);
     void addValue(std::string key, enum YAML::EMITTER_MANIP value);
     void addKeyYaml(std::string key);
