@@ -44,16 +44,15 @@ void DoxyparseResults::listSymbols()
 
       this->verifyEmptyMemberListOrClasses(member_list, classes, YAML::BeginMap);
 
-      bool has_struct = false;
       if (member_list && member_list->count() > 0) {
+
         addValue(file_definition->getOutputFileBase().data());
-        *this->yaml << YAML::BeginMap;
-        addValue(DEFINES);
+        addValue(DEFINES, YAML::BeginMap);
         *this->yaml << YAML::BeginSeq;
         listMembers(member_list);
+
         if (classes && is_c_code) {
           *this->yaml << YAML::BeginMap;
-          has_struct = true;
           ClassSDict::Iterator cli(*classes);
           ClassDef *cd;
           for (cli.toFirst(); (cd = cli.current()); ++cli) {
@@ -65,7 +64,7 @@ void DoxyparseResults::listSymbols()
         *this->yaml << YAML::EndMap;
       }
 
-      if (classes && !has_struct) {
+      if (classes && !is_c_code) {
         ClassSDict::Iterator cli(*classes);
         ClassDef *cd;
         for (cli.toFirst(); (cd = cli.current()); ++cli) {
@@ -111,17 +110,22 @@ bool DoxyparseResults::checkLanguage(std::string& filename, std::string extensio
 }
 
 void DoxyparseResults::addKeyYaml(std::string key) {
-  *yaml << YAML::Key << key;
+  *this->yaml << YAML::Key << key;
+}
+
+void DoxyparseResults::addValue(std::string key, enum YAML::EMITTER_MANIP value) {
+  *this->yaml << value;
+  this->addValue(key);
 }
 
 void DoxyparseResults::addValue(std::string key, std::string value) {
   addKeyYaml(key);
-  *yaml << YAML::Value << value;
+  *this->yaml << YAML::Value << value;
 }
 
 void DoxyparseResults::addValue(std::string key) {
   addKeyYaml(key);
-  *yaml << YAML::Value;
+  *this->yaml << YAML::Value;
 }
 
 //TODO: DELETE METHOD
@@ -136,18 +140,6 @@ void DoxyparseResults::printModule(std::string module) {
 }
 
 void DoxyparseResults::listMembers(MemberList *ml) {
-  if (ml) {
-    MemberListIterator mli(*ml);
-    MemberDef *md;
-    for (mli.toFirst(); (md=mli.current()); ++mli) {
-      *yaml << YAML::BeginMap;
-      lookupSymbol((Definition*) md);
-      *yaml << YAML::EndMap;
-    }
-  }
-}
-
-void DoxyparseResults::listMembers2(MemberList *ml) {
   if (ml) {
     MemberListIterator mli(*ml);
     MemberDef *md;
@@ -338,10 +330,10 @@ void DoxyparseResults::printClassInformation(std::string information) {
 void DoxyparseResults::listAllMembers(ClassDef* cd) {
   *yaml << YAML::BeginSeq;
   // methods
-  listMembers2(cd->getMemberList(MemberListType_functionMembers));
+  listMembers(cd->getMemberList(MemberListType_functionMembers));
   // constructors
-  listMembers2(cd->getMemberList(MemberListType_constructors));
+  listMembers(cd->getMemberList(MemberListType_constructors));
   // attributes
-  listMembers2(cd->getMemberList(MemberListType_variableMembers));
+  listMembers(cd->getMemberList(MemberListType_variableMembers));
   *yaml << YAML::EndSeq;
 }
