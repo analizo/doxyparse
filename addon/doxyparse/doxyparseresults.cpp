@@ -10,8 +10,8 @@ DoxyparseResults::~DoxyparseResults() {}
 
 FileNameListIterator DoxyparseResults::getFiles()
 {
-    FileNameListIterator file_namelist_iterator(*Doxygen::inputNameList);
-    return file_namelist_iterator;
+    FileNameListIterator file_name_list_iterator(*Doxygen::inputNameList);
+    return file_name_list_iterator;
 }
 
 void DoxyparseResults::verifyEmptyMemberListOrClasses(MemberList *member_list, ClassSDict *classes, enum YAML::EMITTER_MANIP value){
@@ -26,25 +26,25 @@ void DoxyparseResults::verifyEmptyMemberListOrClasses(MemberList *member_list, C
 
 void DoxyparseResults::listSymbols()
 {
-  FileNameListIterator file_namelist_iterator = this->getFiles();
-  this->detectIsCCode(file_namelist_iterator);
-  file_namelist_iterator.toFirst();
+  FileNameListIterator file_name_list_iterator = this->getFiles();
+  this->detectIsCCode(file_name_list_iterator);
+  file_name_list_iterator.toFirst();
 
-  for (FileName *file_name; (file_name=file_namelist_iterator.current()); ++file_namelist_iterator) {
+  for (FileName *file_name; (file_name=file_name_list_iterator.current()); ++file_name_list_iterator) {
     FileNameIterator file_name_iterator(*file_name);
 
     this->yaml = new YAML::Emitter();
     *this->yaml << YAML::BeginMap;
 
-    for (FileDef *file_definition; (file_definition=file_name_iterator.current()); ++file_name_iterator) {
-      addKeyYaml(file_definition->absFilePath().data()); //Print file
+    for (FileDef *file_def; (file_def=file_name_iterator.current()); ++file_name_iterator) {
+      addKeyYaml(file_def->absFilePath().data()); //Print file
 
-      ClassSDict *classes = file_definition->getClassSDict();
-      MemberList *member_list = file_definition->getMemberList(MemberListType_allMembersList);
+      ClassSDict *classes = file_def->getClassSDict();
+      MemberList *member_list = file_def->getMemberList(MemberListType_allMembersList);
 
       this->verifyEmptyMemberListOrClasses(member_list, classes, YAML::BeginMap);
 
-      this->loadFileMembersIntoYaml(member_list, file_definition, classes);
+      this->loadFileMembersIntoYaml(member_list, file_def, classes);
 
       this->verifyEmptyMemberListOrClasses(member_list, classes, YAML::EndMap);
     }
@@ -55,20 +55,20 @@ void DoxyparseResults::listSymbols()
   // TODO print external symbols referenced
 }
 
-void DoxyparseResults::loadFileMembersIntoYaml(MemberList *member_list, FileDef *file_definition, ClassSDict *classes) {
+void DoxyparseResults::loadFileMembersIntoYaml(MemberList *member_list, FileDef *file_def, ClassSDict *classes) {
   if (member_list) {
 
-    this->addValue(file_definition->getOutputFileBase().data());
+    this->addValue(file_def->getOutputFileBase().data());
     this->addValue(DEFINES, YAML::BeginMap);
     *this->yaml << YAML::BeginSeq;
     this->listMembers(member_list);
 
     if (classes && is_c_code) {
       *this->yaml << YAML::BeginMap;
-      ClassSDict::Iterator cli(*classes);
-      ClassDef *cd;
-      for (cli.toFirst(); (cd = cli.current()); ++cli) {
-        this->cModule(cd);
+      ClassSDict::Iterator class_element_iterator(*classes);
+      ClassDef *class_def;
+      for (class_element_iterator.toFirst(); (class_def = class_element_iterator.current()); ++class_element_iterator) {
+        this->cModule(class_def);
       }
       *this->yaml << YAML::EndMap;
     }
@@ -77,20 +77,20 @@ void DoxyparseResults::loadFileMembersIntoYaml(MemberList *member_list, FileDef 
   }
 
   if (classes && !is_c_code) {
-    ClassSDict::Iterator cli(*classes);
-    ClassDef *cd;
-    for (cli.toFirst(); (cd = cli.current()); ++cli) {
-      this->classInformation(cd);
+    ClassSDict::Iterator class_element_iterator(*classes);
+    ClassDef *class_def;
+    for (class_element_iterator.toFirst(); (class_def = class_element_iterator.current()); ++class_element_iterator) {
+      this->classInformation(class_def);
     }
   }
 }
 
 /* Detects the programming language of the project. Actually, we only care
  * about whether it is a C project or not. */
-void DoxyparseResults::detectIsCCode(FileNameListIterator& file_namelist_iterator) {
-  FileName* fn;
-  for (file_namelist_iterator.toFirst(); (fn=file_namelist_iterator.current()); ++file_namelist_iterator) {
-    std::string filename = fn->fileName();
+void DoxyparseResults::detectIsCCode(FileNameListIterator& file_name_list_iterator) {
+  FileName* file_name;
+  for (file_name_list_iterator.toFirst(); (file_name=file_name_list_iterator.current()); ++file_name_list_iterator) {
+    std::string filename = file_name->fileName();
     if (
         checkLanguage(filename, ".cc") ||
         checkLanguage(filename, ".cxx") ||
@@ -136,61 +136,61 @@ void DoxyparseResults::addValue(std::string key) {
   *this->yaml << YAML::Value;
 }
 
-void DoxyparseResults::listMembers(MemberList *ml) {
-  if (ml) {
-    MemberListIterator mli(*ml);
-    MemberDef *md;
-    for (mli.toFirst(); (md=mli.current()); ++mli) {
+void DoxyparseResults::listMembers(MemberList *member_list) {
+  if (member_list) {
+    MemberListIterator member_list_iterator(*member_list);
+    MemberDef *member_def;
+    for (member_list_iterator.toFirst(); (member_def=member_list_iterator.current()); ++member_list_iterator) {
       *yaml << YAML::BeginMap;
-      lookupSymbol((Definition*) md);
+      lookupSymbol((Definition*) member_def);
       *yaml << YAML::EndMap;
     }
   }
 }
 
-void DoxyparseResults::lookupSymbol(Definition *d) {
-  if (d->definitionType() == Definition::TypeMember) {
-    MemberDef *md = (MemberDef *)d;
-    std::string type = md->memberTypeName().data();
-    std::string signature = functionSignature(md);
-    printDefinition(type, signature, md->getDefLine(), d);
+void DoxyparseResults::lookupSymbol(Definition *def) {
+  if (def->definitionType() == Definition::TypeMember) {
+    MemberDef *member_def = (MemberDef *)def;
+    std::string type = member_def->memberTypeName().data();
+    std::string signature = functionSignature(member_def);
+    printDefinition(type, signature, member_def->getDefLine(), def);
   }
 }
 
 void DoxyparseResults::printDefinition(std::string type,
                                        std::string signature,
                                        int line,
-                                       Definition *d) {
-  MemberDef *md = (MemberDef *)d;
+                                       Definition *def) {
+  MemberDef *member_def = (MemberDef *)def;
   *yaml << YAML::Key << YAML::DoubleQuoted << signature << YAML::Value;
   *yaml << YAML::BeginMap;
   addValue(TYPE, type); //Print type
   addValue(LINE, line); //Print number line
-  if (md->protection() == Public) {
+  if (member_def->protection() == Public) {
     addValue(PROTECTION, PUBLIC);
   }
-  if (md->isFunction()) {
-    functionInformation(md);
+  if (member_def->isFunction()) {
+    functionInformation(member_def);
   }
   *yaml << YAML::EndMap;
 }
 
-void DoxyparseResults::functionInformation(MemberDef* md) {
-  int size = md->getEndBodyLine() - md->getStartBodyLine() + 1;
+void DoxyparseResults::functionInformation(MemberDef* member_def) {
+  int size = member_def->getEndBodyLine() - member_def->getStartBodyLine() + 1;
   addValue(LINES_OF_CODE, size); //Print number of lines
-  ArgumentList *argList = md->argumentList();
+  ArgumentList *argList = member_def->argumentList();
   addValue(PARAMETERS, argList->count()); //Print number of arguments
-  addValue(CONDITIONAL_PATHS, md->numberOfFlowKeyWords()); //Print number of conditional paths
-  MemberSDict *defDict = md->getReferencesMembers();
-  if (defDict) {
-    MemberSDict::Iterator msdi(*defDict);
-    MemberDef *rmd;
+  addValue(CONDITIONAL_PATHS, member_def->numberOfFlowKeyWords()); //Print number of conditional paths
+  MemberSDict *def_dict = member_def->getReferencesMembers();
+  if (def_dict) {
+    MemberSDict::Iterator member_dict_iterator(*def_dict);
+    MemberDef *member_def;
     addValue(USES); //Print uses
     *yaml << YAML::BeginSeq;
-    for (msdi.toFirst(); (rmd=msdi.current()); ++msdi) {
-      if (rmd->definitionType() == Definition::TypeMember && !ignoreStaticExternalCall(md, rmd)) {
+    for (member_dict_iterator.toFirst(); (member_def=member_dict_iterator.current()); ++member_dict_iterator) {
+      if (member_def->definitionType() == Definition::TypeMember && !ignoreStaticExternalCall(member_def, member_def)) {
         *yaml << YAML::BeginMap;
-        referenceTo(rmd);
+        referenceTo(member_def);
         *yaml << YAML::EndMap;
       }
     }
@@ -207,40 +207,40 @@ void DoxyparseResults::printReferenceTo(std::string type, std::string signature,
   *yaml << YAML::EndMap;
 }
 
-bool DoxyparseResults::ignoreStaticExternalCall(MemberDef *context, MemberDef *md) {
-  return md->isStatic() &&
-         md->getFileDef() &&
-         !(md->getFileDef()->getOutputFileBase() == context->getFileDef()->getOutputFileBase());
+bool DoxyparseResults::ignoreStaticExternalCall(MemberDef *context, MemberDef *member_def) {
+  return member_def->isStatic() &&
+         member_def->getFileDef() &&
+         !(member_def->getFileDef()->getOutputFileBase() == context->getFileDef()->getOutputFileBase());
 }
 
-void DoxyparseResults::referenceTo(MemberDef* md) {
-  std::string type = md->memberTypeName().data();
+void DoxyparseResults::referenceTo(MemberDef* member_def) {
+  std::string type = member_def->memberTypeName().data();
   std::string defined_in = "";
   std::string signature = "";
-  if (isPartOfCStruct(md)) {
-    signature = md->getClassDef()->name().data() + std::string("::") + functionSignature(md);
-    defined_in = md->getClassDef()->getFileDef()->getOutputFileBase().data();
+  if (isPartOfCStruct(member_def)) {
+    signature = member_def->getClassDef()->name().data() + std::string("::") + functionSignature(member_def);
+    defined_in = member_def->getClassDef()->getFileDef()->getOutputFileBase().data();
   }
   else {
-    signature = functionSignature(md);
-    if (md->getClassDef()) {
-      defined_in = md->getClassDef()->name().data();
+    signature = functionSignature(member_def);
+    if (member_def->getClassDef()) {
+      defined_in = member_def->getClassDef()->name().data();
     }
-    else if (md->getFileDef()) {
-      defined_in = md->getFileDef()->getOutputFileBase().data();
+    else if (member_def->getFileDef()) {
+      defined_in = member_def->getFileDef()->getOutputFileBase().data();
     }
   }
   printReferenceTo(type, signature, defined_in);
 }
 
-int DoxyparseResults::isPartOfCStruct(MemberDef * md) {
-  return is_c_code && md->getClassDef() != NULL;
+int DoxyparseResults::isPartOfCStruct(MemberDef * member_def) {
+  return is_c_code && member_def->getClassDef() != NULL;
 }
 
-std::string DoxyparseResults::functionSignature(MemberDef* md) {
-  std::string signature = md->name().data();
-  if(md->isFunction()){
-    ArgumentList *argList = md->argumentList();
+std::string DoxyparseResults::functionSignature(MemberDef* member_def) {
+  std::string signature = member_def->name().data();
+  if(member_def->isFunction()){
+    ArgumentList *argList = member_def->argumentList();
     ArgumentListIterator iterator(*argList);
     signature += "(";
     Argument * argument = iterator.toFirst();
@@ -255,43 +255,43 @@ std::string DoxyparseResults::functionSignature(MemberDef* md) {
   return signature;
 }
 
-void DoxyparseResults::classInformation(ClassDef* cd) {
-  addValue(cd->name().data());
-  BaseClassList* baseClasses = cd->baseClasses();
+void DoxyparseResults::classInformation(ClassDef* class_def) {
+  addValue(class_def->name().data());
+  BaseClassList* baseClasses = class_def->baseClasses();
   *yaml << YAML::BeginMap;
   if (baseClasses) {
-    BaseClassListIterator bci(*baseClasses);
-    BaseClassDef* bcd;
-    for (bci.toFirst(); (bcd = bci.current()); ++bci) {
-      addValue(INHERITS, bcd->classDef->name().data());
+    BaseClassListIterator base_list_iterator(*baseClasses);
+    BaseClassDef* base_class_def;
+    for (base_list_iterator.toFirst(); (base_class_def = base_list_iterator.current()); ++base_list_iterator) {
+      addValue(INHERITS, base_class_def->classDef->name().data());
     }
   }
-  if(cd->isAbstract()) {
+  if(class_def->isAbstract()) {
     addValue(INFORMATIONS, ABSTRACT_CLASS);
   }
   addValue(DEFINES);
-  listAllMembers(cd);
+  listAllMembers(class_def);
   *yaml << YAML::EndMap;
 }
 
-void DoxyparseResults::cModule(ClassDef* cd) {
-  MemberList* ml = cd->getMemberList(MemberListType_variableMembers);
-  if (ml) {
-    MemberListIterator mli(*ml);
-    MemberDef* md;
-    for (mli.toFirst(); (md=mli.current()); ++mli) {
-      printDefinition(VARIABLE, cd->name().data() + std::string("::") + md->name().data(), md->getDefLine(), md);
+void DoxyparseResults::cModule(ClassDef* class_def) {
+  MemberList* member_list = class_def->getMemberList(MemberListType_variableMembers);
+  if (member_list) {
+    MemberListIterator member_list_iterator(*member_list);
+    MemberDef* member_def;
+    for (member_list_iterator.toFirst(); (member_def=member_list_iterator.current()); ++member_list_iterator) {
+      printDefinition(VARIABLE, class_def->name().data() + std::string("::") + member_def->name().data(), member_def->getDefLine(), member_def);
     }
   }
 }
 
-void DoxyparseResults::listAllMembers(ClassDef* cd) {
+void DoxyparseResults::listAllMembers(ClassDef* class_def) {
   *yaml << YAML::BeginSeq;
   // methods
-  listMembers(cd->getMemberList(MemberListType_functionMembers));
+  listMembers(class_def->getMemberList(MemberListType_functionMembers));
   // constructors
-  listMembers(cd->getMemberList(MemberListType_constructors));
+  listMembers(class_def->getMemberList(MemberListType_constructors));
   // attributes
-  listMembers(cd->getMemberList(MemberListType_variableMembers));
+  listMembers(class_def->getMemberList(MemberListType_variableMembers));
   *yaml << YAML::EndSeq;
 }
