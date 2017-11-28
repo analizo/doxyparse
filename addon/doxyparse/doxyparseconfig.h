@@ -19,9 +19,9 @@ class DoxyparseConfig
   private:
     std::ostringstream temporaryDirectory;
 
-    void setDoxyparseConfiguration();
-    void removeTemporaryDirectory();
-    const char* getTemporaryDirectoryPath();
+    void set_doxyparse_configuration();
+    void remove_temporary_directory();
+    const char* get_temporary_directory_path();
 };
 
 #endif

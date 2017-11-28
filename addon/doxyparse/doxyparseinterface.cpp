@@ -1,6 +1,6 @@
 #include "doxyparseinterface.h"
 
-void DoxyparseInterface::linkableSymbol(int l, const char *sym,
+void DoxyparseInterface::linkable_symbol(int l, const char *sym,
 	Definition *symDef, Definition *context)
 {
 	if (!symDef) {

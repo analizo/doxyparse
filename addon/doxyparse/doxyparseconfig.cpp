@@ -7,22 +7,22 @@ DoxyparseConfig::DoxyparseConfig()
 
 DoxyparseConfig::~DoxyparseConfig()
 {
-  removeTemporaryDirectory();
+  remove_temporary_directory();
 }
 
 void DoxyparseConfig::config()
 {
-  checkConfiguration();
-  setDoxyparseConfiguration();
+  checkConfiguration(); // doxygen method
+  this->set_doxyparse_configuration();
   adjustConfiguration();
 }
 
-void DoxyparseConfig::setDoxyparseConfiguration()
+void DoxyparseConfig::set_doxyparse_configuration()
 {
   // We need special chars as they are
   Config_getBool(MODIFY_SPECIAL_CHARS)=FALSE;
 
-  Config_getString(OUTPUT_DIRECTORY)= getTemporaryDirectoryPath();
+  Config_getString(OUTPUT_DIRECTORY)= get_temporary_directory_path();
 
   // enable HTML (fake) output to omit warning about missing output format
   Config_getBool(GENERATE_HTML)=TRUE;
@@ -54,12 +54,12 @@ void DoxyparseConfig::setDoxyparseConfiguration()
   Config_getBool(RECURSIVE)=TRUE;
 }
 
-const char* DoxyparseConfig::getTemporaryDirectoryPath()
+const char* DoxyparseConfig::get_temporary_directory_path()
 {
   return temporaryDirectory.str().c_str();
 }
 
-void DoxyparseConfig::removeTemporaryDirectory()
+void DoxyparseConfig::remove_temporary_directory()
 {
   std::string cleanup_command = "rm -rf ";
   cleanup_command += temporaryDirectory.str();

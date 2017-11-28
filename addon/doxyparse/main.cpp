@@ -22,6 +22,7 @@
 
 int main(int argc,char **argv)
 {
+
   if (argc < 2)
   {
     printf("Usage: %s [source_file | source_dir]\n",argv[0]);
@@ -30,9 +31,9 @@ int main(int argc,char **argv)
 
   Doxyparse doxyparse;
 
-  doxyparse.configure();
+  doxyparse.configure(); 
 
-  if(!doxyparse.setInput(argc, argv))
+  if(!doxyparse.set_input(argc, argv))
   {
     exit(1);
   }
@@ -40,6 +41,5 @@ int main(int argc,char **argv)
   doxyparse.parse();
 
   doxyparse.listResults();
-
   exit(0);
 }

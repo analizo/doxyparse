@@ -14,7 +14,7 @@ class Doxyparse
     inline ~Doxyparse();
 
     inline void configure();
-    inline bool setInput(int argc, char **argv);
+    inline bool set_input(int argc, char **argv);
     inline void parse();
     inline void listResults();
 
