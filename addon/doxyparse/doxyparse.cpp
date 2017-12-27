@@ -12,17 +12,17 @@ Doxyparse::~Doxyparse()
 
 void Doxyparse::configure()
 {
-  DoxyparseConfig doxyparseConfig;
-  doxyparseConfig.config();
+  DoxyparseConfig doxyparse_config;
+  doxyparse_config.config(); 
 }
 
-bool Doxyparse::setInput(int argc, char **argv)
+bool Doxyparse::set_input(int argc, char **argv)
 {
-  DoxyparseInput doxyparseInput;
-  const bool successful_set_the_input = doxyparseInput.set(argc, argv);
+  DoxyparseInput doxyparse_input;
+  const bool successful_set_the_input = doxyparse_input.set(argc, argv);
   if(successful_set_the_input)
   {
-    doxyparseInput.parse();
+    doxyparse_input.parse();
   }
   return successful_set_the_input;
 }
@@ -30,7 +30,7 @@ bool Doxyparse::setInput(int argc, char **argv)
 void Doxyparse::parse()
 {
   Doxyparser doxyparser;
-  doxyparser.parseReferences();
+  doxyparser.parse_references();
 }
 
 void Doxyparse::listResults()
