@@ -7,6 +7,7 @@
 #include "filedef.h"
 #include "filename.h"
 #include <string>
+#include <yaml-cpp/yaml.h>
 
 class DoxyparseResults
 {
@@ -18,32 +19,35 @@ class DoxyparseResults
 
   private:
     bool is_c_code;
+    std::map<std::string, bool> modules;
+    std::string current_module;
+    YAML::Emitter *yaml;
 
-    void detectProgrammingLanguage(FileNameListIterator &fnli);
-    bool checkLanguage(std::string &filename, std::string extension);
-    void printFile(FileDef *fd);
+    void detectProgrammingLanguage(FileNameListIterator& fnli);
+    bool checkLanguage(std::string& filename, std::string extension);
+    void printFile(std::string file);
+    void printModule(std::string module);
     void listMembers(MemberList *ml);
+    void listMembers2(MemberList *ml);
+    void printDefines();
     void lookupSymbol(Definition *d);
-    void printDefinition(MemberDef *md);
-    void printType(MemberDef *md);
-    void printSignature(MemberDef *md);
-    void printArgumentList(MemberDef *md);
-    void printDefinitionLine(MemberDef *md);
-    void printProtection(MemberDef *md);
-    void printFunctionInformation(MemberDef *md);
-    void printNumberOfLines(MemberDef *md);
-    void printNumberOfArguments(MemberDef *md);
-    void printNumberOfConditionalPaths(MemberDef *md);
-    void printReferencesMembers(MemberDef *md);
+    void printDefinition(std::string type, std::string signature,
+                         int line, Definition *d);
+    void functionInformation(MemberDef* md);
+    void printNumberOfLines(int lines);
+    void printNumberOfArguments(int arguments);
+    void printUses();
+    void printNumberOfConditionalPaths(MemberDef* md);
     bool ignoreStaticExternalCall(MemberDef *context, MemberDef *md);
-    void printReferenceTo(MemberDef *md);
-    int isPartOfCStruct(MemberDef *md);
-    void printCStructMember(MemberDef *md);
-    void printWhereItWasDefined(MemberDef *md);
-    void printClass(ClassDef *cd);
-    void printCModule(ClassDef *cd);
-    void printClassInformation(ClassDef *cd);
-    void printInheritance(ClassDef *cd);
-    void listAllMembers(ClassDef *cd);
+    void referenceTo(MemberDef* md);
+    int isPartOfCStruct(MemberDef * md);
+    std::string functionSignature(MemberDef* md);
+    void printReferenceTo(std::string type, std::string signature,
+                          std::string defined_in);
+    void classInformation(ClassDef* cd);
+    void cModule(ClassDef* cd);
+    void printInheritance(std::string base_class);
+    void printClassInformation(std::string information);
+    void listAllMembers(ClassDef* cd);
 };
 #endif
