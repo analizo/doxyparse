@@ -20,6 +20,7 @@
 
 #include <stdlib.h>
 #include <unistd.h>
+#include "version.h"
 #include "doxygen.h"
 #include "outputgen.h"
 #include "parserintf.h"
@@ -375,6 +376,10 @@ int main(int argc,char **argv) {
   if (argc < 2) {
     printf("Usage: %s [source_file | source_dir]\n",argv[0]);
     exit(1);
+  }
+  if (qstrcmp(&argv[1][2], "version") == 0) {
+    printf("%s\n", versionString);
+    exit(0);
   }
 
   // initialize data structures
