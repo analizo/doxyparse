@@ -175,9 +175,15 @@ std::string functionSignature(MemberDef* md) {
     signature += "(";
     Argument * argument = iterator.toFirst();
     if(argument != NULL) {
-      signature += argument->type.data();
-      for(++iterator; (argument = iterator.current()) ;++iterator){
-        signature += std::string(",") + argument->type.data();
+      if (argument->type != NULL)
+        signature += argument->type.data();
+      else if (argument->name != NULL)
+        signature += argument->name.data();
+      for(++iterator; (argument = iterator.current()); ++iterator){
+        if (argument->type != NULL)
+          signature += std::string(",") + argument->type.data();
+        else if (argument->name != NULL)
+          signature += std::string(",") + argument->name.data();
       }
     }
     signature += ")";
