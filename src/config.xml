@@ -532,7 +532,10 @@ Go to the <a href="commands.html">next</a> section or return to the
  will allow you to
  put the command \c \\sideeffect (or \c \@sideeffect) in the documentation, which 
  will result in a user-defined paragraph with heading "Side Effects:".
- You can put \ref cmdn "\\n"'s in the value part of an alias to insert newlines.
+ You can put \ref cmdn "\\n"'s in the value part of an alias to insert newlines
+ (in the resulting output).
+ You can put `^^` in the value part of an alias to insert a newline as if 
+ a physical newline was in the original file.
 ]]>
       </docs>
     </option>
@@ -1645,6 +1648,20 @@ to disable this feature.
 ]]>
       </docs>
     </option>
+    <option type='string' id='CLANG_COMPILATION_DATABASE_PATH' setting='USE_LIBCLANG' defval='0'>
+      <docs>
+<![CDATA[
+ If clang assisted parsing is enabled you can provide the clang parser with the
+ path to the <a href="http://clang.llvm.org/docs/HowToSetupToolingForLLVM.html">
+ compilation database</a> used when the files were built. This is equivalent to
+ specifying the "-p" option to a clang tool, such as clang-check. These options
+ will then be passed to the parser.
+
+ @note The availability of this option depends on whether or not doxygen
+ was generated with the `-Duse-libclang=ON` option for CMake.
+ ]]>
+        </docs>
+    </option>
   </group>
   <group name='Index' docs='Configuration options related to the alphabetical class index'>
     <option type='bool' id='ALPHABETICAL_INDEX' defval='1'>
@@ -2325,7 +2342,7 @@ The \c DOCSET_PUBLISHER_NAME tag identifies the documentation publisher.
       <value name="NativeMML" desc="(i.e. MathML)"/>
       <value name="SVG"/>
     </option>
-    <option type='string' id='MATHJAX_RELPATH' format='string' defval='http://cdn.mathjax.org/mathjax/latest' depends='USE_MATHJAX'>
+    <option type='string' id='MATHJAX_RELPATH' format='string' defval='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.2/' depends='USE_MATHJAX'>
       <docs>
 <![CDATA[
  When MathJax is enabled you need to specify the location relative to the 

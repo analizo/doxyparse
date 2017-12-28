@@ -104,6 +104,7 @@ static QCString               g_exampleName;
 static SectionDict *          g_sectionDict;
 static QCString               g_searchUrl;
 
+static QCString               g_includeFileName;
 static QCString               g_includeFileText;
 static uint                   g_includeFileOffset;
 static uint                   g_includeFileLength;
@@ -543,7 +544,7 @@ static void detectNoDocumentedParams()
     }
     else if (!g_memberDef->hasDocumentedParams())
     {
-      bool allDoc=TRUE; // no paramater => all parameters are documented
+      bool allDoc=TRUE; // no parameter => all parameters are documented
       if ( // member has parameters
              al!=0 &&       // but the member has a parameter list
              al->count()>0  // with at least one parameter (that is not void)
@@ -1917,6 +1918,7 @@ void DocInclude::parse()
       // fall through
     case DontInclude:
       readTextFileByName(m_file,m_text);
+      g_includeFileName   = m_file;
       g_includeFileText   = m_text;
       g_includeFileOffset = 0;
       g_includeFileLength = m_text.length();
@@ -1954,6 +1956,7 @@ void DocInclude::parse()
 
 void DocIncOperator::parse()
 {
+  m_includeFileName = g_includeFileName;
   const char *p = g_includeFileText;
   uint l = g_includeFileLength;
   uint o = g_includeFileOffset;
@@ -6122,9 +6125,20 @@ int DocPara::handleHtmlStartTag(const QCString &tagName,const HtmlAttribList &ta
             }
           }
         }
+        else if (findAttribute(tagHtmlAttribs,"langword",&cref)) // <see langword="..."/> or <see langworld="..."></see>
+        {
+            doctokenizerYYsetStatePara();
+            DocLink *lnk = new DocLink(this,cref);
+            m_children.append(lnk);
+            QCString leftOver = lnk->parse(FALSE,TRUE);
+            if (!leftOver.isEmpty())
+            {
+              m_children.append(new DocWord(this,leftOver));
+            }
+        }
         else
         {
-          warn_doc_error(g_fileName,doctokenizerYYlineno,"Missing 'cref' attribute from <see> tag.");
+          warn_doc_error(g_fileName,doctokenizerYYlineno,"Missing 'cref' or 'langword' attribute from <see> tag.");
         }
       }
       break;
