@@ -167,6 +167,24 @@ static int isPartOfCStruct(MemberDef * md) {
   return is_c_code && md->getClassDef() != NULL;
 }
 
+std::string removeDoubleQuotes(std::string data) {
+  // remove surrounding double quotes
+  if (data.front() == '"' && data.back() == '"') {
+    data.erase(0, 1);            // first double quote
+    data.erase(data.size() - 1); // last double quote
+  }
+  return data;
+}
+
+std::string argumentData(Argument *argument) {
+  std::string data = "";
+  if (argument->type != NULL)
+    data = removeDoubleQuotes(argument->type.data());
+  else if (argument->name != NULL)
+    data = removeDoubleQuotes(argument->name.data());
+  return data;
+}
+
 std::string functionSignature(MemberDef* md) {
   std::string signature = md->name().data();
   if(md->isFunction()){
@@ -175,15 +193,9 @@ std::string functionSignature(MemberDef* md) {
     signature += "(";
     Argument * argument = iterator.toFirst();
     if(argument != NULL) {
-      if (argument->type != NULL)
-        signature += argument->type.data();
-      else if (argument->name != NULL)
-        signature += argument->name.data();
+      signature += argumentData(argument);
       for(++iterator; (argument = iterator.current()); ++iterator){
-        if (argument->type != NULL)
-          signature += std::string(",") + argument->type.data();
-        else if (argument->name != NULL)
-          signature += std::string(",") + argument->name.data();
+        signature += std::string(",") + argumentData(argument);
       }
     }
     signature += ")";
