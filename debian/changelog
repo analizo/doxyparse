@@ -1,4 +1,4 @@
-doxyparse (1.8.14) UNRELEASED; urgency=medium
+doxyparse (1.8.14-1) unstable; urgency=medium
 
   * install instructions from source
   * Merge tag 'Release_1_8_14'
