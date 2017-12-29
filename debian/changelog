@@ -1,3 +1,13 @@
+doxyparse (1.8.14) UNRELEASED; urgency=medium
+
+  * install instructions from source
+  * Merge tag 'Release_1_8_14'
+  * fix doxyparse segfault for python source files
+  * removing double quotes from function arguments list
+  * added --version flag to doxyparse
+
+ -- Joenio Costa <joenio@joenio.me>  Fri, 29 Dec 2017 00:17:02 -0200
+
 doxyparse (1.8.14~rc1) unstable; urgency=medium
 
   [ Joenio Costa ]
