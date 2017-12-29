@@ -1,7 +1,7 @@
 Source: doxyparse
 Section: devel
 Priority: extra
-Maintainer: Antonio Terceiro <terceiro@softwarelivre.org>
+Maintainer: Joenio Costa <joenio@joenio.me>
 Build-Depends: cdbs, debhelper (>= 7), autotools-dev, flex, bison,
                g++ (>= 4.6), cmake, python
 Standards-Version: 3.9.6
