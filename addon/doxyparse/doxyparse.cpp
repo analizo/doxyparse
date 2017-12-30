@@ -124,7 +124,7 @@ static void printFile(std::string file) {
 }
 static void printModule(std::string module) {
   current_module = module;
-  printf("  %s:\n", module.c_str());
+  printf("  \"%s\":\n", module.c_str());
 }
 static void printClassInformation(std::string information) {
   printf("    information: %s\n", information.c_str());
