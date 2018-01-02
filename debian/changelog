@@ -1,3 +1,11 @@
+doxyparse (1.8.14-2) unstable; urgency=medium
+
+  * adding double quotes around functions and variables names
+  * removing double quotes from signatures
+  * added "---" yaml start document
+
+ -- Joenio Costa <joenio@joenio.me>  Tue, 02 Jan 2018 02:00:05 -0200
+
 doxyparse (1.8.14-1) unstable; urgency=medium
 
   * install instructions from source
