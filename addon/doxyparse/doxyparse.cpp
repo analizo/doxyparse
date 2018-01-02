@@ -36,6 +36,8 @@
 #include <cstdlib>
 #include <sstream>
 #include <map>
+#include <qcstring.h>
+#include <qregexp.h>
 
 class Doxyparse : public CodeOutputInterface
 {
@@ -169,12 +171,9 @@ static int isPartOfCStruct(MemberDef * md) {
 }
 
 std::string removeDoubleQuotes(std::string data) {
-  // remove surrounding double quotes
-  if (data.front() == '"' && data.back() == '"') {
-    data.erase(0, 1);            // first double quote
-    data.erase(data.size() - 1); // last double quote
-  }
-  return data;
+  QCString new_data = QCString(data.c_str());
+  new_data.replace(QRegExp("\""), "");
+  return new_data.data();
 }
 
 std::string argumentData(Argument *argument) {
