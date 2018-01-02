@@ -121,6 +121,9 @@ static bool ignoreStaticExternalCall(MemberDef *context, MemberDef *md) {
   }
 }
 
+static void startYamlDocument() {
+  printf("---\n");
+}
 static void printFile(std::string file) {
   printf("%s:\n", file.c_str());
 }
@@ -460,6 +463,7 @@ int main(int argc,char **argv) {
   // clean up after us
   rmdir(Config_getString(OUTPUT_DIRECTORY));
 
+  startYamlDocument();
   listSymbols();
 
   std::string cleanup_command = "rm -rf ";
