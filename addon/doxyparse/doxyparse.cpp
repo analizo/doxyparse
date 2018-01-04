@@ -417,6 +417,7 @@ int main(int argc,char **argv) {
   Config_getBool(EXTRACT_STATIC)=TRUE;
   Config_getBool(EXTRACT_PRIVATE)=TRUE;
   Config_getBool(EXTRACT_LOCAL_METHODS)=TRUE;
+  Config_getBool(EXTRACT_PACKAGE)=TRUE;
   // Extract source browse information, needed
   // to make doxygen gather the cross reference info
   Config_getBool(SOURCE_BROWSER)=TRUE;
