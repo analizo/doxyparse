@@ -134,8 +134,11 @@ static void printModule(std::string module) {
 static void printClassInformation(std::string information) {
   printf("    information: %s\n", information.c_str());
 }
+static void printInherits() {
+  printf("    inherits:\n");
+}
 static void printInheritance(std::string base_class) {
-  printf("    inherits: %s\n", base_class.c_str());
+  printf("      - %s\n", base_class.c_str());
 }
 static void printDefines() {
   if (! modules[current_module]) {
@@ -301,6 +304,7 @@ static void classInformation(ClassDef* cd) {
     printModule(cd->name().data());
     BaseClassList* baseClasses = cd->baseClasses();
     if (baseClasses) {
+      printInherits();
       BaseClassListIterator bci(*baseClasses);
       BaseClassDef* bcd;
       for (bci.toFirst(); (bcd = bci.current()); ++bci) {
