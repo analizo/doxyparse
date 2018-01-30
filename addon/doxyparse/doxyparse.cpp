@@ -184,7 +184,7 @@ std::string removeDoubleQuotes(std::string data) {
 
 std::string argumentData(Argument *argument) {
   std::string data = "";
-  if (argument->type != NULL)
+  if (argument->type != NULL && argument->type.size() > 1)
     data = removeDoubleQuotes(argument->type.data());
   else if (argument->name != NULL)
     data = removeDoubleQuotes(argument->name.data());
