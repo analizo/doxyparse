@@ -79,7 +79,6 @@ class Doxyparse : public CodeOutputInterface
 };
 
 static bool is_c_code = true;
-static std::string current_module;
 
 static void findXRefSymbols(FileDef *fd)
 {
@@ -127,7 +126,6 @@ static void printFile(std::string file) {
   printf("%s:\n", file.c_str());
 }
 static void printModule(std::string module) {
-  current_module = module;
   printf("  \"%s\":\n", module.c_str());
 }
 static void printClassInformation(std::string information) {
@@ -367,7 +365,10 @@ static void listSymbols() {
         ClassSDict::Iterator cli(*classes);
         ClassDef *cd;
         for (cli.toFirst(); (cd = cli.current()); ++cli) {
-          classInformation(cd);
+          if (!cd->visited) {
+            classInformation(cd);
+            cd->visited=TRUE;
+          }
         }
       }
     }
