@@ -1,3 +1,11 @@
+doxyparse (1.8.14-4) unstable; urgency=medium
+
+  * don't report same module/class more than once analizo/analizo#112
+  * add missing key "defines:" to all modules analizo/analizo#111
+  * check if string is larger than 1 before removing surrounding quotes analizo/analizo#110
+
+ -- Joenio Costa <joenio@joenio.me>  Fri, 02 Feb 2018 11:53:05 -0200
+
 doxyparse (1.8.14-3) unstable; urgency=medium
 
   * properly detects package methods
