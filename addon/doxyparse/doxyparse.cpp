@@ -79,7 +79,6 @@ class Doxyparse : public CodeOutputInterface
 };
 
 static bool is_c_code = true;
-static std::map<std::string, bool> modules;
 static std::string current_module;
 
 static void findXRefSymbols(FileDef *fd)
@@ -141,10 +140,7 @@ static void printInheritance(std::string base_class) {
   printf("      - %s\n", base_class.c_str());
 }
 static void printDefines() {
-  if (! modules[current_module]) {
-    printf("    defines:\n");
-  }
-  modules[current_module] = true;
+  printf("    defines:\n");
 }
 static void printDefinition(std::string type, std::string signature, int line) {
   printf("      - \"%s\":\n", signature.c_str());
@@ -281,7 +277,6 @@ void listMembers(MemberList *ml) {
   if (ml) {
     MemberListIterator mli(*ml);
     MemberDef *md;
-    printDefines();
     for (mli.toFirst(); (md=mli.current()); ++mli) {
       lookupSymbol((Definition*) md);
     }
@@ -314,6 +309,7 @@ static void classInformation(ClassDef* cd) {
     if(cd->isAbstract()) {
       printClassInformation("abstract class");
     }
+    printDefines();
     listAllMembers(cd);
   }
 }
@@ -362,6 +358,7 @@ static void listSymbols() {
       MemberList *ml = fd->getMemberList(MemberListType_allMembersList);
       if (ml && ml->count() > 0) {
         printModule(fd->getOutputFileBase().data());
+        printDefines();
         listMembers(ml);
       }
 
