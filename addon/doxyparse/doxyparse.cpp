@@ -186,7 +186,7 @@ std::string argumentData(Argument *argument) {
 }
 
 std::string functionSignature(MemberDef* md) {
-  std::string signature = md->name().data();
+  std::string signature = removeDoubleQuotes(md->name().data());
   if(md->isFunction()){
     ArgumentList *argList = md->argumentList();
     signature += "(";
