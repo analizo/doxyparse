@@ -103,7 +103,7 @@ static void findXRefSymbols(FileDef *fd)
 
 static bool ignoreStaticExternalCall(MemberDef *context, MemberDef *md) {
   if (md->isStatic()) {
-    if(md->getFileDef()) {
+    if(md->getFileDef() && context->getFileDef()) {
       if(md->getFileDef()->getOutputFileBase() == context->getFileDef()->getOutputFileBase())
         // TODO ignore prefix of file
         return false;
@@ -189,13 +189,15 @@ std::string functionSignature(MemberDef* md) {
   std::string signature = md->name().data();
   if(md->isFunction()){
     ArgumentList *argList = md->argumentList();
-    ArgumentListIterator iterator(*argList);
     signature += "(";
-    Argument * argument = iterator.toFirst();
-    if(argument != NULL) {
-      signature += argumentData(argument);
-      for(++iterator; (argument = iterator.current()); ++iterator){
-        signature += std::string(",") + argumentData(argument);
+    if (argList) {
+      ArgumentListIterator iterator(*argList);
+      Argument * argument = iterator.toFirst();
+      if(argument != NULL) {
+        signature += argumentData(argument);
+        for(++iterator; (argument = iterator.current()); ++iterator){
+          signature += std::string(",") + argumentData(argument);
+        }
       }
     }
     signature += ")";
@@ -241,7 +243,9 @@ void functionInformation(MemberDef* md) {
   int size = md->getEndBodyLine() - md->getStartBodyLine() + 1;
   printNumberOfLines(size);
   ArgumentList *argList = md->argumentList();
-  printNumberOfArguments(argList->count());
+  if (argList) {
+    printNumberOfArguments(argList->count());
+  }
   printNumberOfConditionalPaths(md);
   MemberSDict *defDict = md->getReferencesMembers();
   if (defDict) {
