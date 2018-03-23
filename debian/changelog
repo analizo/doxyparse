@@ -1,3 +1,10 @@
+doxyparse (1.8.14-5) unstable; urgency=medium
+
+  * removing double quotes from function signature
+  * check if ArgumentList is null
+
+ -- Joenio Costa <joenio@joenio.me>  Fri, 23 Mar 2018 14:49:00 -0300
+
 doxyparse (1.8.14-4) unstable; urgency=medium
 
   * don't report same module/class more than once analizo/analizo#112
