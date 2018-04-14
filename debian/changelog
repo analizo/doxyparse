@@ -1,3 +1,9 @@
+doxyparse (1.8.14-6) unstable; urgency=medium
+
+  * fix SIGABRT parsing mlpack-3.0.0 project source-code
+
+ -- Joenio Costa <joenio@joenio.me>  Sat, 14 Apr 2018 13:39:16 -0300
+
 doxyparse (1.8.14-5) unstable; urgency=medium
 
   * removing double quotes from function signature
