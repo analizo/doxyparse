@@ -173,7 +173,7 @@ static int isPartOfCStruct(MemberDef * md) {
 std::string removeDoubleQuotes(std::string data) {
   QCString new_data = QCString(data.c_str());
   new_data.replace(QRegExp("\""), "");
-  return new_data.data();
+  return !new_data.isEmpty() ? new_data.data() : "";
 }
 
 std::string argumentData(Argument *argument) {
