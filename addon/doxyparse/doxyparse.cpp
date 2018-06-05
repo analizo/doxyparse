@@ -239,6 +239,25 @@ void cModule(ClassDef* cd) {
   }
 }
 
+static bool checkOverrideArg(ArgumentList *argList, MemberDef *md) {
+  ArgumentListIterator iterator(*argList);
+  Argument * argument = iterator.toFirst();
+
+  if(!md->isFunction() || argList->count() == 0){
+      return false;
+  }
+
+  if(argument != NULL) {
+    for(; (argument = iterator.current()); ++iterator){
+        if(md->name() == argument->name) {
+            return true;
+        }
+    }
+  }
+
+  return false;
+}
+
 void functionInformation(MemberDef* md) {
   int size = md->getEndBodyLine() - md->getStartBodyLine() + 1;
   printNumberOfLines(size);
@@ -253,7 +272,7 @@ void functionInformation(MemberDef* md) {
     MemberDef *rmd;
     printUses();
     for (msdi.toFirst(); (rmd=msdi.current()); ++msdi) {
-      if (rmd->definitionType() == Definition::TypeMember && !ignoreStaticExternalCall(md, rmd)) {
+      if (rmd->definitionType() == Definition::TypeMember && !ignoreStaticExternalCall(md, rmd) && !checkOverrideArg(argList, rmd)) {
         referenceTo(rmd);
       }
     }
