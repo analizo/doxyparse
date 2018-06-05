@@ -170,23 +170,24 @@ static int isPartOfCStruct(MemberDef * md) {
   return is_c_code && md->getClassDef() != NULL;
 }
 
-std::string removeDoubleQuotes(std::string data) {
+std::string sanitizeString(std::string data) {
   QCString new_data = QCString(data.c_str());
   new_data.replace(QRegExp("\""), "");
+  new_data.replace(QRegExp("\\"), ""); // https://github.com/analizo/analizo/issues/138
   return !new_data.isEmpty() ? new_data.data() : "";
 }
 
 std::string argumentData(Argument *argument) {
   std::string data = "";
   if (argument->type != NULL && argument->type.size() > 1)
-    data = removeDoubleQuotes(argument->type.data());
+    data = sanitizeString(argument->type.data());
   else if (argument->name != NULL)
-    data = removeDoubleQuotes(argument->name.data());
+    data = sanitizeString(argument->name.data());
   return data;
 }
 
 std::string functionSignature(MemberDef* md) {
-  std::string signature = removeDoubleQuotes(md->name().data());
+  std::string signature = sanitizeString(md->name().data());
   if(md->isFunction()){
     ArgumentList *argList = md->argumentList();
     signature += "(";
