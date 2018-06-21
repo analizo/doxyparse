@@ -38,6 +38,7 @@
 #include <map>
 #include <qcstring.h>
 #include <qregexp.h>
+#include "namespacedef.h"
 
 class Doxyparse : public CodeOutputInterface
 {
@@ -141,7 +142,7 @@ static void printDefines() {
   printf("    defines:\n");
 }
 static void printDefinition(std::string type, std::string signature, int line) {
-  printf("      - \"%s\":\n", signature.c_str());
+  printf("      - \"%s\":\n", signature.substr(0, 1022).c_str());
   printf("          type: %s\n", type.c_str());
   printf("          line: %d\n", line);
 }
@@ -158,9 +159,9 @@ static void printUses() {
   printf("          uses:\n");
 }
 static void printReferenceTo(std::string type, std::string signature, std::string defined_in) {
-  printf("            - \"%s\":\n", signature.c_str());
+  printf("            - \"%s\":\n", signature.substr(0, 1022).c_str());
   printf("                type: %s\n", type.c_str());
-  printf("                defined_in: %s\n", defined_in.c_str());
+  printf("                defined_in: \"%s\"\n", defined_in.c_str());
 }
 static void printNumberOfConditionalPaths(MemberDef* md) {
   printf("          conditional_paths: %d\n", md->numberOfFlowKeyWords());
@@ -221,6 +222,9 @@ static void referenceTo(MemberDef* md) {
     }
     else if (md->getFileDef()) {
       defined_in = md->getFileDef()->getOutputFileBase().data();
+    }
+    else if (md->getNamespaceDef()) {
+      defined_in = md->getNamespaceDef()->name().data();
     }
   }
   printReferenceTo(type, signature, defined_in);
