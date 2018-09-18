@@ -21,3 +21,9 @@ script:
     - make
     - make tests
     - make docs
+
+deploy:
+    provider: script
+    script: sh docker-deploy.sh
+    on:
+        branch: master

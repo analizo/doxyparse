@@ -1,12 +1,19 @@
-// Using i386 Architecture
+# Using i386 Architecture
 FROM i386/debian:jessie
 
-RUN apt-get update && \
-    apt-get install -y flex bison cmake build-essential python debhelper devscripts
+RUN apt-get update -qq && \
+    apt-get install -y flex \
+                       bison \
+                       git \
+                       cmake \
+                       build-essential \
+                       python \
+                       debhelper \
+                       devscripts
 
 ADD . /doxyparse
 
 WORKDIR /doxyparse
 
 ENTRYPOINT ["linux32"]
-CMD ["sh", "deploy.sh"]
+CMD ["sh", "compile-pkg.sh"]
