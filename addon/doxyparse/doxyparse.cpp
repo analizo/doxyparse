@@ -178,6 +178,13 @@ std::string sanitizeString(std::string data) {
   return !new_data.isEmpty() ? new_data.data() : "";
 }
 
+std::string removeStartingArroba(std::string data) {
+  if (data.size() > 1 && data.front() == '@') {
+    data.erase(0, 1); // remove starting @ from string
+  }
+  return data;
+}
+
 std::string argumentData(Argument *argument) {
   std::string data = "";
   if (argument->type != NULL && argument->type.size() > 1)
@@ -329,7 +336,7 @@ static void classInformation(ClassDef* cd) {
       BaseClassListIterator bci(*baseClasses);
       BaseClassDef* bcd;
       for (bci.toFirst(); (bcd = bci.current()); ++bci) {
-        printInheritance(bcd->classDef->name().data());
+        printInheritance(removeStartingArroba(bcd->classDef->name().data()));
       }
     }
     if(cd->isAbstract()) {
