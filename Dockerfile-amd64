@@ -1,0 +1,11 @@
+// Using AMD64 Architecture
+FROM debian:jessie
+
+RUN apt-get update && \
+    apt-get install -y flex bison cmake build-essential python debhelper devscripts
+
+ADD . /doxyparse
+
+WORKDIR /doxyparse
+
+CMD ["sh", "deploy.sh"]
