@@ -7,6 +7,12 @@ before_install:
     - sudo apt-add-repository ppa:smspillaz/cmake-2.8.12 -y
     - sudo apt-get update -qq
 
+environment:
+    # Encrypt these variables later using travis gem
+    global:
+        - DOCKER_USERNAME=
+        - DOCKER_PASSWORD=
+
 install:
     - sudo apt-get install -qq texlive
     - sudo apt-get install -qq texlive-extra-utils
@@ -21,3 +27,15 @@ script:
     - make
     - make tests
     - make docs
+
+deploy:
+    # this only deploys amd64 pkg
+    provider: script
+    script: sh deploy.sh
+    on:
+        branch: master
+
+    provider: script
+    script: sh docker-deploy.sh
+    on:
+        branch: master
