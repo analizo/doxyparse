@@ -18,6 +18,15 @@ More info and source code repository: https://github.com/analizo/doxygen
 
   sudo make install
 
+## release
+
+* ensure analizo testsuite passing on newer doxyparse version
+* update debian/changelog, commit, push
+* create git tag, push to github analizo/doxyparse
+* build on amd64 and i386 archs, upload tar.gz to github
+* build debian packages for amd64 and i386, update analizo.org repository
+* check if a alien-doxyparse release is necessary and do it on cpan
+
 AUTHORS
 =======
 
