@@ -27,6 +27,7 @@ More info and source code repository: https://github.com/analizo/doxygen
   * tar -zcf doxyparse_<VERSION>_amd64.tar.gz -C bin/ doxyparse
   * tar -zcf doxyparse_<VERSION>_i386.tar.gz -C bin/ doxyparse
 * build debian packages for amd64 and i386, update analizo.org repository
+    * (see analizo.github.io/README.md file for updating repository instructions)
     * upload the deb files to github release tag also
 * check if a alien-doxyparse release is necessary and do it on cpan
 
