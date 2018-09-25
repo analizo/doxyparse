@@ -5,7 +5,7 @@ doxyparse (1.8.14-7) unstable; urgency=medium
   * removing "\" from function signatures
   * fix override args references
 
- -- joenio <joenio@joenio.me>  Tue, 25 Sep 2018 14:21:18 -0300
+ -- Joenio Costa <joenio@joenio.me>  Tue, 25 Sep 2018 14:21:18 -0300
 
 doxyparse (1.8.14-6) unstable; urgency=medium
 
