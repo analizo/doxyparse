@@ -12,18 +12,6 @@ cmake -G "Unix Makefiles" -Dbuild_parse=ON
 make
 # make install -> this command is encapsulated by packing
 
-# Port to build-package.sh
-# Generating tarball
-# tar cvf doxyparse-$VERSION.tar.gz *
-
-# Generating debian package
-# cd .. && dkpg-build doxyparse
-# dpkg-buildpackage -rfakeroot -d -us -uc
-
-# 1) Create a personal access token through GitHub UI, we only need "Repo" access
-# 2) Place it in your config by "git config --global github.token YOUR_TOKEN"
-# 3) Use bash script to make CURL request `sh git-release.sh "1.5.0" "Test description"`
-
 generate_post_data()
 {
   cat <<EOF
