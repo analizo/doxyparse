@@ -3,7 +3,5 @@
 # Compiling
 cmake -G "Unix Makefiles" -Dbuild_parse=ON
 make
-make install
+# make install -> this command is encapsulated by packing
 
-# Generating tarball
-debuild -us -uc
