@@ -1,4 +1,4 @@
-// Using i386 Architecture
+# Using i386 Architecture
 FROM i386/debian:jessie
 
 RUN apt-get update && \

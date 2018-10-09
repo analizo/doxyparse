@@ -6,9 +6,9 @@ compiler:
 before_install:
     - sudo apt-add-repository ppa:smspillaz/cmake-2.8.12 -y
     - sudo apt-get update -qq
-
-environment:
-    # Encrypt these variables later using travis gem
+    # Decrypting TOKEN_SHA
+    - openssl aes-256-cbc -K $encrypted_f4b786671656_key -iv $encrypted_f4b786671656_iv -in auth-token.enc -out auth-token -d
+env:
     global:
         - DOCKER_USERNAME=
         - DOCKER_PASSWORD=
