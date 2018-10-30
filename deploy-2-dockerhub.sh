@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Represents the latest version of the project according to VERSION file
 VERSION=$(cat VERSION)

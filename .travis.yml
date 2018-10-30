@@ -29,13 +29,14 @@ script:
     - make docs
 
 deploy:
-    # this only deploys amd64 pkg
+    # Deploys to Doxyparse official GitHub
     provider: script
-    script: sh deploy.sh
+    script: sh create-gh-release.sh
     on:
         branch: master
 
+    # Deploys to DoxyParse official dockerhub
     provider: script
-    script: sh docker-deploy.sh
+    script: sh deploy-2-dockerhub.sh
     on:
         branch: master
