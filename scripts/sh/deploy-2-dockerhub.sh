@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # Represents the latest version of the project according to VERSION file
-VERSION=$(cat VERSION)
+VERSION=$(cat ../../VERSION)
 
-DOCKERFILE_AMD64=$PWD/Dockerfile-amd64
-DOCKERFILE_I386=$PWD/Dockerfile-i386
+DOCKERFILE_AMD64=/home/travis/build/GCES2018-2/doxyparse/scripts/docker/Dockerfile-amd64
+DOCKERFILE_I386=/home/travis/build/GCES2018-2/doxyparse/scripts/docker/Dockerfile-i386
 
 echo "Latest Doxyparse version is $VERSION";
 

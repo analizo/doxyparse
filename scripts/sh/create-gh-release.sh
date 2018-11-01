@@ -1,9 +1,9 @@
 #!/bin/sh
 
-VERSION=$(cat VERSION)
+VERSION=$(cat ../../VERSION)
 REPO_FULL_NAME=$(git config --get remote.origin.url | sed 's/.*:\/\/github.com\///;s/.git$//')
 TEXT="Deploying version $VERSION of $REPO_FULL_NAME"
-TOKEN_SHA=$(cat auth-token)
+TOKEN_SHA=$(cat ../../auth-token)
 # TOKEN=$(git config --global github.token $TOKEN_SHA)
 REPO_URL=https://api.github.com/repos/$REPO_FULL_NAME/releases?access_token=$TOKEN_SHA
 BRANCH=$(git rev-parse --abbrev-ref HEAD)

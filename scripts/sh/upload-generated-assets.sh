@@ -18,8 +18,8 @@ fi;
 fi;
 
 # Define variables.
-VERSION=$(cat VERSION)
-TOKEN_SHA=$(cat auth-token)
+VERSION=$(cat ../../VERSION)
+TOKEN_SHA=$(cat ../../auth-token)
 CURL_ARGS="-LJO#"
 WGET_ARGS="--content-disposition --auth-no-challenge --no-cookie"
 REPO_FULL_NAME=$(git config --get remote.origin.url | sed 's/.*:\/\/github.com\///;s/.git$//')

@@ -1,5 +1,5 @@
-# Using i386 Architecture
-FROM i386/debian:jessie
+# Using AMD64 Architecture
+FROM debian:jessie
 
 RUN apt-get update -qq && \
     apt-get install -y flex \
@@ -11,8 +11,8 @@ RUN apt-get update -qq && \
                        debhelper \
                        devscripts
 
-ADD . /doxyparse
+RUN git clone https://github.com/GCES2018-2/doxyparse.git /doxyparse
 
 WORKDIR /doxyparse
 
-RUN ["linux32", "sh", "compile-pkg.sh"]
+RUN ["sh", "scripts/sh/compile-pkg.sh"]
