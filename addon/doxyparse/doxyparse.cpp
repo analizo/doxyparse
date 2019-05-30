@@ -274,6 +274,7 @@ void functionInformation(MemberDef* md) {
       Argument * argument = iterator.toFirst();
       if(argument != NULL) {
         temp = argumentData(argument);
+// TODO: This is a workaround; better not include "void" in argList, in the first place. 
           if(temp != "void") {
               printNumberOfArguments(argList->count());
           }
