@@ -233,6 +233,12 @@ static void referenceTo(MemberDef* md) {
 void cModule(ClassDef* cd) {
   MemberList* ml = cd->getMemberList(MemberListType_variableMembers);
   if (ml) {
+    FileDef *fd = cd->getFileDef();
+    MemberList *fd_ml = fd->getMemberList(MemberListType_allMembersList);
+    if (!fd_ml || fd_ml->count() == 0) {
+      printModule(fd->getOutputFileBase().data());
+      printDefines();
+    }
     MemberListIterator mli(*ml);
     MemberDef* md;
     for (mli.toFirst(); (md=mli.current()); ++mli) {
