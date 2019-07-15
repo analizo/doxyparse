@@ -103,7 +103,7 @@ class RTFGenerator : public OutputGenerator
     void endMemberSections() {} 
     void startHeaderSection() {}
     void endHeaderSection() {}
-    void startMemberHeader(const char *) { startGroupHeader(FALSE); }
+    void startMemberHeader(const char *,int) { startGroupHeader(FALSE); }
     void endMemberHeader() { endGroupHeader(FALSE); }
     void startMemberSubtitle(); 
     void endMemberSubtitle(); 
@@ -120,6 +120,7 @@ class RTFGenerator : public OutputGenerator
     void startMemberTemplateParams() {}
     void endMemberTemplateParams(const char *,const char *) {}
     void insertMemberAlign(bool) {}
+    void insertMemberAlignLeft(int,bool){}
 
     void writeRuler() { rtfwriteRuler_thin(); }
 	
@@ -156,15 +157,15 @@ class RTFGenerator : public OutputGenerator
     void startSmall()       { t << "{\\sub "; }
     void endSmall()         { t << "}"; }
 
-    void startMemberDescription(const char *,const char *);
+    void startMemberDescription(const char *,const char *,bool);
     void endMemberDescription();
     void startMemberDeclaration() {} 
     void endMemberDeclaration(const char *,const char *) {}
     void writeInheritedSectionTitle(const char *,const char *,const char *,
                       const char *,const char *,const char *) {}
     void startDescList(SectionTypes);
-    void startSimpleSect(SectionTypes,const char *,const char *,const char *);
-    void endSimpleSect();
+    void startExamples();
+    void endExamples();
     void startParamList(ParamListTypes,const char *);
     void endParamList();
     //void writeDescItem();
@@ -257,8 +258,8 @@ class RTFGenerator : public OutputGenerator
     void writeLabel(const char *l,bool isLast);
     void endLabels();
 
-    void startFontClass(const char *) {}
-    void endFontClass() {}
+    void startFontClass(const char *);
+    void endFontClass();
 
     void writeCodeAnchor(const char *) {}
     void setCurrentDoc(Definition *,const char *,bool) {}

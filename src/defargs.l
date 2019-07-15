@@ -52,6 +52,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <qregexp.h>
+#include <qcstringlist.h>
 
 #include "defargs.h"
 #include "entry.h"
@@ -102,6 +103,38 @@ static int yyread(char *buf,int max_size)
     return c;
 }
 
+/* bug_520975 */
+static bool nameIsActuallyPartOfType(QCString &name)
+{
+  static bool first=TRUE;
+  static QDict<void> keywords(17);
+  if (first) // fill keyword dict first time
+  {
+    #define DUMMY_ADDR (void*)0x8
+    keywords.insert("unsigned", DUMMY_ADDR); // foo(... unsigned)
+    keywords.insert("signed",   DUMMY_ADDR); // foo(... signed)
+    keywords.insert("bool",     DUMMY_ADDR); // foo(... bool)
+    keywords.insert("char",     DUMMY_ADDR); // foo(... char)
+    keywords.insert("char8_t",  DUMMY_ADDR); // foo(... char8_t)
+    keywords.insert("char16_t", DUMMY_ADDR); // foo(... char16_t)
+    keywords.insert("char32_t", DUMMY_ADDR); // foo(... char32_t)
+    keywords.insert("int",      DUMMY_ADDR); // foo(... int)
+    keywords.insert("short",    DUMMY_ADDR); // foo(... short)
+    keywords.insert("long",     DUMMY_ADDR); // foo(... long)
+    keywords.insert("float",    DUMMY_ADDR); // foo(... float)
+    keywords.insert("double",   DUMMY_ADDR); // foo(... double)
+    keywords.insert("int8_t",   DUMMY_ADDR); // foo(... int8_t)
+    keywords.insert("uint8_t",  DUMMY_ADDR); // foo(... uint8_t)
+    keywords.insert("int16_t",  DUMMY_ADDR); // foo(... int16_t)
+    keywords.insert("uint16_t", DUMMY_ADDR); // foo(... uint16_t)
+    keywords.insert("int32_t",  DUMMY_ADDR); // foo(... int32_t)
+    keywords.insert("uint32_t", DUMMY_ADDR); // foo(... uint32_t)
+    keywords.insert("const",    DUMMY_ADDR); // foo(... const)
+    keywords.insert("volatile", DUMMY_ADDR); // foo(... volatile)
+    first=FALSE;
+  }
+  return name.length()>0 && keywords.find(name)!=0;
+}
 %}
 
 B       [ \t]
@@ -384,10 +417,9 @@ RAWEND    ")"[^ \t\(\)\\]{0,16}\"
 						    a->type.mid(sv)=="union"     ||
 						    a->type.mid(sv)=="class"     ||
 						    a->type.mid(sv)=="typename"  ||
-						    a->type=="const"               ||
-						    a->type=="volatile"
+						    nameIsActuallyPartOfType(a->name)
 						   )
-						{ 
+						{
 						  a->type = a->type + " " + a->name;
 						  a->name.resize(0);
 						}

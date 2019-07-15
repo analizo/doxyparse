@@ -30,6 +30,7 @@
 #include "parserintf.h"
 #include "filedef.h"
 #include "htmlentity.h"
+#include "emoji.h"
 
 ManDocVisitor::ManDocVisitor(FTextStream &t,CodeOutputInterface &ci,
                              const char *langExt) 
@@ -89,6 +90,21 @@ void ManDocVisitor::visit(DocSymbol *s)
   m_firstCol=FALSE;
 }
 
+void ManDocVisitor::visit(DocEmoji *s)
+{
+  if (m_hide) return;
+  const char *res = EmojiEntityMapper::instance()->name(s->index());
+  if (res)
+  {
+    m_t << res;
+  }
+  else
+  {
+    m_t << s->name();
+  }
+  m_firstCol=FALSE;
+}
+
 void ManDocVisitor::visit(DocURL *u)
 {
   if (m_hide) return;
@@ -118,6 +134,13 @@ void ManDocVisitor::visit(DocStyleChange *s)
   {
     case DocStyleChange::Bold:
       if (s->enable()) m_t << "\\fB";      else m_t << "\\fP";
+      m_firstCol=FALSE;
+      break;
+    case DocStyleChange::Strike:
+      /* not supported */
+      break;
+    case DocStyleChange::Underline: //underline is shown as emphasis
+      if (s->enable()) m_t << "\\fI";     else m_t << "\\fP";
       m_firstCol=FALSE;
       break;
     case DocStyleChange::Italic:
@@ -899,10 +922,7 @@ void ManDocVisitor::visitPre(DocParamSect *s)
     case DocParamSect::Exception: 
       m_t << theTranslator->trExceptions(); break;
     case DocParamSect::TemplateParam: 
-      /* TODO: add this 
-      m_t << theTranslator->trTemplateParam(); break;
-      */
-      m_t << "Template Parameters"; break;
+      m_t << theTranslator->trTemplateParameters(); break;
     default:
       ASSERT(0);
   }

@@ -73,11 +73,14 @@ Entry::Entry(const Entry &e)
   spec        = e.spec;
   initLines   = e.initLines;
   stat        = e.stat;
+  localToc    = e.localToc;
   explicitExternal = e.explicitExternal;
   proto       = e.proto;
   subGrouping = e.subGrouping;
   callGraph   = e.callGraph;
   callerGraph = e.callerGraph;
+  referencedByRelation = e.referencedByRelation;
+  referencesRelation   = e.referencesRelation;
   virt        = e.virt;
   args        = e.args;
   bitfields   = e.bitfields;
@@ -167,7 +170,7 @@ Entry::Entry(const Entry &e)
   SectionInfo *s;
   for (;(s=sli2.current());++sli2)
   {
-    anchors->append(new SectionInfo(*s));
+    anchors->append(s); // shallow copy, object are owned by Doxygen::sectionDict
   }
 
   // deep copy type constraint list
@@ -218,6 +221,8 @@ void Entry::reset()
 {
   static bool entryCallGraph   = Config_getBool(CALL_GRAPH);
   static bool entryCallerGraph = Config_getBool(CALLER_GRAPH);
+  static bool entryReferencedByRelation = Config_getBool(REFERENCED_BY_RELATION);
+  static bool entryReferencesRelation   = Config_getBool(REFERENCES_RELATION);
   //printf("Entry::reset()\n");
   name.resize(0);
   type.resize(0);
@@ -249,6 +254,8 @@ void Entry::reset()
   mGrpId = -1;
   callGraph   = entryCallGraph;
   callerGraph = entryCallerGraph;
+  referencedByRelation = entryReferencedByRelation;
+  referencesRelation   = entryReferencesRelation;
   section = EMPTY_SEC;
   mtype   = Method;
   virt    = Normal;
@@ -263,6 +270,7 @@ void Entry::reset()
   protection = Public;
   groupDocType = GROUPDOC_NORMAL;
   id.resize(0);
+  metaData.resize(0);
   m_sublist->clear();
   extends->clear();
   groups->clear();

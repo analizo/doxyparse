@@ -244,7 +244,22 @@ void RTFGenerator::beginRTFDocument()
   t <<"\\red128\\green0\\blue0;";
   t <<"\\red128\\green128\\blue0;";
   t <<"\\red128\\green128\\blue128;";
-  t <<"\\red192\\green192\\blue192;}" << endl;
+  t <<"\\red192\\green192\\blue192;";
+
+  // code highlighting colors. Note order is important see also RTFGenerator::startFontClass
+  t <<"\\red0\\green128\\blue0;";   // keyword = index 17
+  t <<"\\red96\\green64\\blue32;";  // keywordtype
+  t <<"\\rede0\\green128\\blue0;";  // keywordflow
+  t <<"\\red128\\green0\\blue0;";   // comment
+  t <<"\\red128\\green96\\blue32;"; // preprocessor
+  t <<"\\red0\\green32\\blue128;";  // stringliteral
+  t <<"\\red0\\green128\\blue128;"; // charliteral
+  t <<"\\red255\\green0\\blue255;"; // vhdldigit
+  t <<"\\red0\\green0\\blue0;";     // vhdlchar
+  t <<"\\red112\\green0\\blue112;"; // vhdlkeyword
+  t <<"\\red255\\green0\\blue0;";   // vhdllogic
+
+  t <<"}\n";
 
   DBG_RTF(t <<"{\\comment Beginning style list}\n")
   t <<"{\\stylesheet\n";
@@ -272,21 +287,22 @@ void RTFGenerator::beginRTFDocument()
   t << "\\margl1800\\margr1800\\margt1440\\margb1440\\gutter0\\ltrsect}\n";
 
   // sort styles ascending by \s-number via an intermediate QArray
-  QArray<const StyleData*> array(128);
-  array.fill(0);
   QDictIterator<StyleData> iter(rtf_Style);
   const StyleData* style;
+  unsigned maxIndex = 0;
   for(; (style = iter.current()); ++iter)
   {
     unsigned index = style->index;
-    unsigned size = array.size();
-    if (index >= size)
-    {
-      // +1 to add at least one element, then align up to multiple of 8
-      array.resize((index + 1 + 7) & ~7);
-      array.fill(0, size);
-      ASSERT(index < array.size());
-    }
+    if (maxIndex < index) maxIndex = index;
+  }
+  QArray<const StyleData*> array(maxIndex + 1);
+  array.fill(0);
+  ASSERT(maxIndex < array.size());
+
+  iter.toFirst();
+  for(; (style = iter.current()); ++iter)
+  {
+    unsigned index = style->index;
     if (array.at(index) != 0)
     {
       QCString key(iter.currentKey());
@@ -575,7 +591,7 @@ void RTFGenerator::endIndexSection(IndexSections is)
       break;
     case isTitlePageAuthor:
       {
-        t << "Doxgyen. }\n";
+        t << " doxygen.}\n";
         t << "{\\creatim " << dateToRTFDateString() << "}\n}";
         DBG_RTF(t << "{\\comment end of infoblock}\n");
         // setup for this section
@@ -602,7 +618,7 @@ void RTFGenerator::endIndexSection(IndexSections is)
         t << rtf_Style_Reset << rtf_Style["Title"]->reference << endl; // set to title style
         if (rtf_title)
           // User has overridden document title in extensions file
-          t << "{\\field\\fldedit {\\*\\fldinst " << rtf_title << " \\\\*MERGEFORMAT}{\\fldrslt " << rtf_title << "}}\\par" << endl;
+          t << "{\\field\\fldedit {\\*\\fldinst TITLE \\\\*MERGEFORMAT}{\\fldrslt " << rtf_title << "}}\\par" << endl;
         else
         {
           DocText *root = validatingParseText(projectName);
@@ -703,7 +719,7 @@ void RTFGenerator::endIndexSection(IndexSections is)
       }
       else if (vhdlOpt)
       {
-        t << "{\\tc \\v " << VhdlDocGen::trDesignUnitIndex() << "}"<< endl;
+        t << "{\\tc \\v " << theTranslator->trDesignUnitIndex() << "}"<< endl;
       }
       else
       {
@@ -1626,7 +1642,7 @@ void RTFGenerator::endDescItem()
   newParagraph();
 }
 
-void RTFGenerator::startMemberDescription(const char *,const char *)
+void RTFGenerator::startMemberDescription(const char *,const char *,bool)
 {
   DBG_RTF(t << "{\\comment (startMemberDescription)}"    << endl)
   t << "{" << endl;
@@ -1639,11 +1655,11 @@ void RTFGenerator::endMemberDescription()
 {
   DBG_RTF(t << "{\\comment (endMemberDescription)}"    << endl)
   endEmphasis();
-  newParagraph();
+  //newParagraph();
   decrementIndentLevel();
-  //t << "\\par";
+  t << "\\par";
   t << "}" << endl;
-  //m_omitParagraph = TRUE;
+  m_omitParagraph = TRUE;
 }
 
 void RTFGenerator::startDescList(SectionTypes)
@@ -2165,11 +2181,12 @@ void RTFGenerator::newParagraph()
   m_omitParagraph = FALSE;
 }
 
-void RTFGenerator::startParagraph(const char *)
+void RTFGenerator::startParagraph(const char *txt)
 {
   DBG_RTF(t << "{\\comment startParagraph}" << endl)
   newParagraph();
   t << "{" << endl;
+  if (QCString(txt) == "reference") t << "\\ql" << endl;
 }
 
 void RTFGenerator::endParagraph()
@@ -2617,7 +2634,7 @@ void testRTFOutput(const char *name)
 err:
   err("RTF integrity test failed at line %d of %s due to a bracket mismatch.\n"
       "       Please try to create a small code example that produces this error \n"
-      "       and send that to dimitri@stack.nl.\n",line,name);
+      "       and send that to doxygen@gmail.com.\n",line,name);
 }
 
 /**
@@ -2712,21 +2729,14 @@ void RTFGenerator::endMemberGroup(bool hasHeader)
   t << "}";
 }
 
-void RTFGenerator::startSimpleSect(SectionTypes,const char *file,const char *anchor,const char *title)
+void RTFGenerator::startExamples()
 {
-  DBG_RTF(t << "{\\comment (startSimpleSect)}"    << endl)
+  DBG_RTF(t << "{\\comment (startExamples)}"    << endl)
   t << "{"; // ends at endDescList
   t << "{"; // ends at endDescTitle
   startBold();
   newParagraph();
-  if (file)
-  {
-    writeObjectLink(0,file,anchor,title);
-  }
-  else
-  {
-    docify(title);
-  }
+  docify(theTranslator->trExamples());
   endBold();
   t << "}";
   newParagraph();
@@ -2734,9 +2744,9 @@ void RTFGenerator::startSimpleSect(SectionTypes,const char *file,const char *anc
   t << rtf_Style_Reset << rtf_DList_DepthStyle();
 }
 
-void RTFGenerator::endSimpleSect()
+void RTFGenerator::endExamples()
 {
-  DBG_RTF(t << "{\\comment (endSimpleSect)}"    << endl)
+  DBG_RTF(t << "{\\comment (endExamples)}"    << endl)
   m_omitParagraph = FALSE;
   newParagraph();
   decrementIndentLevel();
@@ -2787,7 +2797,7 @@ void RTFGenerator::exceptionEntry(const char* prefix,bool closeBracket)
 {
   DBG_RTF(t << "{\\comment (exceptionEntry)}"    << endl)
   if (prefix)
-      t << " " << prefix;
+      t << " " << prefix << "(";
   else if (closeBracket)
       t << ")";
   t << " ";
@@ -3041,5 +3051,25 @@ void RTFGenerator::endLabels()
 {
 }
 
+void RTFGenerator::startFontClass(const char *name)
+{
+  int cod = 2;
+  QCString qname(name);
+  if (qname == "keyword")            cod = 17;
+  else if (qname == "keywordtype")   cod = 18;
+  else if (qname == "keywordflow")   cod = 19;
+  else if (qname == "comment")       cod = 20;
+  else if (qname == "preprocessor")  cod = 21;
+  else if (qname == "stringliteral") cod = 22;
+  else if (qname == "charliteral")   cod = 23;
+  else if (qname == "vhdldigit")     cod = 24;
+  else if (qname == "vhdlchar")      cod = 25;
+  else if (qname == "vhdlkeyword")   cod = 26;
+  else if (qname == "vhdllogic")     cod = 27;
+  t << "{\\cf" << cod << " ";
+}
 
-
+void RTFGenerator::endFontClass()
+{
+  t << "}";
+}

@@ -31,7 +31,7 @@
 #include <qstack.h>
 #include <qregexp.h>
 #include <qfile.h>
-  
+
 #include "scanner.h"
 #include "entry.h"
 #include "message.h"
@@ -126,7 +126,10 @@ static bool             insidePHP   = FALSE;		//!< processing PHP code?
 static bool             insideObjC  = FALSE;            //!< processing Objective C code?
 static bool             insideCli   = FALSE;            //!< processing C++/CLI code?
 static bool             insideJS    = FALSE;            //!< processing JavaScript code?
+static bool             insideSlice = FALSE;            //!< processing Slice code?
 static bool             insideCpp   = TRUE;             //!< processing C/C++ code
+
+static bool             sliceOpt = FALSE;
 
 static bool             insideCppQuote = FALSE;
 static bool             insideProtocolList = FALSE;
@@ -149,6 +152,7 @@ static QCString         *pCopyRawString;
 
 static QGString         *pCopyCurlyGString;
 static QGString         *pCopyRoundGString;
+static QGString         *pCopySquareGString;
 static QGString         *pCopyQuotedGString;
 static QGString         *pCopyHereDocGString;
 static QGString         *pCopyRawGString;
@@ -218,6 +222,7 @@ static void initParser()
   insideFormula = FALSE;
   insideCode=FALSE;
   insideCli=Config_getBool(CPP_CLI_SUPPORT);
+  sliceOpt=Config_getBool(OPTIMIZE_OUTPUT_SLICE);
   previous = 0;
   firstTypedefEntry = 0;
   tempEntry = 0;
@@ -375,15 +380,16 @@ static bool nameIsOperator(QCString &name)
 static void setContext()
 {
   QCString fileName = yyFileName;
-  language   = getLanguageFromFileName(fileName);
-  insideIDL  = language==SrcLangExt_IDL;
-  insideJava = language==SrcLangExt_Java;
-  insideCS   = language==SrcLangExt_CSharp; 
-  insideD    = language==SrcLangExt_D;
-  insidePHP  = language==SrcLangExt_PHP;
-  insideObjC = language==SrcLangExt_ObjC;
-  insideJS   = language==SrcLangExt_JS;
-  insideCpp  = language==SrcLangExt_Cpp;
+  language    = getLanguageFromFileName(fileName);
+  insideIDL   = language==SrcLangExt_IDL;
+  insideJava  = language==SrcLangExt_Java;
+  insideCS    = language==SrcLangExt_CSharp; 
+  insideD     = language==SrcLangExt_D;
+  insidePHP   = language==SrcLangExt_PHP;
+  insideObjC  = language==SrcLangExt_ObjC;
+  insideJS    = language==SrcLangExt_JS;
+  insideSlice = language==SrcLangExt_Slice;
+  insideCpp   = language==SrcLangExt_Cpp;
   if ( insidePHP )
   {
     useOverrideCommands = TRUE;
@@ -596,15 +602,11 @@ static int yyread(char *buf,int max_size)
 
        /* start command character */
 CMD	  ("\\"|"@")
-SECTIONCMD {CMD}("image"|"author"|"internal"|"version"|"date"|"deprecated"|"param"|"exception"|"return"[s]?|"retval"|"bug"|"warning"|"par"|"sa"|"see"|"pre"|"post"|"invariant"|"note"|"remark"[s]?|"todo"|"test"|"xrefitem"|"ingroup"|"callgraph"|"callergraph"|"latexonly"|"htmlonly"|"xmlonly"|"docbookonly"|"manonly"|"{"|"verbatim"|"dotfile"|"dot"|"defgroup"|"addtogroup"|"weakgroup"|"class"|"namespace"|"union"|"struct"|"fn"|"var"|"details"|"typedef"|"def"|"overload")|("<"{PRE}">")
 BN        [ \t\n\r]
 BL        [ \t\r]*"\n" 
 B         [ \t]
-BS        ^(({B}*"//")?)(({B}*"*"+)?){B}*
 ID        "$"?[a-z_A-Z\x80-\xFF][a-z_A-Z0-9\x80-\xFF]*
-SCOPEID   {ID}({ID}*{BN}*"::"{BN}*)*({ID}?)
 SCOPENAME "$"?(({ID}?{BN}*"::"{BN}*)*)(((~|!){BN}*)?{ID})
-PHPSCOPENAME ({ID}"\\")+{ID}
 TSCOPE    {ID}("<"[a-z_A-Z0-9 \t\*\&,:]*">")?
 CSSCOPENAME (({ID}?{BN}*"."{BN}*)*)((~{BN}*)?{ID})
 PRE       [pP][rR][eE]
@@ -734,6 +736,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 %x	CopyRound
 %x	CopyCurly
 %x	GCopyRound
+%x	GCopySquare
 %x	GCopyCurly
 %x	SkipUnionSwitch
 %x	Specialization
@@ -755,10 +758,19 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 %x	CopyHereDocEnd
 %x	RawString
 %x	RawGString
+%x	CSString
 
 %x      IDLAttribute
 %x      IDLProp
 %x      IDLPropName
+
+ /** Slice states */
+
+%x      SliceMetadata
+%x      SliceSequence
+%x      SliceSequenceName
+%x      SliceDictionary
+%x      SliceDictionaryName
 
  /** Prototype scanner states */
 
@@ -1217,6 +1229,38 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
                                           unput('{');
   					  BEGIN( Function );
   					}
+<FindMembers>{B}*"sequence"{BN}*"<"{BN}* {
+					  if (insideSlice)
+					  {
+                                            lineCount();
+					    current->bodyLine = yyLineNr;
+                                            current->fileName = yyFileName ;
+					    current->startLine = yyLineNr ;
+					    current->startColumn = yyColNr;
+                                            current->args.resize(0);
+					    current->section = Entry::TYPEDEF_SEC ;
+                                            isTypedef = TRUE;
+					    BEGIN( SliceSequence );
+					  }
+					  else
+					    REJECT;
+					}
+<FindMembers>{B}*"dictionary"{BN}*"<"{BN}* {
+					  if (insideSlice)
+					  {
+                                            lineCount();
+					    current->bodyLine = yyLineNr;
+                                            current->fileName = yyFileName ;
+					    current->startLine = yyLineNr ;
+					    current->startColumn = yyColNr;
+                                            current->args.resize(0);
+					    current->section = Entry::TYPEDEF_SEC ;
+                                            isTypedef = TRUE;
+					    BEGIN( SliceDictionary );
+					  }
+					  else
+					    REJECT;
+					}
 <FindMembers>{BN}{1,80}		        {
   					  lineCount();
   					}
@@ -1389,6 +1433,9 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 <FindMembers>{B}*"explicit"{BN}+	{ current->spec|=Entry::Explicit;
                                           lineCount(); 
                                         }
+<FindMembers>{B}*"local"{BN}+		{ current->spec|=Entry::Local;
+                                          lineCount(); 
+                                        }
 <FindMembers>{B}*"@required"{BN}+	{ // Objective C 2.0 protocol required section
                                           current->spec=(current->spec & ~Entry::Optional) | Entry::Required;
                                           lineCount(); 
@@ -1423,7 +1470,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					}
 <FindMembers>{B}*"module"{BN}+		{ 
 					  lineCount();
-                                          if (insideIDL)
+                                          if (insideIDL || insideSlice)
 					  {
   					    isTypedef=FALSE;
 					    current->section = Entry::NAMESPACE_SEC;
@@ -1526,15 +1573,15 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					    current->name = QCString(yytext).stripWhiteSpace();
 					  }
 					}
-<FindMembers>{BN}*((("disp")?"interface")|"valuetype"){BN}+ 	{ // M$/Corba/UNO IDL/Java interface
+<FindMembers>{BN}*((("disp")?"interface")|"valuetype"){BN}+ 	{ // M$/Corba/UNO IDL/Java/Slice interface
 					  lineCount();
-                                          if (insideIDL || insideJava || insideCS || insideD || insidePHP)
+                                          if (insideIDL || insideJava || insideCS || insideD || insidePHP || insideSlice)
 					  {
   					    isTypedef=FALSE;
 					    current->section = Entry::CLASS_SEC;
-                        current->spec = Entry::Interface |
-                          // preserve UNO IDL [optional] or published
-                          (current->spec & (Entry::Optional|Entry::Published));
+                        		    current->spec = Entry::Interface |
+                                                // preserve UNO IDL [optional], published, Slice local
+                                                (current->spec & (Entry::Optional|Entry::Published|Entry::Local));
 					    addType( current ) ;
 					    current->type += " interface" ;
 					    current->fileName  = yyFileName;
@@ -1598,11 +1645,13 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  current->bodyLine  = yyLineNr;
 					  BEGIN( CompoundName );
   					}
-<FindMembers>{B}*"exception"{BN}+ 	{ // Corba IDL exception
+<FindMembers>{B}*"exception"{BN}+ 	{ // Corba IDL/Slice exception
   					  isTypedef=FALSE;
 					  current->section = Entry::CLASS_SEC;
+                                          // preserve UNO IDL, Slice local
 					  current->spec    = Entry::Exception |
-					    (current->spec & Entry::Published); // preserve UNO IDL
+					    (current->spec & Entry::Published) |
+					    (current->spec & Entry::Local);
 					  addType( current ) ;
 					  current->type += " exception" ;
 					  current->fileName  = yyFileName;
@@ -1621,6 +1670,16 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
                                           bool isVolatile=decl.find("volatile")!=-1;
   					  current->section = Entry::CLASS_SEC;
 					  addType( current ) ;
+                                          uint64 spec = current->spec;
+					  if (insidePHP && current->spec&Entry::Abstract)
+					  {
+					    // convert Abstract to AbstractClass
+					    current->spec=(current->spec&~Entry::Abstract)|Entry::AbstractClass;
+					  }
+                                          if (insideSlice && spec&Entry::Local)
+                                          {
+                                            current->spec|=Entry::Local;
+                                          }
                                           if (isConst)
                                           {
                                             current->type += " const";
@@ -1641,11 +1700,6 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  }
 					  lineCount() ;
 					  if (yytext[yyleng-1]=='{') unput('{');
-					  if (insidePHP && current->spec&Entry::Abstract)
-					  {
-					    // convert Abstract to AbstractClass
-					    current->spec=(current->spec&~Entry::Abstract)|Entry::AbstractClass;
-					  }
 					  BEGIN( CompoundName ) ;
 					}
 <FindMembers>{B}*"value class{" |         // C++/CLI extension
@@ -1721,10 +1775,13 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  isTypedef=decl.find("typedef")!=-1;
                                           bool isConst=decl.find("const")!=-1;
                                           bool isVolatile=decl.find("volatile")!=-1;
+                                          uint64 spec = current->spec;
   					  current->section = Entry::CLASS_SEC ;
+                                          // preserve UNO IDL & Inline attributes, Slice local
 					  current->spec    = Entry::Struct |
 					    (current->spec & Entry::Published) |
-                                            (current->spec & Entry::Inline); // preserve UNO IDL & Inline attributes
+                                            (current->spec & Entry::Inline) |
+                                            (current->spec & Entry::Local); 
 					  // bug 582676: can be a struct nested in an interface so keep insideObjC state
 					  //current->objc    = insideObjC = FALSE;
 					  addType( current ) ;
@@ -2381,10 +2438,6 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					    {
 					      current->protection = Protected;
 					    }
-					    else if (javaLike && qstrcmp(yytext,"internal")==0)
-					    {
-					      current->protection = Package;
-					    }
 					    else if (javaLike && qstrcmp(yytext,"private")==0)
 					    {
 					      current->protection = Private;
@@ -2841,6 +2894,14 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
   					  current->initializer+=*yytext; 
   					  BEGIN(GCopyRound);
   					}
+<ReadInitializer>"["                    {
+                                          if (!insidePHP) REJECT;
+                                          lastSquareContext=YY_START;
+                                          pCopySquareGString=&current->initializer;
+                                          squareCount=0;
+                                          current->initializer+=*yytext; 
+                                          BEGIN(GCopySquare);
+                                        }
 <ReadInitializer>"{"			{
   					  lastCurlyContext=YY_START;
   					  pCopyCurlyGString=&current->initializer;
@@ -3072,6 +3133,10 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
   					  *pCopyQuotedGString+=*yytext;
   					  BEGIN( lastStringContext ); 
 					}
+<CopyGString,CopyPHPGString>"<?php"	{ // we had an odd number of quotes.
+					  *pCopyQuotedGString += yytext;
+  					  BEGIN( lastStringContext ); 
+					}
 <CopyGString,CopyPHPGString>"/*"|"*/"|"//" {
   					  *pCopyQuotedGString+=yytext;
   					}
@@ -3182,6 +3247,56 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 <GCopyRound>.				{
   					  *pCopyRoundGString+=*yytext;
   					}
+
+  /* generic square bracket list copy rules for growable strings, we should only enter here in case of php, left the test part as in GCopyRound to keep it compatible with te round bracket version */
+<GCopySquare>\"                         {
+                                          *pCopySquareGString+=*yytext;
+                                            pCopyQuotedGString=pCopySquareGString;
+                                          lastStringContext=YY_START;
+                                          BEGIN(CopyGString);
+                                        }
+<GCopySquare>"["                        {
+                                          *pCopySquareGString+=*yytext;
+                                          squareCount++;
+                                        }
+<GCopySquare>"]"                        {
+                                          *pCopySquareGString+=*yytext;
+                                          if (--squareCount<0)
+                                          BEGIN(lastSquareContext);
+                                        }
+<GCopySquare>\n                         {
+                                          lineCount();
+                                          *pCopySquareGString+=*yytext;
+                                        }
+<GCopySquare>\'                         {
+                                          if (insidePHP)
+                                          {
+                                            current->initializer+=yytext; 
+                                            pCopyQuotedGString = pCopySquareGString;
+                                            lastStringContext=YY_START;
+                                            BEGIN(CopyPHPGString);
+                                          }
+                                          else
+                                          {
+                                            *pCopySquareGString+=yytext;
+                                          }
+                                        }
+<GCopySquare>{CHARLIT}                  { 
+                                          if (insidePHP)
+                                          {
+                                            REJECT;
+                                          }
+                                          else
+                                          {
+                                            *pCopySquareGString+=yytext; 
+                                          }
+                                        }
+<GCopySquare>[^"\[\]\n/]+               {
+                                          *pCopySquareGString+=yytext;
+                                        }
+<GCopySquare>.                          {
+                                          *pCopySquareGString+=*yytext;
+                                        }
 
   /* generic curly bracket list copy rules */
 <CopyCurly>\"				{
@@ -3391,7 +3506,14 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					}
 
 <FindMembers>"["			{ 
-  					  if (!insideCS &&  
+                                          if (insideSlice)
+                                          {
+          				    squareCount=1;
+                                            lastSquareContext = YY_START;
+                                            current->metaData += "[";
+                                            BEGIN( SliceMetadata );
+                                          }
+                                          else if (!insideCS &&  
 					      (current->name.isEmpty() || 
 					       current->name=="typedef"
 					      )
@@ -3431,6 +3553,26 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					    BEGIN( Array ) ;
 					  }
 					}
+<SliceMetadata>"["                      { // Global metadata.
+          				  squareCount++;
+                                          current->metaData += "[";
+                                        }
+<SliceMetadata>{BN}*                    {
+          				  lineCount();
+                                        }
+<SliceMetadata>\"[^\"]*\"               {
+                                          current->metaData += yytext;
+                                        }
+<SliceMetadata>","                      {
+                                          current->metaData += yytext;
+                                        }
+<SliceMetadata>"]"                      {
+                                          current->metaData += yytext;
+                                          if (--squareCount<=0)
+                                          {
+                                            BEGIN (lastSquareContext);
+                                          }
+                                        }
 <IDLAttribute>"]"			{
   					  // end of IDL function attribute
 					  if (--squareCount<=0)
@@ -3638,7 +3780,10 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					      current->fileName   = yyFileName;
 					      current->startLine  = yyLineNr;
 					      current->startColumn = yyColNr;
-					      current->type       = "@"; // enum marker
+					      if (!(current_root->spec&Entry::Enum))
+					      {
+					        current->type       = "@"; // enum marker
+					      }
 					      current->args       = current->args.simplifyWhiteSpace();
 					      current->name       = current->name.stripWhiteSpace();
 					      current->section    = Entry::VARIABLE_SEC;
@@ -3780,6 +3925,28 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  else
 					  {
 					    current->endBodyLine = yyLineNr;
+                                            if (current->section == Entry::NAMESPACE_SEC && current->type == "namespace")
+                                            {
+                                              int split_point;
+                                              while ((split_point = current->name.find("::")) != -1)
+                                              {
+                                                Entry *new_current = new Entry(*current);
+                                                current->program = "";
+                                                new_current->doc = "";
+                                                new_current->docLine = 0;
+                                                new_current->docFile = "";
+                                                new_current->brief = "";
+                                                new_current->briefLine = 0;
+                                                new_current->briefFile = "";
+                                                new_current->name  = current->name.mid(split_point + 2);
+                                                current->name  = current->name.left(split_point);
+                                                if (!current_root->name.isEmpty()) current->name.prepend(current_root->name+"::");
+
+                                                current_root->addSubEntry(current);
+                                                current_root = current;
+                                                current = new_current;
+                                              }
+                                            }
 					    QCString &cn = current->name;
 					    QCString rn = current_root->name.copy();
 					    //printf("cn=`%s' rn=`%s' isTypedef=%d\n",cn.data(),rn.data(),isTypedef);
@@ -3817,7 +3984,8 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 						current = new Entry(*current);
 						if (current->section==Entry::NAMESPACE_SEC || 
 						    (current->spec==Entry::Interface) ||
-						    insideJava || insidePHP || insideCS || insideD || insideJS
+						    insideJava || insidePHP || insideCS || insideD || insideJS ||
+                                                    insideSlice
 						   )
 						{ // namespaces and interfaces and java classes ends with a closing bracket without semicolon
 						  current->reset();
@@ -4793,7 +4961,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 <FuncQual>{ID}				{ // typically a K&R style C function
                                           if (insideCS && qstrcmp(yytext,"where")==0)
 					  { 
-					    // type contraint for a method
+					    // type constraint for a method
                                             delete current->typeConstr;
                                             current->typeConstr = new ArgumentList;
 					    current->typeConstr->append(new Argument);
@@ -5289,7 +5457,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  }
 					  BEGIN( FindMembers ) ;
 					}
-<CompoundName>{SCOPENAME}{BN}*/"<"	{
+<CompoundName>{SCOPENAME}/{BN}*"<"	{
   					  sharpCount = 0;
   					  current->name = yytext ;
 					  if (current->spec & Entry::Protocol)
@@ -5527,7 +5695,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					    roundCount=0;
 					    BEGIN(SkipUnionSwitch);
 					  }
-					  else if ((insideJava || insidePHP || insideJS) && (qstrcmp(yytext,"implements")==0 || qstrcmp(yytext,"extends")==0))
+					  else if ((insideJava || insidePHP || insideJS || insideSlice) && (qstrcmp(yytext,"implements")==0 || qstrcmp(yytext,"extends")==0))
 					  {
   					    current->type.resize(0);
 					    baseProt=Public;
@@ -5535,7 +5703,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					    baseName.resize(0);
 					    BEGIN( BasesProt ) ;
 					  }
-					  else if (insideCS && qstrcmp(yytext,"where")==0) // C# type contraint
+					  else if (insideCS && qstrcmp(yytext,"where")==0) // C# type constraint
 					  {
                                             delete current->typeConstr;
                                             current->typeConstr = new ArgumentList;
@@ -5815,7 +5983,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
                                           QCString baseScope = yytext;
                                           if (insideCS && baseScope.stripWhiteSpace()=="where")
 					  { 
-					    // type contraint for a class
+					    // type constraint for a class
                                             delete current->typeConstr;
                                             current->typeConstr = new ArgumentList;
 					    current->typeConstr->append(new Argument);
@@ -5954,7 +6122,7 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					  }
 					  if ((current->spec & (Entry::Interface|Entry::Struct)) || 
 					      insideJava || insidePHP || insideCS || 
-					      insideD || insideObjC || insideIDL)
+					      insideD || insideObjC || insideIDL || insideSlice)
 					  {
 					    baseProt=Public;
 					  }
@@ -6235,11 +6403,76 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 <CSAccessorDecl>"add"			{ if (curlyCount==0) current->spec |= Entry::Addable;   }
 <CSAccessorDecl>"remove"		{ if (curlyCount==0) current->spec |= Entry::Removable; }
 <CSAccessorDecl>"raise"			{ if (curlyCount==0) current->spec |= Entry::Raisable;  }
-<CSAccessorDecl>.			{}
+<CSAccessorDecl>"\""			{ BEGIN(CSString);}
+<CSAccessorDecl>"."			{}
 <CSAccessorDecl>\n			{ lineCount(); }
+<CSString>"\""				{ BEGIN(CSAccessorDecl);}
+<CSString>"//"				{} // Otherwise the rule <*>"//" will kick in
+<CSString>"/*"				{} // Otherwise the rule <*>"/*" will kick in
+<CSString>\n				{ lineCount(); }
+<CSString>"."				{}
 
+ /* ---- Slice-specific rules ------ */
 
+<SliceSequence>{SCOPENAME}              {
+                                          if (current->spec&Entry::Local)
+                                          {
+                                            current->type = "local ";
+                                          }
+                                          current->type += "sequence<";
+                                          current->type += yytext;
+                                          current->type += ">";
+                                        }
 
+<SliceSequence>{BN}*">"{BN}*            {
+                                          lineCount();
+                                          BEGIN(SliceSequenceName);
+                                        }
+
+<SliceSequenceName>{ID}{BN}*            {
+                                          lineCount();
+                                          current->name = yytext ;
+                                          current->name = current->name.stripWhiteSpace();
+                                        }
+
+<SliceSequenceName>";"                  {
+                                          current->section = Entry::VARIABLE_SEC;
+                                          current_root->addSubEntry(current);
+                                          current = new Entry;
+                                          initEntry();
+                                          BEGIN(FindMembers);
+                                        }
+
+<SliceDictionary>{SCOPENAME}{BN}*","{BN}*{SCOPENAME} {
+                                          lineCount();
+                                          if (current->spec&Entry::Local)
+                                          {
+                                            current->type = "local ";
+                                          }
+                                          current->type += "dictionary<";
+                                          current->type += yytext;
+                                          current->type += ">";
+                                          current->type = current->type.simplifyWhiteSpace();
+                                        }
+
+<SliceDictionary>{BN}*">"{BN}*          {
+                                          lineCount();
+                                          BEGIN(SliceDictionaryName);
+                                        }
+
+<SliceDictionaryName>{ID}{BN}*          {
+                                          lineCount();
+                                          current->name = yytext ;
+                                          current->name = current->name.stripWhiteSpace();
+                                        }
+
+<SliceDictionaryName>";"                {
+                                          current->section = Entry::VARIABLE_SEC;
+                                          current_root->addSubEntry(current);
+                                          current = new Entry;
+                                          initEntry();
+                                          BEGIN(FindMembers);
+                                        }
 
  /**********************************************************************************/
  /******************** Documentation block related rules ***************************/
@@ -6611,6 +6844,22 @@ OPERATOR  "operator"{B}*({ARITHOP}|{ASSIGNOP}|{LOGICOP}|{BITOP})
 					    BEGIN(SkipString);
 					  }
   					}
+<*>\?                                   {
+  					  if (insideCS) 
+					  {
+					    if (current->type.isEmpty())
+					    {
+					      if (current->name.isEmpty())
+					        current->name="?";
+					      else
+					        current->name+="?";
+					    }
+					    else
+					    {
+					      current->type+="?";
+					    }
+					  }
+  					}
 <*>.
 <SkipComment>"//"|"/*"
 <*>"/*"					{ lastCContext = YY_START ;
@@ -6819,7 +7068,7 @@ static void parseCompounds(Entry *rt)
       // set default protection based on the compound type
       if( ce->section==Entry::CLASS_SEC ) // class
       {
-        if (insidePHP || insideD || insideJS || insideIDL)
+        if (insidePHP || insideD || insideJS || insideIDL || insideSlice)
 	{
           current->protection = protection = Public ; 
 	}

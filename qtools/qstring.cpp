@@ -10768,7 +10768,7 @@ otherwise.
 
 These functions are: isNull() (returns TRUE if the character is
 U+0000), isPrint() (TRUE if the character is any sort of printable
-character, including whitespace), isPunct() (any sort of punctation),
+character, including whitespace), isPunct() (any sort of punctuation),
 isMark() (Unicode Marks), isLetter (letters), isNumber() (any sort of
 numeric characters), isLetterOrNumber(),  and isDigit() (decimal digits).
 All of these are wrappers around category(), which returns the
@@ -11614,32 +11614,83 @@ static inline bool is_neutral(unsigned short dir) {
 #endif
 
 /*!
-  This function returns the basic directionality of the string (QChar::DirR for
-  right to left and QChar::DirL for left to right). Useful to find the right
-  alignment.
-  */
-QChar::Direction QString::basicDirection()
+This function returns the directionality of the string.
+
+\returns a value of DirLTR, DirRTL, DirMixed or DirNeutral that indicates
+if the entire text represented by this text is unidirectional,
+and which direction, or if it is mixed-directional or all characters are neutral.
+*/
+QString::Direction QString::direction() const
 {
 #ifndef QT_NO_UNICODETABLES
-    // find base direction
-    unsigned int pos = 0;
-    while ((pos < length()) &&
-	   (at(pos) != RLE) &&
-	   (at(pos) != LRE) &&
-	   (at(pos) != RLO) &&
-	   (at(pos) != LRO) &&
-	   (at(pos).direction() > 1) &&
-	   (at(pos).direction() != QChar::DirAL)) // not R and not L
-	pos++;
+	// find direction
+	unsigned char resultDir = DirNeutral;
+	for (unsigned int pos = 0; pos < length(); pos++)
+	{
+		if ((at(pos) != RLE) &&
+			(at(pos) != LRE) &&
+			(at(pos) != RLO) &&
+			(at(pos) != LRO) &&
+			(at(pos).direction() > 1) &&
+			(at(pos).direction() != QChar::DirAL)) // not R and not L
+			continue;
 
-    if ((at(pos).direction() == QChar::DirR) ||
-	(at(pos).direction() == QChar::DirAL) ||
-	(at(pos) == RLE) ||
-	(at(pos) == RLO))
-	return QChar::DirR;
+		if ((at(pos).direction() == QChar::DirR) ||
+			(at(pos).direction() == QChar::DirAL) ||
+			(at(pos) == RLE) ||
+			(at(pos) == RLO))
+			resultDir |= DirRTL;
+		else
+			resultDir |= DirLTR;
+		if (resultDir == DirMixed)
+			return DirMixed;
+	}
+	return static_cast<Direction>(resultDir);
+#else
+	return DirLTR;
 #endif
+}
 
-    return QChar::DirL;
+/*!
+This function returns the basic directionality of the string. Useful to find the right
+alignment.
+
+The base direction is derived from the first character in the string
+with bidirectional character type L, R, or AL.
+If the first such character has type L, DirLTR is returned.
+If the first such character has type R or AL, DirRTL is returned.
+If the string does not contain any character of these types, then DirNeutral is returned.
+This is a lightweight function for use when only the base direction is needed and
+no further bidi processing of the text is needed.
+
+\returns DirRTL, DirLTR or DirNeutral
+*/
+QString::Direction QString::basicDirection() const
+{
+#ifndef QT_NO_UNICODETABLES
+	// find base direction
+	unsigned int pos = 0;
+	while ((pos < length()) &&
+		(at(pos) != RLE) &&
+		(at(pos) != LRE) &&
+		(at(pos) != RLO) &&
+		(at(pos) != LRO) &&
+		(at(pos).direction() > 1) &&
+		(at(pos).direction() != QChar::DirAL)) // not R and not L
+		pos++;
+
+	if (pos == length())
+		return DirNeutral;
+
+	if ((at(pos).direction() == QChar::DirR) ||
+		(at(pos).direction() == QChar::DirAL) ||
+		(at(pos) == RLE) ||
+		(at(pos) == RLO))
+		return DirRTL;
+	return DirLTR;
+#else
+	return DirLTR;
+#endif
 }
 
 #ifndef QT_NO_UNICODETABLES
@@ -12905,7 +12956,7 @@ int QString::find( QChar c, int index, bool cs ) const
 	index += length();
     if ( (uint)index >= length() )		// index outside string
 	return -1;
-    register const QChar *uc;
+    const QChar *uc;
     uc = unicode()+index;
     int n = length()-index;
     if ( cs ) {
@@ -13274,7 +13325,7 @@ QString QString::mid( uint index, uint len ) const
 	    len = slen - index;
 	if ( index == 0 && len == length() )
 	    return *this;
-	register const QChar *p = unicode()+index;
+	const QChar *p = unicode()+index;
 	QString s( len, TRUE );
 	memcpy( s.d->unicode, p, len*sizeof(QChar) );
 	s.d->len = len;
@@ -13378,7 +13429,7 @@ QString QString::lower() const
     int l=length();
     if ( l ) {
 	s.real_detach(); // could do this only when we find a change
-	register QChar *p=s.d->unicode;
+	QChar *p=s.d->unicode;
 	if ( p ) {
 	    while ( l-- ) {
 		*p = p->lower();
@@ -13407,7 +13458,7 @@ QString QString::upper() const
     int l=length();
     if ( l ) {
 	s.real_detach(); // could do this only when we find a change
-	register QChar *p=s.d->unicode;
+	QChar *p=s.d->unicode;
 	if ( p ) {
 	    while ( l-- ) {
 		*p = p->upper();
@@ -13442,7 +13493,7 @@ QString QString::stripWhiteSpace() const
     if ( !at(0).isSpace() && !at(length()-1).isSpace() )
 	return *this;
 
-    register const QChar *s = unicode();
+    const QChar *s = unicode();
     QString result = fromLatin1("");
 
     int start = 0;

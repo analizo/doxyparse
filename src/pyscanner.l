@@ -109,7 +109,7 @@ static QCString         g_packageName;
 
 //static bool             g_hideClassDocs;
 
-static QCString         g_defVal;
+static QGString         g_defVal;
 static int              g_braceCount;
 
 static bool             g_lexInit = FALSE;
@@ -118,6 +118,8 @@ static bool             g_packageCommentAllowed;
 static bool             g_start_init = FALSE;
 static int              g_search_count = 0;
 
+static QCString         g_argType = "";
+static bool             g_funcParamsEnd;
 //-----------------------------------------------------------------------------
 
 
@@ -487,7 +489,6 @@ SHORTSTRINGITEM   ({SHORTSTRINGCHAR}|{ESCAPESEQ})
 SHORTSTRINGCHAR   [^\\\n"]
 STRINGLITERAL     {STRINGPREFIX}?( {SHORTSTRING} | {LONGSTRING})  
 STRINGPREFIX      ("r"|"u"|"ur"|"R"|"U"|"UR"|"Ur"|"uR")
-KEYWORD           ("lambda"|"import"|"class"|"assert"|"as"|"from"|"global"|"def"|"True"|"False")
 FLOWKW            ("or"|"and"|"is"|"not"|"print"|"for"|"in"|"if"|"try"|"except"|"yield"|"raise"|"break"|"continue"|"pass"|"if"|"return"|"while"|"elif"|"else"|"finally")
 POUNDCOMMENT      "#"[^#\n][^\n]* 
 SCRIPTCOMMENT      "#!".* 
@@ -514,6 +515,8 @@ STARTDOCSYMS      "##"
 %x FunctionDec
 %x FunctionParams
 %x FunctionBody
+%x FunctionAnnotation
+%x FunctionTypeAnnotation
 %x FunctionParamDefVal
 
   /* Class states */
@@ -933,7 +936,6 @@ STARTDOCSYMS      "##"
 }
 
 <FunctionDec>{
-
     {IDENTIFIER}            {
 			      //found function name
 			      if (current->type.isEmpty()) 
@@ -944,47 +946,59 @@ STARTDOCSYMS      "##"
 			      current->name = current->name.stripWhiteSpace();
 			      newFunction();
                             }
-    {B}":"		    { // function without arguments
+    {B}":"{B}		    { // function without arguments
 			      g_specialBlock = TRUE; // expecting a docstring
 			      bodyEntry = current;
-                              current->bodyLine  = yyLineNr;
-                              BEGIN( FunctionBody );
+                              BEGIN(FunctionBody);
 			    }
 
-    {B}"("                  {
-			       BEGIN( FunctionParams );
+    "->"                    {
+			      g_defVal.resize(0);
+			      g_braceCount = 0;
+			      BEGIN(FunctionTypeAnnotation);
 		            }
+    {B}"("                  {
+			      g_funcParamsEnd = FALSE;
+                              current->bodyLine  = yyLineNr;
+			      BEGIN(FunctionParams);
+		            }
+    ")"                     { // end of parameter list
+        		      current->args = argListToString(current->argList);
+        		      g_funcParamsEnd = TRUE;
+                            }
 }
 
 <FunctionParams>{
     ({BB}|",")          {
                         }
 
+    [\*]+               {
+                          g_argType = yytext;
+                        }
     {IDENTIFIER}        { // Name of parameter
 			  lineCount();
 			  Argument *a = new Argument;
 			  current->argList->append(a);
 			  current->argList->getLast()->name = QCString(yytext).stripWhiteSpace();
-			  current->argList->getLast()->type = "";
+			  current->argList->getLast()->type = g_argType;
+                          g_argType = "";
                         }
     "="		        { // default value
                           // TODO: this rule is too simple, need to be able to
                           // match things like =")" as well!
 			  g_defVal.resize(0);
-			  g_braceCount=0;
+			  g_braceCount = 0;
 			  BEGIN(FunctionParamDefVal);
       			}
-
-     ")"                { // end of parameter list
-        		  current->args = argListToString(current->argList);
+     ")"                {
+			  unput(*yytext);
+			  BEGIN(FunctionDec);
                         }
-
      ":"{B}             {
-			  g_specialBlock = TRUE; // expecting a docstring
-			  bodyEntry = current;
-                          current->bodyLine  = yyLineNr;
-                          BEGIN( FunctionBody );
-                        }
+			  g_defVal.resize(0);
+			  g_braceCount = 0;
+			  BEGIN(FunctionAnnotation);
+			}
     {POUNDCOMMENT}	{ // a comment
 			}
     {PARAMNONEMPTY}     { // Default rule inside arguments.
@@ -992,35 +1006,149 @@ STARTDOCSYMS      "##"
 
 }
 
-<FunctionParamDefVal>{
-     "("		{ // internal opening brace
-       			  g_braceCount++;
+<FunctionTypeAnnotation>{
+     "{"		|
+     "["		|
+     "("		{
+     			  ++g_braceCount;
+     			  g_defVal+=*yytext;
+     			}
+     "}"		|
+     "]"		|
+     ")"		{
+			  --g_braceCount;
 			  g_defVal+=*yytext;
        			}
-     ","		| 
-     ")"		{
-       			  if (g_braceCount==0)  // end of default argument
+     ":"		{
+			  if (g_braceCount == 0)
+			  {
+			    current->type = g_defVal.data();
+			    unput(*yytext);
+			    BEGIN(FunctionDec);
+			  }
+			  else
+     			    g_defVal+=*yytext;
+       			}
+     "'"                {
+			  g_defVal+=*yytext;
+			  g_copyString=&g_defVal;
+			  g_stringContext=FunctionTypeAnnotation;
+			  BEGIN(SingleQuoteString);
+                        }
+     "\""               {
+			  g_defVal+=*yytext;
+			  g_copyString=&g_defVal;
+			  g_stringContext=FunctionTypeAnnotation;
+			  BEGIN(DoubleQuoteString);
+                        }
+     \n                 {
+			  g_defVal+=*yytext;
+			  incLineNr();
+			}
+     .			{
+			  g_defVal+=*yytext;
+       			}
+}
+
+<FunctionAnnotation>{
+     "{"		|
+     "["		|
+     "("		{
+     			  ++g_braceCount;
+     			  g_defVal+=*yytext;
+     			}
+     "}"		|
+     "]"		{
+			  --g_braceCount;
+			  g_defVal+=*yytext;
+       			}
+     ")"		|
+     "="		|
+     ","		{
+			  if (g_braceCount == 0)
 			  {
 			    if (current->argList->getLast())
-			    {
-			      current->argList->getLast()->defval=g_defVal.stripWhiteSpace();
-			    }
-			    if (*yytext == ')')
-			      current->args = argListToString(current->argList);
+			      current->argList->getLast()->type += g_defVal.data();
+			    if (*yytext != ',')
+			      unput(*yytext);
 			    BEGIN(FunctionParams);
 			  }
-			  else // continue
+			  else
 			  {
-			    if (*yytext == ')')g_braceCount--;
-			    g_defVal+=*yytext;
-			  }
+			    if (*yytext == ')')
+			      --g_braceCount;
+			    g_defVal += *yytext;
+     			  }
+       			}
+     "'"                {
+			  g_defVal+=*yytext;
+			  g_copyString=&g_defVal;
+			  g_stringContext=FunctionAnnotation;
+			  BEGIN(SingleQuoteString);
+                        }
+     "\""               {
+			  g_defVal+=*yytext;
+			  g_copyString=&g_defVal;
+			  g_stringContext=FunctionAnnotation;
+			  BEGIN(DoubleQuoteString);
+                        }
+     \n                 {
+			  g_defVal+=*yytext;
+			  incLineNr();
        			}
      .			{
-			    g_defVal+=*yytext;
+			  g_defVal+=*yytext;
        			}
+}
+
+<FunctionParamDefVal>{
+     "{"		| 
+     "["		| 
+     "("		{ // internal opening brace, assumption is that we have correct code so braces do match
+       			  ++g_braceCount;
+			  g_defVal+=*yytext;
+       			}
+     "}"		|
+     "]"		{
+			  --g_braceCount;
+			  g_defVal+=*yytext;
+       			}
+     ")"		|
+     ","		{
+			  if (g_braceCount == 0)
+			  {
+			    if (current->argList->getLast())
+			      current->argList->getLast()->defval=QCString(g_defVal.data()).stripWhiteSpace();
+			    if (*yytext == ')')
+			      unput(*yytext);
+			    BEGIN(FunctionParams);
+			  }
+     			  else
+     			  {
+			    if (*yytext == ')')
+			      --g_braceCount;
+     			    g_defVal += *yytext;
+     			  }
+       			}
+
+     "'"                {
+                          g_defVal+=*yytext;
+                          g_copyString=&g_defVal;
+                          g_stringContext=FunctionParamDefVal;
+                          BEGIN( SingleQuoteString );
+                        }
+     "\""               {
+                          g_defVal+=*yytext;
+                          g_copyString=&g_defVal;
+                          g_stringContext=FunctionParamDefVal;
+                          BEGIN( DoubleQuoteString );
+                        }
      \n                 {
        			    g_defVal+=*yytext;
 			    incLineNr();
+       			}
+     .			{
+			    g_defVal+=*yytext;
        			}
 }
 
@@ -1168,13 +1296,17 @@ STARTDOCSYMS      "##"
       				 current->program+=yytext;
 			 	 BEGIN(TripleComment);
                       	       }
-
     {TRISINGLEQUOTE}           { // start of a comment block
 			         initTriSingleQuoteBlock();
       				 current->program+=yytext;
 			         BEGIN(TripleComment);
                                }
-
+    {STARTDOCSYMS}[#]*         {  // start of a special comment
+                                 initSpecialBlock();
+                                 BEGIN(SpecialComment);
+                               }
+    {POUNDCOMMENT}             { // ignore comment with just one #
+                               }
     ^{BB} 		       {
       				 current->program+=yytext;
 			         //current->startLine = yyLineNr;
@@ -1187,7 +1319,6 @@ STARTDOCSYMS      "##"
                                }
 
     ""/({NONEMPTY}|{EXPCHAR})  {
-				 
 				 // Just pushback an empty class, and
 				 // resume parsing the body.
                                  newEntry();
@@ -1380,7 +1511,6 @@ STARTDOCSYMS      "##"
                         BEGIN(Search);
       		      }
     <<EOF>>           { yyterminate();
-                        newEntry();
                       }
 }
 
@@ -1409,7 +1539,7 @@ STARTDOCSYMS      "##"
 			        actualDoc.prepend("\\verbatim ");
 			        actualDoc.append("\\endverbatim ");
 			      }
-			      actualDoc.prepend("\\namespace "+g_moduleScope+"\\_linebr ");
+			      actualDoc.prepend("\\namespace "+g_moduleScope+" ");
 			      handleCommentBlock(actualDoc, FALSE);
 			    }
 			    if ((docBlockContext==ClassBody /*&& !g_hideClassDocs*/) ||
@@ -1492,7 +1622,7 @@ STARTDOCSYMS      "##"
     \\.			       { // espaced char
       			         addToString(yytext);
                                }
-    "\"\"\""		       { // tripple double quotes
+    "\"\"\""		       { // triple double quotes
       			         addToString(yytext);
       			       }
     "'"			       { // end of the string
@@ -1515,7 +1645,7 @@ STARTDOCSYMS      "##"
     \\.			       { // espaced char
       			         addToString(yytext);
                                }
-    "'''"		       { // tripple single quotes
+    "'''"		       { // triple single quotes
       			         addToString(yytext);
       			       }
     "\""		       { // end of the string

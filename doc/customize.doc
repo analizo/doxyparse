@@ -16,7 +16,7 @@
  */
 /*! \page customize Customizing the output
 
-\tableofcontents
+\tableofcontents{html,latex}
 
 Doxygen provides various levels of customization. 
 The section \ref minor_tweaks "Minor Tweaks" discusses what to 
@@ -114,7 +114,7 @@ This will create 3 files:
   referencing those extra files
   via \ref cfg_html_extra_stylesheet "HTML_EXTRA_STYLESHEET".
 
-You should edit these files and then reference them from the config file.
+You should edit these files and then reference them from the configuration file.
 - \ref cfg_html_header "HTML_HEADER" = \c header.html
 - \ref cfg_html_footer "HTML_FOOTER" = \c footer.html
 - \ref cfg_html_extra_stylesheet "HTML_EXTRA_STYLESHEET" = \c my_customdoxygen.css
@@ -158,7 +158,7 @@ doxygen -l
 optionally the name of the layout file can be specified, if omitted
 \c DoxygenLayout.xml will be used.
 
-The next step is to mention the layout file in the config file
+The next step is to mention the layout file in the configuration file
 \verbatim
 LAYOUT_FILE = DoxygenLayout.xml
 \endverbatim
@@ -289,7 +289,12 @@ The following generic elements are possible for each page:
 <dt>\c detaileddescription
   <dd>Represents the detailed description on a page.
 <dt>\c authorsection
-  <dd>Represents the author section of a page (only used for man pages).
+  <dd>Represents the author section of a page (only used for man pages). This is
+      a separate section for man pages with a text like:
+      `Generated automatically by Doxygen for My Project from the source code.`
+      This should not be misinterpreted with the doxygen commands \ref cmdauthor
+      "\\author" or \ref cmdauthors "\\authors" that generate an author paragraph
+      inside a detailed description.
 <dt>\c memberdecl
   <dd>Represents the quick overview of members on a page (member declarations).
       This elements has child elements per type of member list.

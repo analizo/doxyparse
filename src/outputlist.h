@@ -191,8 +191,8 @@ class OutputList : public OutputDocInterface
     { forall(&OutputGenerator::startHeaderSection); }
     void endHeaderSection()
     { forall(&OutputGenerator::endHeaderSection); }
-    void startMemberHeader(const char *anchor)
-    { forall(&OutputGenerator::startMemberHeader,anchor); }
+    void startMemberHeader(const char *anchor, int typ = 2)
+    { forall(&OutputGenerator::startMemberHeader,anchor,typ); }
     void endMemberHeader()
     { forall(&OutputGenerator::endMemberHeader); }
     void startMemberSubtitle()
@@ -237,6 +237,8 @@ class OutputList : public OutputDocInterface
     { forall(&OutputGenerator::endMemberGroup,last); }
     void insertMemberAlign(bool templ=FALSE) 
     { forall(&OutputGenerator::insertMemberAlign,templ); }
+    void insertMemberAlignLeft(int typ=0, bool templ=FALSE) 
+    { forall(&OutputGenerator::insertMemberAlignLeft,typ,templ); }
     void writeRuler() 
     { forall(&OutputGenerator::writeRuler); }
     void writeAnchor(const char *fileName,const char *name)
@@ -306,8 +308,8 @@ class OutputList : public OutputDocInterface
     { forall(&OutputGenerator::startBold); }
     void endBold() 
     { forall(&OutputGenerator::endBold); }
-    void startMemberDescription(const char *anchor,const char *inheritId=0) 
-    { forall(&OutputGenerator::startMemberDescription,anchor,inheritId); }
+    void startMemberDescription(const char *anchor,const char *inheritId=0, bool typ = false) 
+    { forall(&OutputGenerator::startMemberDescription,anchor,inheritId, typ); }
     void endMemberDescription() 
     { forall(&OutputGenerator::endMemberDescription); }
     void startMemberDeclaration()
@@ -319,11 +321,10 @@ class OutputList : public OutputDocInterface
                                     const char *title,const char *name)
     { forall(&OutputGenerator::writeInheritedSectionTitle,id,ref,
                                     file,anchor,title,name); }
-    void startSimpleSect(SectionTypes t,const char *file,const char *anchor,
-                         const char *title) 
-    { forall(&OutputGenerator::startSimpleSect,t,file,anchor,title); }
-    void endSimpleSect() 
-    { forall(&OutputGenerator::endSimpleSect); }
+    void startExamples()
+    { forall(&OutputGenerator::startExamples); }
+    void endExamples()
+    { forall(&OutputGenerator::endExamples); }
     void startParamList(ParamListTypes t,const char *title) 
     { forall(&OutputGenerator::startParamList,t,title); }
     void endParamList() 
@@ -366,6 +367,10 @@ class OutputList : public OutputDocInterface
     { forall(&OutputGenerator::startContents); }
     void endContents()
     { forall(&OutputGenerator::endContents); }
+    void startPageDoc(const char *pageTitle)
+    { forall(&OutputGenerator::startPageDoc, pageTitle); }
+    void endPageDoc()
+    { forall(&OutputGenerator::endPageDoc); }
     void writeNonBreakableSpace(int num)
     { forall(&OutputGenerator::writeNonBreakableSpace,num); }
     void startDescTable(const char *title)

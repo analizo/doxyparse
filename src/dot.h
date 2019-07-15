@@ -26,8 +26,8 @@
 #include <qqueue.h>
 #include <qthread.h>
 #include "sortdict.h"
+#include "classdef.h"
 
-class ClassDef;
 class FileDef;
 class FTextStream;
 class DotNodeList;
@@ -41,6 +41,12 @@ class DotRunnerQueue;
 
 enum GraphOutputFormat    { GOF_BITMAP, GOF_EPS };
 enum EmbeddedOutputFormat { EOF_Html, EOF_LaTeX, EOF_Rtf, EOF_DocBook };
+
+// the graphicx LaTeX has a limitation of maximum size of 16384
+// To be on the save side we take it a little bit smaller i.e. 150 inch * 72 dpi
+// It is anyway hard to view these size of images
+#define MAX_LATEX_GRAPH_INCH  150
+#define MAX_LATEX_GRAPH_SIZE  (MAX_LATEX_GRAPH_INCH * 72)
 
 /** Attributes of an edge of a dot graph */
 struct EdgeInfo
@@ -116,6 +122,7 @@ class DotNode
     bool             m_visible;   //!< is the node visible in the output
     TruncState       m_truncated; //!< does the node have non-visible children/parents
     int              m_distance;  //!< shortest path to the root node
+    bool             m_renumbered;//!< indicates if the node has been renumbered (to prevent endless loops)
 
     friend class DotGfxHierarchyTable;
     friend class DotClassGraph;
@@ -127,8 +134,9 @@ class DotNode
 
     friend QCString computeMd5Signature(
                       DotNode *root, GraphType gt,
-                      GraphOutputFormat f, 
-                      bool lrRank, bool renderParents,
+                      GraphOutputFormat f,
+                      const QCString &rank,
+                      bool renderParents,
                       bool backArrows,
                       const QCString &title,
                       QCString &graphStr
@@ -149,7 +157,7 @@ class DotNodeList : public QList<DotNode>
 class DotGfxHierarchyTable
 {
   public:
-    DotGfxHierarchyTable();
+    DotGfxHierarchyTable(const char *prefix="",ClassDef::CompoundType ct=ClassDef::Class);
    ~DotGfxHierarchyTable();
     void writeGraph(FTextStream &t,const char *path, const char *fileName) const;
     void createGraph(DotNode *rootNode,FTextStream &t,const char *path,const char *fileName,int id) const;
@@ -159,10 +167,12 @@ class DotGfxHierarchyTable
     void addHierarchy(DotNode *n,ClassDef *cd,bool hide);
     void addClassList(ClassSDict *cl);
 
-    QList<DotNode> *m_rootNodes; 
-    QDict<DotNode> *m_usedNodes; 
-    int             m_curNodeNumber;
-    DotNodeList    *m_rootSubgraphs;
+    QCString               m_prefix;
+    ClassDef::CompoundType m_classType;
+    QList<DotNode>        *m_rootNodes; 
+    QDict<DotNode>        *m_usedNodes; 
+    int                    m_curNodeNumber;
+    DotNodeList           *m_rootSubgraphs;
 };
 
 /** Representation of a class inheritance or dependency graph */
@@ -338,11 +348,12 @@ class DotGroupCollaboration
 class DotConstString
 {
   public:
-    DotConstString()                                   { m_str=0; }
-   ~DotConstString()                                   { delete[] m_str; }
-    DotConstString(const QCString &s) : m_str(0)       { set(s); }
-    DotConstString(const DotConstString &s) : m_str(0) { set(s.data()); }
+    DotConstString()                                   { m_str=0; m_pdfstr=0;}
+   ~DotConstString()                                   { delete[] m_str; delete[] m_pdfstr;}
+    DotConstString(const QCString &s, const QCString &p = NULL) : m_str(0), m_pdfstr(0)       { set(s); setpdf(p);}
+    DotConstString(const DotConstString &s) : m_str(0), m_pdfstr(0) { set(s.data()); }
     const char *data() const                           { return m_str; }
+    const char *pdfData() const                        { return m_pdfstr; }
     bool isEmpty() const                               { return m_str==0 || m_str[0]=='\0'; }
     void set(const QCString &s)
     {
@@ -354,9 +365,20 @@ class DotConstString
         qstrcpy(m_str,s.data());
       }
     }
+    void setpdf(const QCString &p)
+    {
+      delete[] m_pdfstr;
+      m_pdfstr=0;
+      if (!p.isEmpty())
+      {
+        m_pdfstr=new char[p.length()+1];
+        qstrcpy(m_pdfstr,p.data());
+      }
+    }
   private:
     DotConstString &operator=(const DotConstString &);
     char *m_str;
+    char *m_pdfstr;
 };
 
 /** Helper class to run dot from doxygen.
@@ -377,7 +399,7 @@ class DotRunner
     /** Adds an additional job to the run.
      *  Performing multiple jobs one file can be faster.
      */
-    void addJob(const char *format,const char *output);
+    void addJob(const char *format,const char *output, const char *base = NULL);
 
     void addPostProcessing(const char *cmd,const char *args);
 

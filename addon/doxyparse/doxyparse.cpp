@@ -197,7 +197,7 @@ std::string functionSignature(MemberDef* md) {
       Argument * argument = iterator.toFirst();
       if(argument != NULL) {
         signature += argumentData(argument);
-        for(++iterator; (argument = iterator.current()); ++iterator){
+        for(++iterator; (argument = iterator.current()); ++iterator) {
           signature += std::string(",") + argumentData(argument);
         }
       }

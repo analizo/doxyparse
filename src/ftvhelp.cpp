@@ -35,6 +35,7 @@
 #include "docparser.h"
 #include "htmldocvisitor.h"
 #include "filedef.h"
+#include "classdef.h"
 #include "util.h"
 #include "resourcemgr.h"
 
@@ -171,11 +172,10 @@ void FTVHelp::decContentsDepth()
 
 /*! Add a list item to the contents file.
  *  \param isDir TRUE if the item is a directory, FALSE if it is a text
- *  \param name The name of the item.
+ *  \param name the name of the item.
  *  \param ref  the URL of to the item.
  *  \param file the file containing the definition of the item
  *  \param anchor the anchor within the file.
- *  \param name the name of the item.
  *  \param separateIndex put the entries in a separate index file
  *  \param addToNavIndex add this entry to the quick navigation index
  *  \param def Definition corresponding to this entry
@@ -257,7 +257,7 @@ void FTVHelp::generateIndent(FTextStream &t, FTVNode *n,bool opened)
   while (p) { indent++; p=p->parent; }
   if (n->isDir)
   {
-    QCString dir = opened ? "&#9660;" : "&#9654;";
+    QCString dir = opened ? "&#9660;" : "&#9658;";
     t << "<span style=\"width:" << (indent*16) << "px;display:inline-block;\">&#160;</span>"
       << "<span id=\"arr_" << generateIndentLabel(n,0) << "\" class=\"arrow\" ";
     t << "onclick=\"toggleFolder('" << generateIndentLabel(n,0) << "')\"";
@@ -302,6 +302,10 @@ void FTVHelp::generateLink(FTextStream &t,FTVNode *n)
       else
         t << "\" target=\"_self\">";
     }
+    else
+    {
+      t << "\">";
+    }
     t << convertToHtml(n->name);
     t << "</a>";
     if (!n->ref.isEmpty())
@@ -326,6 +330,27 @@ static void generateBriefDoc(FTextStream &t,Definition *def)
     delete visitor;
     delete root;
   }
+}
+
+static char compoundIcon(ClassDef *cd)
+{
+  char icon='C';
+  if (cd->getLanguage() == SrcLangExt_Slice)
+  {
+    if (cd->compoundType()==ClassDef::Interface)
+    {
+      icon='I';
+    }
+    else if (cd->compoundType()==ClassDef::Struct)
+    {
+      icon='S';
+    }
+    else if (cd->compoundType()==ClassDef::Exception)
+    {
+      icon='E';
+    }
+  }
+  return icon;
 }
 
 void FTVHelp::generateTree(FTextStream &t, const QList<FTVNode> &nl,int level,int maxLevel,int &index)
@@ -356,11 +381,19 @@ void FTVHelp::generateTree(FTextStream &t, const QList<FTVNode> &nl,int level,in
       }
       else if (n->def && n->def->definitionType()==Definition::TypeNamespace)
       {
-        t << "<span class=\"icona\"><span class=\"icon\">N</span></span>";
+        if (n->def->getLanguage() == SrcLangExt_Slice)
+        {
+          t << "<span class=\"icona\"><span class=\"icon\">M</span></span>";
+        }
+        else
+        {
+          t << "<span class=\"icona\"><span class=\"icon\">N</span></span>";
+        }
       }
       else if (n->def && n->def->definitionType()==Definition::TypeClass)
       {
-        t << "<span class=\"icona\"><span class=\"icon\">C</span></span>";
+        char icon=compoundIcon(dynamic_cast<ClassDef*>(n->def));
+        t << "<span class=\"icona\"><span class=\"icon\">" << icon << "</span></span>";
       }
       else
       {
@@ -404,11 +437,19 @@ void FTVHelp::generateTree(FTextStream &t, const QList<FTVNode> &nl,int level,in
       }
       else if (n->def && n->def->definitionType()==Definition::TypeNamespace)
       {
-        t << "<span class=\"icona\"><span class=\"icon\">N</span></span>";
+        if (n->def->getLanguage() == SrcLangExt_Slice)
+        {
+          t << "<span class=\"icona\"><span class=\"icon\">M</span></span>";
+        }
+        else
+        {
+          t << "<span class=\"icona\"><span class=\"icon\">N</span></span>";
+        }
       }
       else if (n->def && n->def->definitionType()==Definition::TypeClass)
       {
-        t << "<span class=\"icona\"><span class=\"icon\">C</span></span>";
+        char icon=compoundIcon(dynamic_cast<ClassDef*>(n->def));
+        t << "<span class=\"icona\"><span class=\"icon\">" << icon << "</span></span>";
       }
       else
       {
@@ -787,10 +828,13 @@ void FTVHelp::generateTreeViewInline(FTextStream &t)
   }
   //printf("preferred depth=%d\n",preferredDepth);
 
-  t << "<table class=\"directory\">\n";
-  int index=0;
-  generateTree(t,m_indentNodes[0],0,preferredDepth,index);
-  t << "</table>\n";
+  if (m_indentNodes[0].count())
+  {
+    t << "<table class=\"directory\">\n";
+    int index=0;
+    generateTree(t,m_indentNodes[0],0,preferredDepth,index);
+    t << "</table>\n";
+  }
 
   t << "</div><!-- directory -->\n";
 }

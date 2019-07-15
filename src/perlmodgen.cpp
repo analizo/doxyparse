@@ -43,6 +43,7 @@
 #include "section.h"
 #include "util.h"
 #include "htmlentity.h"
+#include "emoji.h"
 
 #define PERLOUTPUT_MAX_INDENTATION 40
 
@@ -299,6 +300,7 @@ public:
   void visit(DocLinkedWord *);
   void visit(DocWhiteSpace *);
   void visit(DocSymbol *);
+  void visit(DocEmoji *);
   void visit(DocURL *);
   void visit(DocLineBreak *);
   void visit(DocHorRuler *);
@@ -428,7 +430,7 @@ private:
 };
 
 PerlModDocVisitor::PerlModDocVisitor(PerlModOutput &output)
-  : DocVisitor(DocVisitor_Other), m_output(output), m_textmode(false)
+  : DocVisitor(DocVisitor_Other), m_output(output), m_textmode(false), m_textblockstart(FALSE)
 {
   m_output.openList("doc");
 }
@@ -609,6 +611,19 @@ void PerlModDocVisitor::visit(DocSymbol *sy)
     err("perl: non supported HTML-entity found: %s\n",HtmlEntityMapper::instance()->html(sy->symbol(),TRUE));
   }
 }
+void PerlModDocVisitor::visit(DocEmoji *sy)
+{
+  enterText();
+  const char *name = EmojiEntityMapper::instance()->name(sy->index());
+  if (name)
+  {
+    m_output.add(name);
+  }
+  else
+  {
+    m_output.add(sy->name());
+  }
+}
 
 void PerlModDocVisitor::visit(DocURL *u)
 {
@@ -626,6 +641,8 @@ void PerlModDocVisitor::visit(DocStyleChange *s)
   switch (s->style())
   {
     case DocStyleChange::Bold:          style = "bold"; break;
+    case DocStyleChange::Strike:        style = "strike"; break;
+    case DocStyleChange::Underline:     style = "underline"; break;
     case DocStyleChange::Italic:        style = "italic"; break;
     case DocStyleChange::Code:          style = "code"; break;
     case DocStyleChange::Subscript:     style = "subscript"; break;
@@ -1254,6 +1271,7 @@ void PerlModDocVisitor::visitPre(DocParamSect *s)
     err("unknown parameter section found\n");
     break;
   }
+  m_output.openHash();
   openOther();
   openSubBlock(type);
 }
@@ -1262,6 +1280,7 @@ void PerlModDocVisitor::visitPost(DocParamSect *)
 {
   closeSubBlock();
   closeOther();
+  m_output.closeHash();
 }
 
 void PerlModDocVisitor::visitPre(DocParamList *pl)
@@ -1566,21 +1585,22 @@ void PerlModGenerator::generatePerlModForMember(MemberDef *md,Definition *)
   bool isFunc=FALSE;
   switch (md->memberType())
   {
-  case MemberType_Define:      memType="define";    break;
-  case MemberType_EnumValue:   memType="enumvalue"; break;
-  case MemberType_Property:    memType="property";  break;
-  case MemberType_Variable:    memType="variable";  break;
-  case MemberType_Typedef:     memType="typedef";   break;
-  case MemberType_Enumeration: memType="enum";      break;
-  case MemberType_Function:    memType="function";  isFunc=TRUE; break;
-  case MemberType_Signal:      memType="signal";    isFunc=TRUE; break;
-  //case MemberType_Prototype:   memType="prototype"; isFunc=TRUE; break;
-  case MemberType_Friend:      memType="friend";    isFunc=TRUE; break;
-  case MemberType_DCOP:        memType="dcop";      isFunc=TRUE; break;
-  case MemberType_Slot:        memType="slot";      isFunc=TRUE; break;
-  case MemberType_Event:       memType="event";     break;
-  case MemberType_Interface:   memType="interface"; break;
-  case MemberType_Service:     memType="service";   break;
+    case MemberType_Define:      memType="define";     break;
+    case MemberType_EnumValue:   memType="enumvalue";  break;
+    case MemberType_Property:    memType="property";   break;
+    case MemberType_Variable:    memType="variable";   break;
+    case MemberType_Typedef:     memType="typedef";    break;
+    case MemberType_Enumeration: memType="enum";       break;
+    case MemberType_Function:    memType="function";   isFunc=TRUE; break;
+    case MemberType_Signal:      memType="signal";     isFunc=TRUE; break;
+    case MemberType_Friend:      memType="friend";     isFunc=TRUE; break;
+    case MemberType_DCOP:        memType="dcop";       isFunc=TRUE; break;
+    case MemberType_Slot:        memType="slot";       isFunc=TRUE; break;
+    case MemberType_Event:       memType="event";      break;
+    case MemberType_Interface:   memType="interface";  break;
+    case MemberType_Service:     memType="service";    break;
+    case MemberType_Sequence:    memType="sequence";   break;
+    case MemberType_Dictionary:  memType="dictionary"; break;
   }
 
   m_output.openHash()
@@ -1605,7 +1625,7 @@ void PerlModGenerator::generatePerlModForMember(MemberDef *md,Definition *)
     m_output.openList("parameters");
     ArgumentList *declAl = md->declArgumentList();
     ArgumentList *defAl  = md->argumentList();
-    if (declAl && declAl->count()>0)
+    if (declAl && defAl && declAl->count()>0)
     {
       ArgumentListIterator declAli(*declAl);
       ArgumentListIterator defAli(*defAl);
