@@ -120,6 +120,25 @@ static bool ignoreStaticExternalCall(MemberDef *context, MemberDef *md) {
   }
 }
 
+// that undo some replacing by src/util.cpp escapeCharsInString(...)
+// * https://github.com/doxygen/doxygen/pull/577
+std::string unescapeCharsInString(std::string name) {
+  QCString module = QCString(name.c_str());
+  bool replaced = false;
+  if (module.find('.') == -1) {
+    module.replace(QRegExp("_8"), ".");
+    replaced = true;
+  }
+  if (module.find('/') == -1) {
+    module.replace(QRegExp("_2"), "/");
+    replaced = true;
+  }
+  if (replaced) {
+    module.replace(QRegExp("__"), "_");
+  }
+  return module.data();
+}
+
 static void startYamlDocument() {
   printf("---\n");
 }
@@ -127,7 +146,7 @@ static void printFile(std::string file) {
   printf("%s:\n", file.c_str());
 }
 static void printModule(std::string module) {
-  printf("  \"%s\":\n", module.c_str());
+  printf("  \"%s\":\n", unescapeCharsInString(module).c_str());
 }
 static void printClassInformation(std::string information) {
   printf("    information: %s\n", information.c_str());
@@ -161,7 +180,7 @@ static void printUses() {
 static void printReferenceTo(std::string type, std::string signature, std::string defined_in) {
   printf("            - \"%s\":\n", signature.substr(0, 1022).c_str());
   printf("                type: %s\n", type.c_str());
-  printf("                defined_in: \"%s\"\n", defined_in.c_str());
+  printf("                defined_in: \"%s\"\n", unescapeCharsInString(defined_in).c_str());
 }
 static void printNumberOfConditionalPaths(MemberDef* md) {
   printf("          conditional_paths: %d\n", md->numberOfFlowKeyWords());
