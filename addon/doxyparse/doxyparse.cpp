@@ -425,7 +425,6 @@ int main(int argc,char **argv) {
 
   // check and finalize the configuration
   checkConfiguration();
-  Config_getBool(MODIFY_SPECIAL_CHARS)=FALSE;
   adjustConfiguration();
 
   // setup the non-default configuration options
