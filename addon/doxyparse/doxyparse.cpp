@@ -289,12 +289,23 @@ static bool checkOverrideArg(ArgumentList *argList, MemberDef *md) {
 }
 
 void functionInformation(MemberDef* md) {
+  std::string temp = "";
   int size = md->getEndBodyLine() - md->getStartBodyLine() + 1;
   printNumberOfLines(size);
   ArgumentList *argList = md->argumentList();
+
   if (argList) {
-    printNumberOfArguments(argList->count());
+      ArgumentListIterator iterator(*argList);
+      Argument * argument = iterator.toFirst();
+      if(argument != NULL) {
+        temp = argumentData(argument);
+// TODO: This is a workaround; better not include "void" in argList, in the first place. 
+          if(temp != "void") {
+              printNumberOfArguments(argList->count());
+          }
+      }
   }
+
   printNumberOfConditionalPaths(md);
   MemberSDict *defDict = md->getReferencesMembers();
   if (defDict) {
