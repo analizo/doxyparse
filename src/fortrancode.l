@@ -37,7 +37,7 @@
 #include <ctype.h>
 #include <qregexp.h>
 #include <qdir.h>
-#include <qstringlist.h>
+#include <qcstringlist.h>
 #include "entry.h"
 #include "doxygen.h"
 #include "message.h"
@@ -86,7 +86,7 @@ class UseEntry
 {
  public: 
    QCString module; // just for debug
-   QStringList onlyNames;   /* entries of the ONLY-part */
+   QCStringList onlyNames;   /* entries of the ONLY-part */
 };
 
 /**
@@ -105,10 +105,11 @@ class UseSDict : public SDict<UseEntry>
 class Scope 
 {
   public:
-    QStringList useNames; //!< contains names of used modules
+    QCStringList useNames; //!< contains names of used modules
     QDict<void> localVars; //!< contains names of local variables
+    QDict<void> externalVars; //!< contains names of external entities
 
-    Scope() : localVars(7, FALSE /*caseSensitive*/) {}
+    Scope() : localVars(7, FALSE /*caseSensitive*/), externalVars(7, FALSE /*caseSensitive*/) {}
 };
 
 /*===================================================================*/
@@ -122,7 +123,8 @@ static QCString  currentClass=0;             //!< name of the current enclosing 
 static UseSDict  *useMembers= new UseSDict;  //!< info about used modules
 static UseEntry  *useEntry = 0;              //!< current use statement info
 static QList<Scope> scopeStack;
-// static QStringList *currentUseNames= new QStringList; //! contains names of used modules of current program unit
+static bool      g_isExternal = false;
+// static QCStringList *currentUseNames= new QCStringList; //! contains names of used modules of current program unit
 static QCString str="";         //!> contents of fortran string
 
 static CodeOutputInterface * g_code;
@@ -158,6 +160,9 @@ static char          stringStartSymbol; // single or double quote
 // count in variable declaration to filter out
 //  declared from referenced names
 static int 	     bracketCount = 0;
+
+// signal when in type / class /procedure declaration
+static int           inTypeDecl = 0;
 
 static bool      g_endComment;
 
@@ -431,7 +436,7 @@ static bool getFortranDefs(const QCString &memberName, const QCString &moduleNam
   Scope *scope;
   for (it.toLast();(scope=it.current());--it)
   {
-    if (scope->localVars.find(memberName))
+    if (scope->localVars.find(memberName) && (!scope->externalVars.find(memberName)))
       return FALSE;
   }
 
@@ -475,7 +480,7 @@ static bool getFortranDefs(const QCString &memberName, const QCString &moduleNam
 	     if (ue) 
 	     {
                // check if only-list exists and if current entry exists is this list
-	       QStringList &only= ue->onlyNames;
+	       QCStringList &only= ue->onlyNames;
 	       if (only.isEmpty()) 
 	       {
                //cout << " found in module " << moduleName << " entry " << memberName <<  endl;
@@ -483,10 +488,10 @@ static bool getFortranDefs(const QCString &memberName, const QCString &moduleNam
                }
                else
 	       {
-	         for ( QStringList::Iterator it = only.begin(); it != only.end(); ++it)
+	         for ( QCStringList::Iterator it = only.begin(); it != only.end(); ++it)
                  {
                    //cout << " search in only: " << moduleName << ":: " << memberName << "==" << (*it)<<  endl;
-		   if (memberName == (*it).utf8())
+		   if (memberName == *it)
 	           {
                      return TRUE; // found in ONLY-part of use list
 	           }
@@ -629,9 +634,9 @@ static void endScope()
 
   Scope *scope = scopeStack.getLast();
   scopeStack.removeLast();
-  for ( QStringList::Iterator it = scope->useNames.begin(); it != scope->useNames.end(); ++it) 
+  for ( QCStringList::Iterator it = scope->useNames.begin(); it != scope->useNames.end(); ++it) 
   {
-    useMembers->remove((*it).utf8());
+    useMembers->remove(*it);
   }
   delete scope;
 }
@@ -645,7 +650,10 @@ static void addUse(const QCString &moduleName)
 static void addLocalVar(const QCString &varName) 
 {
   if (!scopeStack.isEmpty())
+  {
     scopeStack.getLast()->localVars.insert(varName, (void*)1);
+    if (g_isExternal) scopeStack.getLast()->externalVars.insert(varName, (void*)1);
+  }
 }
 
 //----------------------------------------------------------------------------
@@ -684,17 +692,18 @@ NUM_TYPE  (complex|integer|logical|real)
 LOG_OPER  (\.and\.|\.eq\.|\.eqv\.|\.ge\.|\.gt\.|\.le\.|\.lt\.|\.ne\.|\.neqv\.|\.or\.|\.not\.)
 KIND      {ARGS}
 CHAR      (CHARACTER{ARGS}?|CHARACTER{BS}"*"({BS}[0-9]+|{ARGS}))
-TYPE_SPEC (({NUM_TYPE}({BS}"*"{BS}[0-9]+)?)|({NUM_TYPE}{KIND})|DOUBLE{BS}COMPLEX|DOUBLE{BS}PRECISION|{CHAR}|TYPE|CLASS|PROCEDURE)
+TYPE_SPEC (({NUM_TYPE}({BS}"*"{BS}[0-9]+)?)|({NUM_TYPE}{KIND})|DOUBLE{BS}COMPLEX|DOUBLE{BS}PRECISION|{CHAR}|TYPE|CLASS|PROCEDURE|ENUMERATOR)
 
 INTENT_SPEC intent{BS}"("{BS}(in|out|in{BS}out){BS}")"
-ATTR_SPEC (IMPLICIT|ALLOCATABLE|DIMENSION{ARGS}|EXTERNAL|{INTENT_SPEC}|INTRINSIC|OPTIONAL|PARAMETER|POINTER|PROTECTED|PRIVATE|PUBLIC|SAVE|TARGET|RECURSIVE|PURE|IMPURE|ELEMENTAL|VALUE|NOPASS|DEFERRED|CONTIGUOUS|VOLATILE)
+ATTR_SPEC (IMPLICIT|ALLOCATABLE|DIMENSION{ARGS}|EXTERNAL|{INTENT_SPEC}|INTRINSIC|OPTIONAL|PARAMETER|POINTER|PROTECTED|PRIVATE|PUBLIC|SAVE|TARGET|(NON_)?RECURSIVE|PURE|IMPURE|ELEMENTAL|VALUE|NOPASS|DEFERRED|CONTIGUOUS|VOLATILE)
 ACCESS_SPEC (PROTECTED|PRIVATE|PUBLIC)
 /* Assume that attribute statements are almost the same as attributes. */
 ATTR_STMT {ATTR_SPEC}|DIMENSION
 FLOW      (DO|SELECT|CASE|SELECT{BS}(CASE|TYPE)|WHERE|IF|THEN|ELSE|WHILE|FORALL|ELSEWHERE|ELSEIF|RETURN|CONTINUE|EXIT|GO{BS}TO)
 COMMANDS  (FORMAT|CONTAINS|MODULE{BS_}PROCEDURE|WRITE|READ|ALLOCATE|ALLOCATED|ASSOCIATED|PRESENT|DEALLOCATE|NULLIFY|SIZE|INQUIRE|OPEN|CLOSE|FLUSH|DATA|COMMON)
 IGNORE    (CALL)
-PREFIX    (RECURSIVE{BS_}|IMPURE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,3}(RECURSIVE|IMPURE|PURE|ELEMENTAL)?
+PREFIX    ((NON_)?RECURSIVE{BS_}|IMPURE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,4}((NON_)?RECURSIVE|IMPURE|PURE|ELEMENTAL)?0
+LANGUAGE_BIND_SPEC BIND{BS}"("{BS}C{BS}(,{BS}NAME{BS}"="{BS}"\""(.*)"\""{BS})?")"
 
 /* |  */
 
@@ -775,12 +784,12 @@ PREFIX    (RECURSIVE{BS_}|IMPURE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,3}(RECURSIVE|I
 					  BEGIN(Use);     
                                         }
 <Use>"ONLY"                             { // TODO: rename
-                                          startFontClass("keywordtype");
-                                          codifyLines(yytext);
-                                          endFontClass();
+  					  startFontClass("keywordtype"); 
+ 					  codifyLines(yytext);
+					  endFontClass();
                                           yy_push_state(YY_START);
-                                          BEGIN(UseOnly);
-                                        }
+					  BEGIN(UseOnly);     
+                                        }           
 <Use>{ID}                               {
                                           QCString tmp = yytext;
                                           tmp = tmp.lower();
@@ -813,7 +822,8 @@ PREFIX    (RECURSIVE{BS_}|IMPURE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,3}(RECURSIVE|I
                                           unput(*yytext);
                                           yy_pop_state();YY_FTN_RESET
                                         }
-<Start>"import"{BS_}                    {
+<*>"import"{BS}/"\n"                  |
+<*>"import"{BS_}                        {
                                           startFontClass("keywordtype");
                                           codifyLines(yytext);
                                           endFontClass();
@@ -825,6 +835,11 @@ PREFIX    (RECURSIVE{BS_}|IMPURE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,3}(RECURSIVE|I
                                           generateLink(*g_code, yytext);
                                           g_insideBody=FALSE;
                                         }
+<Import>("ONLY"|"NONE"|"ALL")           {
+                                          startFontClass("keywordtype");
+                                          codifyLines(yytext);
+                                          endFontClass();
+                                        }
  /*-------- fortran module  -----------------------------------------*/
 <Start>("block"{BS}"data"|"program"|"module"|"interface")/{BS_}|({COMMA}{ACCESS_SPEC})|\n {  //
                                           startScope();
@@ -835,15 +850,29 @@ PREFIX    (RECURSIVE{BS_}|IMPURE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,3}(RECURSIVE|I
 					  BEGIN(ClassName); 
 	                                  if (!qstricmp(yytext,"module")) currentModule="module";
 					}
-<Start>("type")/{BS_}|({COMMA}({ACCESS_SPEC}|ABSTRACT|EXTENDS))|\n {  //
-            startScope();
-              startFontClass("keyword");
-              codifyLines(yytext);
-            endFontClass();
+<Start>("enum")/{BS_}|{BS}{COMMA}{BS}{LANGUAGE_BIND_SPEC}|\n {  //
+                                          startScope();
+                                          startFontClass("keyword");
+                                          codifyLines(yytext);
+                                          endFontClass();
                                           yy_push_state(YY_START);
-            BEGIN(ClassName);
-            currentClass="class";
-          }
+                                          BEGIN(ClassName);
+                                          currentClass="class";
+                                        }
+<*>{LANGUAGE_BIND_SPEC}                 {  //
+                                          startFontClass("keyword");
+                                          codifyLines(yytext);
+                                          endFontClass();
+                                        }
+<Start>("type")/{BS_}|({COMMA}({ACCESS_SPEC}|ABSTRACT|EXTENDS))|\n {  //
+                                          startScope();
+                                          startFontClass("keyword");
+                                          codifyLines(yytext);
+                                          endFontClass();
+                                          yy_push_state(YY_START);
+                                          BEGIN(ClassName);
+                                          currentClass="class";
+                                        }
 <ClassName>{ID}               	        {
 	                                  if (currentModule == "module")
                                           {
@@ -853,22 +882,26 @@ PREFIX    (RECURSIVE{BS_}|IMPURE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,3}(RECURSIVE|I
 					  generateLink(*g_code,yytext);
                                           yy_pop_state();
  					}
-<ClassName>({ACCESS_SPEC}|ABSTRACT|EXTENDS)/[,:( ] { //| variable deklaration
+<ClassName>({ACCESS_SPEC}|ABSTRACT|EXTENDS)/[,:( ] { //| variable declaration
               startFontClass("keyword");
             g_code->codify(yytext);
             endFontClass();
             }
 <ClassName>\n				{ // interface may be without name
                                           yy_pop_state();
-					  YY_FTN_REJECT;
-					}
+                                          YY_FTN_REJECT;
+                                        }
+<Start>^{BS}"end"({BS_}"enum").*        { // just reset currentClass, rest is done in following rule
+                                          currentClass=0;
+                                          YY_FTN_REJECT;
+                                        }
 <Start>^{BS}"end"({BS_}"type").*        { // just reset currentClass, rest is done in following rule
                                           currentClass=0;
-            YY_FTN_REJECT;
+                                          YY_FTN_REJECT;
                                         }
 <Start>^{BS}"end"({BS_}"module").*      { // just reset currentModule, rest is done in following rule
                                           currentModule=0;
-					  YY_FTN_REJECT;
+                                          YY_FTN_REJECT;
                                         }
  /*-------- subprog definition -------------------------------------*/
 <Start>({PREFIX}{BS_})?{TYPE_SPEC}{BS_}({PREFIX}{BS_})?{BS}/{SUBPROG}{BS_}  {   // TYPE_SPEC is for old function style function result
@@ -876,7 +909,7 @@ PREFIX    (RECURSIVE{BS_}|IMPURE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,3}(RECURSIVE|I
   					  codifyLines(yytext);
 					  endFontClass();
                                        }              
-<Start>({PREFIX}{BS_})?{SUBPROG}{BS_}                  {  // Fortran subroutine or function found
+<Start>({PREFIX}{BS_})?{SUBPROG}{BS_}   {  // Fortran subroutine or function found
    					  startFontClass("keyword");
   					  codifyLines(yytext);
 					  endFontClass();
@@ -901,7 +934,7 @@ PREFIX    (RECURSIVE{BS_}|IMPURE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,3}(RECURSIVE|I
                                           yy_pop_state();
                                           YY_FTN_RESET
                                         }
-<Start>^{BS}"end"{BS}("block"{BS}"data"|{SUBPROG}|"module"|"program"|"type"|"interface")?{BS}     {  // Fortran subroutine or function ends
+<Start>^{BS}"end"{BS}("block"{BS}"data"|{SUBPROG}|"module"|"program"|"enum"|"type"|"interface")?{BS}     {  // Fortran subroutine or function ends
                                           //cout << "===> end function " << yytext << endl;
                                           endScope();
    					  startFontClass("keyword");
@@ -914,7 +947,7 @@ PREFIX    (RECURSIVE{BS_}|IMPURE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,3}(RECURSIVE|I
 					  generateLink(*g_code,yytext);
                                           yy_pop_state();
                                         }
-<Start>^{BS}"end"{BS}("block"{BS}"data"|{SUBPROG}|"module"|"program"|"type"|"interface"){BS}/(\n|!) {  // Fortran subroutine or function ends
+<Start>^{BS}"end"{BS}("block"{BS}"data"|{SUBPROG}|"module"|"program"|"enum"|"type"|"interface"){BS}/(\n|!) {  // Fortran subroutine or function ends
                                           //cout << "===> end function " << yytext << endl;
                                           endScope();
    					  startFontClass("keyword");
@@ -922,7 +955,18 @@ PREFIX    (RECURSIVE{BS_}|IMPURE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,3}(RECURSIVE|I
 					  endFontClass();
                                         }
  /*-------- variable declaration ----------------------------------*/
+<Start>^{BS}"real"/[,:( ]               { // real is a bit tricky as it is a data type but also a function.
+                                          yy_push_state(YY_START);
+					  BEGIN(Declaration);
+   					  startFontClass("keywordtype");
+					  g_code->codify(yytext);
+					  endFontClass();
+                                       }
 <Start>{TYPE_SPEC}/[,:( ]               { 
+                                          QCString typ = yytext;
+                                          typ = removeRedundantWhiteSpace(typ.lower());
+                                          if (QString(typ).startsWith("real")) YY_FTN_REJECT;
+                                          if (typ == "type" || typ == "class" || typ == "procedure") inTypeDecl = 1;
                                           yy_push_state(YY_START);
 					  BEGIN(Declaration);
    					  startFontClass("keywordtype");
@@ -930,11 +974,18 @@ PREFIX    (RECURSIVE{BS_}|IMPURE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,3}(RECURSIVE|I
 					  endFontClass();
                                        }
 <Start>{ATTR_SPEC}		       { 
+                                          if (QCString(yytext) == "external")
+                                          {
+                                            yy_push_state(YY_START);
+                                            BEGIN(Declaration);
+                                            g_isExternal = true;
+                                          }
    					  startFontClass("keywordtype");
 					  g_code->codify(yytext);
 					  endFontClass();
                                        }
-<Declaration>({TYPE_SPEC}|{ATTR_SPEC})/[,:( ] { //| variable deklaration
+<Declaration>({TYPE_SPEC}|{ATTR_SPEC})/[,:( ] { //| variable declaration
+					  if (QCString(yytext) == "external") g_isExternal = true;
   					  startFontClass("keywordtype");
 					  g_code->codify(yytext);
 					  endFontClass();
@@ -946,8 +997,11 @@ PREFIX    (RECURSIVE{BS_}|IMPURE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,3}(RECURSIVE|I
 					    g_code->codify(yytext);
 					    endFontClass();
                                           }
-                                          else if (g_currentMemberDef && ((g_currentMemberDef->isFunction() && (g_currentMemberDef->typeString() != QCString("subroutine"))) ||
-                                                                          g_currentMemberDef->isVariable()))
+                                          else if (g_currentMemberDef &&
+                                                   ((g_currentMemberDef->isFunction() && (g_currentMemberDef->typeString()!=QCString("subroutine") || inTypeDecl)) ||
+                                                     g_currentMemberDef->isVariable() || g_currentMemberDef->isEnumValue()
+                                                    )
+                                                   )
                                           {
                                             generateLink(*g_code, yytext);
                                           }
@@ -956,22 +1010,23 @@ PREFIX    (RECURSIVE{BS_}|IMPURE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,3}(RECURSIVE|I
                                             g_code->codify(yytext);
                                             addLocalVar(yytext);
                                           }
-					}
-<Declaration>{BS}("=>"|"="){BS}                        { // Procedure binding
-            BEGIN(DeclarationBinding);
-            g_code->codify(yytext);
-          }
-<DeclarationBinding>{ID}                       { // Type bound procedure link
+                                        }
+<Declaration>{BS}("=>"|"="){BS}         { // Procedure binding
+                                          BEGIN(DeclarationBinding);
+                                          g_code->codify(yytext);
+                                        }
+<DeclarationBinding>{ID}                { // Type bound procedure link
                                           generateLink(*g_code, yytext);
                                           yy_pop_state();
-          }
-<Declaration>[(]			{ // start of array specification
+                                        }
+<Declaration>[(]			{ // start of array or type / class specification
 					  bracketCount++;
 					  g_code->codify(yytext);
 					}
 
 <Declaration>[)]			{ // end array specification
 					  bracketCount--;
+                                          if (!bracketCount) inTypeDecl = 0;
 					  g_code->codify(yytext);
 					}
 
@@ -1003,6 +1058,7 @@ PREFIX    (RECURSIVE{BS_}|IMPURE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,3}(RECURSIVE|I
 					  g_contLineNr++;
                                           if (!(g_hasContLine && g_hasContLine[g_contLineNr - 1]))
                                           {
+                                            g_isExternal = false;
                                             yy_pop_state();
                                           }
                                           YY_FTN_RESET
@@ -1029,11 +1085,20 @@ PREFIX    (RECURSIVE{BS_}|IMPURE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,3}(RECURSIVE|I
                                             // fixed form continuation line
                                             YY_FTN_REJECT;
                                           }
+                                          else if (QCString(yytext).stripWhiteSpace().lower() == "type")
+                                          {
+                                            yy_push_state(YY_START);
+                                            BEGIN(Declaration);
+                                            startFontClass("keywordtype");
+                                            g_code->codify(QCString(yytext).stripWhiteSpace());
+                                            endFontClass();
+                                            g_code->codify(yytext + 4);
+                                          }
                                           else
                                           {
-					    g_insideBody=TRUE;
+                                            g_insideBody=TRUE;
                                             generateLink(*g_code, yytext);
-					    g_insideBody=FALSE;
+                                            g_insideBody=FALSE;
                                           }
                                         }
 
@@ -1142,9 +1207,6 @@ PREFIX    (RECURSIVE{BS_}|IMPURE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,3}(RECURSIVE|I
 					    g_insideBody=FALSE;
                                         }
  /*------ strings --------------------------------------------------*/ 
-<*>"\\\\"                               { str+=yytext; /* ignore \\  */}
-<*>"\\\""|\\\'                          { str+=yytext; /* ignore \"  */}
-
 <String>\n                              { // string with \n inside
 					  g_contLineNr++;
                                           str+=yytext;
@@ -1175,14 +1237,16 @@ PREFIX    (RECURSIVE{BS_}|IMPURE{BS_}|PURE{BS_}|ELEMENTAL{BS_}){0,3}(RECURSIVE|I
  /*-----------------------------------------------------------------------------*/
 
 <*>\n					{
-  					if (g_endComment)
-            {
-            g_endComment=FALSE;
-            }
-            else
-            {
-            codifyLines(yytext);
-            }
+  				  	  if (g_endComment)
+                                          {
+                                            g_endComment=FALSE;
+                                          }
+                                          else
+                                          {
+                                            codifyLines(yytext);
+                                            // comment cannot extend over the end of a line so should always be terminatd at the end of the line.
+                                            if (g_currentFontClass && !strcmp(g_currentFontClass,"comment")) endFontClass();
+                                          }
 					  g_contLineNr++;
                                           YY_FTN_RESET
   					}

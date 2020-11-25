@@ -294,12 +294,12 @@ void replaceComment(int offset);
 				     }
 				     else
 				     {
-                                       /* check for fixed format; we might have some conditional as part of multilene if like C<5 .and. & */
+                                       /* check for fixed format; we might have some conditional as part of multiline if like C<5 .and. & */
                                        if (isFixedForm && (g_col == 0))
                                        {
                                          copyToOutput(yytext,(int)yyleng); 
                                          g_nestingCount=0;
-                                         g_commentStack.clear(); /*  to be on the save side */
+                                         g_commentStack.clear(); /* to be on the safe side */
 				         BEGIN(CComment);
                                          g_commentStack.push(new CommentCtx(g_lineNr));
 				       }
@@ -591,7 +591,15 @@ void replaceComment(int offset);
                                      copyToOutput(yytext,(int)yyleng); 
                                    }
 <SkipString>\\.                    { /* escaped character in string */
-                                     copyToOutput(yytext,(int)yyleng); 
+                                     if (g_lang==SrcLangExt_Fortran)
+                                     {
+                                       unput(yytext[1]);
+                                       copyToOutput(yytext,1);
+                                     }
+                                     else
+                                     {
+                                       copyToOutput(yytext,(int)yyleng);
+                                     }
                                    }
 <SkipString>"\""       	           { /* end of string */ 
                                      copyToOutput(yytext,(int)yyleng); 
@@ -604,7 +612,15 @@ void replaceComment(int offset);
                                      copyToOutput(yytext,(int)yyleng); 
                                    }
 <SkipChar>\\.		           { /* escaped character */
-                                     copyToOutput(yytext,(int)yyleng); 
+                                     if (g_lang==SrcLangExt_Fortran)
+                                     {
+                                       unput(yytext[1]);
+                                       copyToOutput(yytext,1);
+                                     }
+                                     else
+                                     {
+                                       copyToOutput(yytext,(int)yyleng);
+                                     }
                                    }
 <SkipChar>'                        { /* end of character literal */ 
                                      copyToOutput(yytext,(int)yyleng); 
@@ -1068,7 +1084,7 @@ void convertCppComments(BufStr *inBuf,BufStr *outBuf,const char *fileName)
   {
     CondCtx *ctx = g_condStack.pop();
     QCString sectionInfo = " ";
-    if (ctx->sectionId!=" ") sectionInfo.sprintf(" with label %s ",ctx->sectionId.data()); 
+    if (ctx->sectionId!=" ") sectionInfo.sprintf(" with label '%s' ",ctx->sectionId.stripWhiteSpace().data());
     warn(g_fileName,ctx->lineNr,"Conditional section%sdoes not have "
 	"a corresponding \\endcond command within this file.",sectionInfo.data());
   }
@@ -1093,7 +1109,9 @@ void convertCppComments(BufStr *inBuf,BufStr *outBuf,const char *fileName)
   if (Debug::isFlagSet(Debug::CommentCnv))
   {
     g_outBuf->at(g_outBuf->curPos())='\0';
-    msg("-------------\n%s\n-------------\n",g_outBuf->data());
+    Debug::print(Debug::CommentCnv,0,"-----------\nCommentCnv: %s\n"
+                 "output=[\n%s]\n-----------\n",fileName,g_outBuf->data()
+                );
   }
   printlex(yy_flex_debug, FALSE, __FILE__, fileName);
 }

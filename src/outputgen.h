@@ -145,7 +145,8 @@ class BaseOutputDocInterface : public CodeOutputInterface
                         Since, Date, Bug, Note,
                         Warning, Par, Deprecated, Pre, 
                         Post, Invar, Remark, Attention, 
-                        Todo, Test, RCS, */ EnumValues, 
+                        Todo, Test, RCS, */
+	                EnumValues, 
                         Examples 
                       };
 
@@ -279,9 +280,8 @@ class BaseOutputDocInterface : public CodeOutputInterface
     virtual void startSmall() = 0;
     virtual void endSmall() = 0;
 
-    virtual void startSimpleSect(SectionTypes t,const char *file,
-                                 const char *anchor,const char *title) = 0;
-    virtual void endSimpleSect() = 0;
+    virtual void startExamples() = 0;
+    virtual void endExamples() = 0;
     virtual void startParamList(ParamListTypes t,const char *title) = 0;
     virtual void endParamList() = 0;
 
@@ -322,7 +322,7 @@ class BaseOutputDocInterface : public CodeOutputInterface
 class OutputGenerator : public BaseOutputDocInterface
 {
   public:
-    enum OutputType { Html, Latex, Man, RTF, XML, DEF, Perl };
+    enum OutputType { Html, Latex, Man, RTF, XML, DEF, Perl , Docbook};
 
     OutputGenerator();
     virtual ~OutputGenerator();
@@ -380,7 +380,7 @@ class OutputGenerator : public BaseOutputDocInterface
     virtual void endMemberSections() = 0;
     virtual void startHeaderSection() = 0;
     virtual void endHeaderSection() = 0;
-    virtual void startMemberHeader(const char *anchor) = 0;
+    virtual void startMemberHeader(const char *anchor, int typ) = 0;
     virtual void endMemberHeader() = 0;
     virtual void startMemberSubtitle() = 0;
     virtual void endMemberSubtitle() = 0;
@@ -403,6 +403,7 @@ class OutputGenerator : public BaseOutputDocInterface
     virtual void startMemberGroup() = 0;
     virtual void endMemberGroup(bool) = 0;
     virtual void insertMemberAlign(bool) = 0;
+    virtual void insertMemberAlignLeft(int,bool) = 0;
     virtual void startMemberDoc(const char *,const char *,
                                 const char *,const char *,int,int,bool) = 0;
     virtual void endMemberDoc(bool) = 0;
@@ -414,7 +415,7 @@ class OutputGenerator : public BaseOutputDocInterface
     virtual void writeStartAnnoItem(const char *type,const char *file,
                                     const char *path,const char *name) = 0;
     virtual void writeEndAnnoItem(const char *name) = 0;
-    virtual void startMemberDescription(const char *anchor,const char *inheritId) = 0;
+    virtual void startMemberDescription(const char *anchor,const char *inheritId, bool typ) = 0;
     virtual void endMemberDescription() = 0;
     virtual void startMemberDeclaration() = 0;
     virtual void endMemberDeclaration(const char *anchor,const char *inheritId) = 0;
@@ -446,6 +447,8 @@ class OutputGenerator : public BaseOutputDocInterface
     virtual void writeSummaryLink(const char *file,const char *anchor,const char *title,bool first) = 0;
     virtual void startContents() = 0;
     virtual void endContents() = 0;
+    virtual void startPageDoc(const char *pageTitle) {};
+    virtual void endPageDoc() {};
     virtual void startTextBlock(bool) = 0;
     virtual void endTextBlock(bool) = 0;
     virtual void lastIndexPage() = 0;

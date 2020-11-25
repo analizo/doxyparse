@@ -120,6 +120,25 @@ static bool ignoreStaticExternalCall(MemberDef *context, MemberDef *md) {
   }
 }
 
+// that undo some replacing by src/util.cpp escapeCharsInString(...)
+// * https://github.com/doxygen/doxygen/pull/577
+std::string unescapeCharsInString(std::string name) {
+  QCString module = QCString(name.c_str());
+  bool replaced = false;
+  if (module.find('.') == -1) {
+    module.replace(QRegExp("_8"), ".");
+    replaced = true;
+  }
+  if (module.find('/') == -1) {
+    module.replace(QRegExp("_2"), "/");
+    replaced = true;
+  }
+  if (replaced) {
+    module.replace(QRegExp("__"), "_");
+  }
+  return module.data();
+}
+
 static void startYamlDocument() {
   printf("---\n");
 }
@@ -127,7 +146,7 @@ static void printFile(std::string file) {
   printf("%s:\n", file.c_str());
 }
 static void printModule(std::string module) {
-  printf("  \"%s\":\n", module.c_str());
+  printf("  \"%s\":\n", unescapeCharsInString(module).c_str());
 }
 static void printClassInformation(std::string information) {
   printf("    information: %s\n", information.c_str());
@@ -161,7 +180,7 @@ static void printUses() {
 static void printReferenceTo(std::string type, std::string signature, std::string defined_in) {
   printf("            - \"%s\":\n", signature.substr(0, 1022).c_str());
   printf("                type: %s\n", type.c_str());
-  printf("                defined_in: \"%s\"\n", defined_in.c_str());
+  printf("                defined_in: \"%s\"\n", unescapeCharsInString(defined_in).c_str());
 }
 static void printNumberOfConditionalPaths(MemberDef* md) {
   printf("          conditional_paths: %d\n", md->numberOfFlowKeyWords());
@@ -204,7 +223,7 @@ std::string functionSignature(MemberDef* md) {
       Argument * argument = iterator.toFirst();
       if(argument != NULL) {
         signature += argumentData(argument);
-        for(++iterator; (argument = iterator.current()); ++iterator){
+        for(++iterator; (argument = iterator.current()); ++iterator) {
           signature += std::string(",") + argumentData(argument);
         }
       }
@@ -240,6 +259,12 @@ static void referenceTo(MemberDef* md) {
 void cModule(ClassDef* cd) {
   MemberList* ml = cd->getMemberList(MemberListType_variableMembers);
   if (ml) {
+    FileDef *fd = cd->getFileDef();
+    MemberList *fd_ml = fd->getMemberList(MemberListType_allMembersList);
+    if (!fd_ml || fd_ml->count() == 0) {
+      printModule(fd->getOutputFileBase().data());
+      printDefines();
+    }
     MemberListIterator mli(*ml);
     MemberDef* md;
     for (mli.toFirst(); (md=mli.current()); ++mli) {
@@ -271,12 +296,23 @@ static bool checkOverrideArg(ArgumentList *argList, MemberDef *md) {
 }
 
 void functionInformation(MemberDef* md) {
+  std::string temp = "";
   int size = md->getEndBodyLine() - md->getStartBodyLine() + 1;
   printNumberOfLines(size);
   ArgumentList *argList = md->argumentList();
+
   if (argList) {
-    printNumberOfArguments(argList->count());
+      ArgumentListIterator iterator(*argList);
+      Argument * argument = iterator.toFirst();
+      if(argument != NULL) {
+        temp = argumentData(argument);
+// TODO: This is a workaround; better not include "void" in argList, in the first place. 
+          if(temp != "void") {
+              printNumberOfArguments(argList->count());
+          }
+      }
   }
+
   printNumberOfConditionalPaths(md);
   MemberSDict *defDict = md->getReferencesMembers();
   if (defDict) {
@@ -426,7 +462,6 @@ int main(int argc,char **argv) {
 
   // check and finalize the configuration
   checkConfiguration();
-  Config_getBool(MODIFY_SPECIAL_CHARS)=FALSE;
   adjustConfiguration();
 
   // setup the non-default configuration options

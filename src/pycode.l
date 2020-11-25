@@ -884,7 +884,7 @@ SHORTSTRINGITEM   ({SHORTSTRINGCHAR}|{ESCAPESEQ})
 SHORTSTRINGCHAR   [^\\\n"]
 STRINGLITERAL     {STRINGPREFIX}?( {SHORTSTRING} | {LONGSTRING})  
 STRINGPREFIX      ("r"|"u"|"ur"|"R"|"U"|"UR"|"Ur"|"uR")
-KEYWORD ("lambda"|"import"|"class"|"assert"|"as"|"from"|"global"|"def"|"True"|"False")
+KEYWORD ("lambda"|"import"|"class"|"assert"|"with"|"as"|"from"|"global"|"def"|"True"|"False")
 FLOWKW  ("or"|"and"|"is"|"not"|"print"|"for"|"in"|"if"|"try"|"except"|"yield"|"raise"|"break"|"continue"|"pass"|"if"|"return"|"while"|"elif"|"else"|"finally")
 QUOTES            ("\""[^"]*"\"")
 SINGLEQUOTES      ("'"[^']*"'")
@@ -1091,8 +1091,7 @@ TARGET           ({IDENTIFIER}|"("{TARGET_LIST}")"|"["{TARGET_LIST}"]"|{ATTRIBUT
                                       char *s=g_curClassBases.first();
                                       while (s) 
 				      {
-                                        ClassDef *baseDefToAdd;
-                                        baseDefToAdd=g_codeClassSDict[s];
+                                        ClassDef *baseDefToAdd=g_codeClassSDict[s];
 
 					// Try to find class in global
 					// scope
@@ -1311,7 +1310,7 @@ TARGET           ({IDENTIFIER}|"("{TARGET_LIST}")"|"["{TARGET_LIST}"]"|{ATTRIBUT
     \\.			       { // espaced char
   		                 codify(yytext);
                                }
-    {STRINGPREFIX}?{TRIDOUBLEQUOTE} { // tripple double quotes
+    {STRINGPREFIX}?{TRIDOUBLEQUOTE} { // triple double quotes
   		                 codify(yytext);
       			       }
     "'"			       { // end of the string
@@ -1334,7 +1333,7 @@ TARGET           ({IDENTIFIER}|"("{TARGET_LIST}")"|"["{TARGET_LIST}"]"|{ATTRIBUT
     \\.			       { // espaced char
   		                 codify(yytext);
                                }
-    {STRINGPREFIX}?{TRISINGLEQUOTE} { // tripple single quotes
+    {STRINGPREFIX}?{TRISINGLEQUOTE} { // triple single quotes
   		                 codify(yytext);
       			       }
     "\""		       { // end of the string
@@ -1382,21 +1381,43 @@ TARGET           ({IDENTIFIER}|"("{TARGET_LIST}")"|"["{TARGET_LIST}"]"|{ATTRIBUT
                                }
    */
 
-<*>{STRINGPREFIX}?{TRISINGLEQUOTE} |
-<*>{STRINGPREFIX}?{TRIDOUBLEQUOTE} {
-  				 startFontClass("stringliteral");
+<*>{STRINGPREFIX}?{TRISINGLEQUOTE} {
+				 if (YY_START==SingleQuoteString) REJECT;
+				 startFontClass("stringliteral");
 				 g_stringContext=YY_START;
 				 g_doubleQuote=yytext[yyleng-1]=='"';
-  		                 codify(yytext);
+				 codify(yytext);
+				 BEGIN(TripleString);
+                               }
+<*>{STRINGPREFIX}?{TRIDOUBLEQUOTE} {
+				 if (YY_START==DoubleQuoteString) REJECT;
+				 startFontClass("stringliteral");
+				 g_stringContext=YY_START;
+				 g_doubleQuote=yytext[yyleng-1]=='"';
+				 codify(yytext);
 				 BEGIN(TripleString);
                                }
 <*>{STRINGPREFIX}?"'"	       { // single quoted string
+				 if (YY_START==SingleQuoteString ||
+				     YY_START==DoubleQuoteString ||
+				     YY_START==TripleString
+				    )
+				 {
+				   REJECT;
+				 }
   				 startFontClass("stringliteral");
 				 g_stringContext=YY_START;
   		                 codify(yytext);
 				 BEGIN(SingleQuoteString);
   			       }
 <*>{STRINGPREFIX}?"\""         { // double quoted string
+				 if (YY_START==SingleQuoteString ||
+				     YY_START==DoubleQuoteString ||
+				     YY_START==TripleString
+				    )
+				 {
+				   REJECT;
+				 }
   				 startFontClass("stringliteral");
 				 g_stringContext=YY_START;
   		                 codify(yytext);
@@ -1495,6 +1516,8 @@ TARGET           ({IDENTIFIER}|"("{TARGET_LIST}")"|"["{TARGET_LIST}"]"|{ATTRIBUT
 
 void resetPythonCodeParserState() 
 {
+  g_codeClassSDict.setAutoDelete(TRUE);
+  g_codeClassSDict.clear();
   g_currentDefinition = 0;
   g_currentMemberDef = 0;
   g_doubleStringIsDoc = FALSE;
@@ -1545,6 +1568,7 @@ void parsePythonCode(CodeOutputInterface &od,const char * /*className*/,
   //--------------------------------------
   if (s.isEmpty()) return;
   printlex(yy_flex_debug, TRUE, __FILE__, fd ? fd->fileName().data(): NULL);
+  g_codeClassSDict.setAutoDelete(TRUE);
   TooltipManager::instance()->clearTooltips();
   g_code = &od;
   g_inputString   = s;

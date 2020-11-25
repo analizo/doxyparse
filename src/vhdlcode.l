@@ -31,7 +31,7 @@
 #include <ctype.h>
 #include <qregexp.h>
 #include <qdir.h>
-#include <qstringlist.h>
+#include <qcstringlist.h>
 
 #include "entry.h"
 #include "doxygen.h"
@@ -94,7 +94,7 @@ static QCString      g_exampleFile;
 
 static QCString      g_classScope;
    
-static QCString      g_CurrScope;
+static bool          g_CurrARCH = FALSE;
    
 static FileDef *     g_sourceFileDef;
 static Definition *  g_currentDefinition;
@@ -109,7 +109,7 @@ static int           g_braceCount=0;
 static void writeFont(const char *s,const char* text);
 static void generateMemLink(CodeOutputInterface &ol,QCString &clName,QCString& memberName);
 static bool writeColoredWord(QCString& word );
-static void generateClassOrGlobalLink(CodeOutputInterface &ol,const char *clName, bool typeOnly=FALSE);
+static void generateClassOrGlobalLink(CodeOutputInterface &ol,const char *clName, bool typeOnly=FALSE, const char *curr_class=0);
 static void endFontClass();
 static void startFontClass(const char *s);
 //-------------------------------------------------------------------
@@ -138,8 +138,8 @@ static bool checkVhdlString(QCString &name)
   int len=name.length();
   if (name.at(0)=='"' && name.at(len-1)=='"' && len > 2)
   {
-    QStringList qrl=QStringList::split(regg,name,FALSE);
-    if (VhdlDocGen::isNumber(qrl[0].utf8()))
+    QCStringList qrl=QCStringList::split(regg,name);
+    if (VhdlDocGen::isNumber(qrl[0]))
     {
       g_code->codify("\""); 
       startFontClass("vhdllogic");
@@ -291,7 +291,7 @@ static void writeWord(const char *word,const char* curr_class=0,bool classLink=F
 	    }
             else
             {
-              generateClassOrGlobalLink(*g_code,temp);
+              generateClassOrGlobalLink(*g_code,temp,FALSE,curr_class);
             }
           }
           else                                                                          
@@ -328,7 +328,7 @@ static void writeWord(const char *word,const char* curr_class=0,bool classLink=F
         }
         else
         {
-          generateClassOrGlobalLink(*g_code,temp);
+          generateClassOrGlobalLink(*g_code,temp,FALSE,curr_class);
         }
       }
       else                 
@@ -370,7 +370,7 @@ static void codifyLines(const char *text,const char *cl=0,bool classlink=FALSE,b
       //g_code->codify(sp);
       if (comment)
       {
-        writeFont("keyword",line.data());
+        writeFont("comment",line.data());
       }
       else
       {
@@ -381,9 +381,9 @@ static void codifyLines(const char *text,const char *cl=0,bool classlink=FALSE,b
     else
     {
       if (comment)
-        writeFont("keyword",sp);
+        writeFont("comment",sp);
       else
-      writeWord(sp,cl,classlink);
+        writeWord(sp,cl,classlink);
       done=TRUE;
     }
   }
@@ -510,7 +510,7 @@ static void generateMemLink(CodeOutputInterface &ol,QCString &clName,QCString& m
 }// generateMemLink
 
 
-static void generateClassOrGlobalLink(CodeOutputInterface &ol,const char *clName, bool /*typeOnly*/)
+static void generateClassOrGlobalLink(CodeOutputInterface &ol,const char *clName, bool /*typeOnly*/, const char *curr_class)
 {
   QCString className=clName;
 
@@ -521,6 +521,11 @@ static void generateClassOrGlobalLink(CodeOutputInterface &ol,const char *clName
   //bool isLocal=FALSE;
   className.stripPrefix("_");
   cd = getClass(className.data()); 
+  if (!cd && curr_class)
+  {
+     if (QCString(curr_class).contains(QRegExp("::"+QCString(clName)+"$"))) cd = getClass(curr_class);
+  }
+
   while (cd)
   {
     //className.stripPrefix("_");
@@ -686,8 +691,8 @@ static void writeFuncProto()
     codifyLines(g_FuncProto.data(),g_CurrClass.data());
     return;
   }
-  QStringList qlist=QStringList::split(name,g_FuncProto,FALSE);
-  QCString temp=qlist[0].utf8();
+  QCStringList qlist=QCStringList::split(name,g_FuncProto);
+  QCString temp=qlist[0];
   codifyLines(temp.data(),g_CurrClass.data());
   g_FuncProto.stripPrefix(temp.data());
   temp.resize(0);
@@ -759,7 +764,7 @@ DIGITSS       [0-9]+|[0-9]+("#")*[0-9_a-fA-F\+\.\-]+("#")*
 ALLTYPESMAP   {B}*[_a-zA-Z0-9. ]+{BN}*
 ALLTYPESMAP1  {BN}*[_a-zA-Z0-9.() ]+{BN}*
 
-ARCHITECTURE  ^{B}*("architecture"){BN}+{FUNCNAME}{BN}+("of"){BN}+{FUNCNAME}
+ARCHITECTURE  ^{B}*("architecture"){BN}+{FUNCNAME}{BN}+("of"){BN}+{FUNCNAME}{BN}+("is")
 PROCESS       ({BN}*{FUNCNAME}{BN}*[:]+{BN}*("process"){BN}*[(]*)|[^a-zA-Z]("process "|"process("){BN}*[ (]*|[^a-zA-Z]("process"){BN}+
 
 END1          {B}*("end "){BN}+("if"|"case"|"loop"|"generate"|"for")
@@ -768,7 +773,7 @@ END3          {BN}*[^a-zA-Z]("end"){BN}+{FUNCNAME}{BN}*[;]
 END4          {B}*("end"){BN}+"function"{BN}+{FUNCNAME}{BN}*[;]
 ENDEFUNC      {END3}|{END4}|{END2}
 
-KEYWORD       ("new"|"event"|"break"|"case"|"end"|"loop"|"else"|"for"|"goto"|"if"|"return"|"generate"|"is"|"while"|"in")
+KEYWORD       ("of"|"new"|"event"|"break"|"case"|"end"|"loop"|"else"|"for"|"goto"|"if"|"return"|"generate"|"is"|"while"|"in")
 TYPEKW        ^{B}*("type"|"subtype"|"constant"|"attribute"|"signal"|"variable","alias","configuration")
 FUNC          ^{B}*("function"|"procedure"){BN}*{FUNCNAME}{BN}*("(")
 
@@ -807,6 +812,7 @@ XILINX      "INST"|"NET"|"PIN"|"BLKNM"|"BUFG"|"COLLAPSE"|"CPLD"|"COMPGRP"|"CONFI
 %x ClassVar
 %x ClassesName
 %x Map
+%x End
 %x Body
         
 %%
@@ -825,11 +831,11 @@ XILINX      "INST"|"NET"|"PIN"|"BLKNM"|"BUFG"|"COLLAPSE"|"CPLD"|"COMPGRP"|"CONFI
                         QCString tt(vhdlcodeYYtext);
                         VhdlDocGen::deleteAllChars(tt,',');
                         QRegExp r("=>");
-			QStringList ql=QStringList::split(r,tt,FALSE);
+			QCStringList ql=QCStringList::split(r,tt);
 			if (ql.count()>=2)
 			{
 			  unsigned int index=0;
-			  QCString t1=ql[0].utf8();
+			  QCString t1=ql[0];
 			  char cc=t1.at(index);
 			  while (cc==' ' || cc=='\t') 
 			  {
@@ -860,7 +866,7 @@ XILINX      "INST"|"NET"|"PIN"|"BLKNM"|"BUFG"|"COLLAPSE"|"CPLD"|"COMPGRP"|"CONFI
 			  }        
 			  codifyLines("=>");
 			  index=0;
-			  QCString s2=ql[1].utf8();
+			  QCString s2=ql[1];
 			  t1=s2;
 			  cc=t1.at(index);
 			  while (cc==' ' || cc=='\t') 
@@ -953,7 +959,7 @@ XILINX      "INST"|"NET"|"PIN"|"BLKNM"|"BUFG"|"COLLAPSE"|"CPLD"|"COMPGRP"|"CONFI
                         tt=tt.lower();
                         VhdlDocGen::deleteAllChars(tt,';');
                         tt.stripWhiteSpace();
-                        QStringList ql=QStringList::split(regg,tt,FALSE);
+                        QCStringList ql=QCStringList::split(regg,tt);
                         int index=ql.findIndex(QCString("if"))+1;
                         index+=ql.findIndex(QCString("case"))+1;
                         index+=ql.findIndex(QCString("loop"))+1;
@@ -1058,14 +1064,7 @@ XILINX      "INST"|"NET"|"PIN"|"BLKNM"|"BUFG"|"COLLAPSE"|"CPLD"|"COMPGRP"|"CONFI
                          g_CurrClass.append(vhdlcodeYYtext);
                          g_CurrClass=g_CurrClass.stripWhiteSpace();
                                                   
-                         if (!writeColoredWord(g_CurrScope))
-			 {
-                           generateClassOrGlobalLink(*g_code,vhdlcodeYYtext);
-			 }
-                         else
-		         {
-                           codifyLines(vhdlcodeYYtext,g_CurrClass.data());
-		         }
+                         generateClassOrGlobalLink(*g_code,vhdlcodeYYtext);
                          BEGIN(Bases);
                        }
 
@@ -1169,13 +1168,12 @@ XILINX      "INST"|"NET"|"PIN"|"BLKNM"|"BUFG"|"COLLAPSE"|"CPLD"|"COMPGRP"|"CONFI
 
 <ParsePackage>[^:;]*    { //found package 
                           QCString temp(vhdlcodeYYtext);
-                          QStringList strl=QStringList::split(".",temp,FALSE);
-                                
+                          QCStringList strl=QCStringList::split(".",temp);
                           if (strl.count()>2) 
 			  {
-                             QCString s1=strl[0].utf8();  
-                             QCString s2=strl[1].utf8();  
-                             QCString s3=strl[2].utf8();  
+                             QCString s1=strl[0];  
+                             QCString s2=strl[1];  
+                             QCString s3=strl[2];  
                              s1.append(".");
                              s3.prepend(".");
                              codifyLines(s1.data(),g_CurrClass.data());  
@@ -1284,6 +1282,7 @@ XILINX      "INST"|"NET"|"PIN"|"BLKNM"|"BUFG"|"COLLAPSE"|"CPLD"|"COMPGRP"|"CONFI
                            //temp+=("-");
                            //temp+=VhdlDocGen::getIndexWord(vhdlcodeYYtext,3);
 			   QCString temp = VhdlDocGen::getIndexWord(vhdlcodeYYtext,3);
+                           g_CurrARCH = TRUE;
 			   temp+="::";
 			   temp+=VhdlDocGen::getIndexWord(vhdlcodeYYtext,1);
                            g_CurrClass=temp;
@@ -1291,15 +1290,14 @@ XILINX      "INST"|"NET"|"PIN"|"BLKNM"|"BUFG"|"COLLAPSE"|"CPLD"|"COMPGRP"|"CONFI
                            codifyLines(vhdlcodeYYtext,temp.data(),TRUE);
                            //generateClassOrGlobalLink(*g_code,temp.data());
                            isPackageBody=FALSE;
-                           BEGIN(ClassName);
                          }
 
 
 <Bases>^{B}*("package "){BN}*("body"){BN}*{FUNCNAME}  { // found package body  
                            QCString ss(vhdlcodeYYtext);
                            QCString temp=VhdlDocGen::getIndexWord(vhdlcodeYYtext,2);
-                           QStringList ql=QStringList::split(temp,ss,FALSE);
-                           QCString ll=ql[0].utf8();
+                           QCStringList ql=QCStringList::split(temp,ss);
+                           QCString ll=ql[0];
                            codifyLines(ll.data(),g_CurrClass.data());
                            temp=temp.stripWhiteSpace();
                                      temp.prepend("_");
@@ -1371,6 +1369,41 @@ XILINX      "INST"|"NET"|"PIN"|"BLKNM"|"BUFG"|"COLLAPSE"|"CPLD"|"COMPGRP"|"CONFI
                          }
                                         
 
+<Bases>"end"{BN}+"architecture"{BN}+{FUNCNAME} {
+                           codifyLines(vhdlcodeYYtext,g_CurrClass.data(),TRUE);
+                           g_CurrARCH = FALSE;
+                         }
+<Bases>"end"{BN}+{FUNCNAME} {
+                           if (g_CurrARCH)
+                           {
+                             codifyLines(vhdlcodeYYtext,g_CurrClass.data(),TRUE);
+                             g_CurrARCH = FALSE;
+                           }
+                           else
+                              REJECT;
+                         }
+<Bases>"end"             {
+                           appStringLower(g_PrevString,vhdlcodeYYtext);
+                           QCString temp(vhdlcodeYYtext);
+                           temp=temp.stripWhiteSpace();
+
+                           writeColoredWord(temp);
+                           BEGIN(End);
+                         }
+<End>{ID}                {
+                           appStringLower(g_PrevString,vhdlcodeYYtext);
+                           QCString temp(vhdlcodeYYtext);
+                           temp=temp.stripWhiteSpace();
+
+                           if (!writeColoredWord(temp))
+                           {
+                             generateClassOrGlobalLink(*g_code,temp.data());
+                           }
+                         }
+<End>";"                 {
+			   codifyLines(vhdlcodeYYtext);
+			   BEGIN(Bases);
+                         }
 <Bases>{KEYWORD}         { // found keyword
                            QCString qcs(vhdlcodeYYtext);
                            if (!writeColoredWord(qcs))
@@ -1445,11 +1478,11 @@ XILINX      "INST"|"NET"|"PIN"|"BLKNM"|"BUFG"|"COLLAPSE"|"CPLD"|"COMPGRP"|"CONFI
                                       writeFont("keyword",vhdlcodeYYtext);
                                     }
                                      
-<Bases>^{B}*{XILINX}[^\n]*  { 
-                            writeWord(yytext);
-                            //codifyLines(vhdlcodeYYtext,g_CurrClass.data(),TRUE);
-                         }           
-                             
+<Bases>^{B}*{XILINX}/[^a-zA-Z0-9_] {
+                                      writeWord(yytext);
+                                      //codifyLines(vhdlcodeYYtext,g_CurrClass.data(),TRUE);
+                                   }
+
 <Bases>^{B}*"set_"[^\n]*  { 
                                       writeWord(yytext);
                                     }
@@ -1464,36 +1497,37 @@ XILINX      "INST"|"NET"|"PIN"|"BLKNM"|"BUFG"|"COLLAPSE"|"CPLD"|"COMPGRP"|"CONFI
                          }
 
 <*>\n{TEXTT}             { // found normal or special comment on its own line
-			   QCString text(vhdlcodeYYtext);
-			   int i=text.find("--");
-			   if (text.mid(i,3)=="--!" && // hide special comment
-                               Config_getBool(STRIP_CODE_COMMENTS)) 
-			   { 
-			     g_yyLineNr++; // skip complete line
-			   }  
-			   else // normal comment
-			   {
-			     //    startFontClass("keyword");
-			     codifyLines(text,0,FALSE,TRUE);
-			     //    endFontClass();
-			   }
+                           QCString text(vhdlcodeYYtext);
+                           int i=text.find("--");
+                           if (text.mid(i,3)=="--!") // && // hide special comment
+                           {
+                             if (!Config_getBool(STRIP_CODE_COMMENTS))
+                             {
+                               codifyLines(text,0,FALSE,TRUE);
+                             }
+                             else g_yyLineNr++; // skip complete line, but count line
+                           }
+                           else // normal comment
+                           {
+                             codifyLines(text,0,FALSE,TRUE);
+                           }
                          }
 <*>{TEXTT}               { // found normal or special comment after something
-			   QCString text(vhdlcodeYYtext);
-			   int i=text.find("--");
-			   if (text.mid(i,3)=="--!" &&
-                               Config_getBool(STRIP_CODE_COMMENTS)) 
-			   { 
-			      // hide special comment
-			   }  
-			   else // normal comment
-			   {
-			     //   startFontClass("keyword");
-			     codifyLines(text,0,FALSE,TRUE);
-			     //   endFontClass();
-			   }
+                           QCString text(vhdlcodeYYtext);
+                           int i=text.find("--");
+                           if (text.mid(i,3)=="--!")
+                           {
+                             // hide special comment
+                             if (!Config_getBool(STRIP_CODE_COMMENTS))
+                             {
+                               codifyLines(text,0,FALSE,TRUE);
+                             }
+                           }
+                           else // normal comment
+                           {
+                             codifyLines(text,0,FALSE,TRUE);
+                           }
                          }
-
 
 %%
 

@@ -22,6 +22,7 @@
 #include <qglobal.h>
 #include "docvisitor.h"
 #include "htmlentity.h"
+#include "emoji.h"
 #include "message.h"
 
 /*! Concrete visitor implementation for pretty printing */
@@ -68,6 +69,19 @@ class PrintDocVisitor : public DocVisitor
         printf("print: non supported HTML-entity found: %s\n",HtmlEntityMapper::instance()->html(s->symbol(),TRUE));
       }
     }
+    void visit(DocEmoji *s)
+    {
+      indent_leaf();
+      const char *res = EmojiEntityMapper::instance()->name(s->index());
+      if (res)
+      {
+        printf("%s",res);
+      }
+      else
+      {
+        printf("print: non supported emoji found: %s\n",qPrint(s->name()));
+      }
+    }
     void visit(DocURL *u)
     {
       indent_leaf();
@@ -90,6 +104,12 @@ class PrintDocVisitor : public DocVisitor
       {
         case DocStyleChange::Bold:
           if (s->enable()) printf("<bold>"); else printf("</bold>");
+          break;
+        case DocStyleChange::Strike:
+          if (s->enable()) printf("<strike>"); else printf("</strike>");
+          break;
+        case DocStyleChange::Underline:
+          if (s->enable()) printf("<underline>"); else printf("</underline>");
           break;
         case DocStyleChange::Italic:
           if (s->enable()) printf("<italic>"); else printf("</italic>");
@@ -167,7 +187,10 @@ class PrintDocVisitor : public DocVisitor
         case DocInclude::Include: printf("include"); break;
         case DocInclude::IncWithLines: printf("incwithlines"); break;
         case DocInclude::DontInclude: printf("dontinclude"); break;
-        case DocInclude::HtmlInclude: printf("htmlinclude"); break;
+        case DocInclude::HtmlInclude:
+               printf("htmlinclude");
+               if (inc->isBlock()) printf(" block=\"yes\"");
+               break;
         case DocInclude::LatexInclude: printf("latexinclude"); break;
         case DocInclude::VerbInclude: printf("verbinclude"); break;
         case DocInclude::Snippet: printf("snippet"); break;
@@ -490,7 +513,7 @@ class PrintDocVisitor : public DocVisitor
         case DocImage::Rtf:     printf("rtf"); break;
         case DocImage::DocBook: printf("docbook"); break;
       }
-      printf("\" %s %s>\n",img->width().data(),img->height().data());
+      printf("\" %s %s inline=\"%s\">\n",img->width().data(),img->height().data(),img->isInlineImage() ? "yes" : "no");
     }
     void visitPost(DocImage *) 
     {
@@ -634,13 +657,13 @@ class PrintDocVisitor : public DocVisitor
     void visitPre(DocXRefItem *x)
     {
       indent_pre();
-      printf("<xrefitem file=\"%s\" anchor=\"%s\" title=\"%s\"/>\n",
+      printf("<xrefitem file=\"%s\" anchor=\"%s\" title=\"%s\">\n",
           x->file().data(),x->anchor().data(),x->title().data());
     }
     void visitPost(DocXRefItem *)
     {
       indent_post();
-      printf("<xrefitem/>\n");
+      printf("</xrefitem>\n");
     }
     void visitPre(DocInternalRef *r)
     {

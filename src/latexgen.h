@@ -51,6 +51,7 @@ class LatexCodeGenerator : public CodeOutputInterface
     void writeCodeAnchor(const char *) {}
     void setCurrentDoc(Definition *,const char *,bool) {}
     void addWord(const char *,bool) {}
+    static void setDoxyCodeOpen(bool val);
 
   private:
     void _writeCodeLink(const char *className,
@@ -169,7 +170,7 @@ class LatexGenerator : public OutputGenerator
     void endMemberSections() {} 
     void startHeaderSection() {}
     void endHeaderSection() {}
-    void startMemberHeader(const char *);
+    void startMemberHeader(const char *,int);
     void endMemberHeader();
     void startMemberSubtitle() {}
     void endMemberSubtitle() {}
@@ -194,6 +195,7 @@ class LatexGenerator : public OutputGenerator
     void endMemberGroup(bool);
     
     void insertMemberAlign(bool) {}
+    void insertMemberAlignLeft(int,bool){}
 
     void writeRuler() { t << endl << endl; }
     void writeAnchor(const char *fileName,const char *name);
@@ -225,7 +227,7 @@ class LatexGenerator : public OutputGenerator
     void endCenter()        { t << "\\end{center}" << endl; }
     void startSmall()       { t << "\\footnotesize "; }
     void endSmall()         { t << "\\normalsize "; }
-    void startMemberDescription(const char *,const char *);
+    void startMemberDescription(const char *,const char *,bool);
     void endMemberDescription();
     void startMemberDeclaration() {} 
     void endMemberDeclaration(const char *,const char *) {}
@@ -233,8 +235,8 @@ class LatexGenerator : public OutputGenerator
                       const char *,const char *,const char *) {}
     void startDescList(SectionTypes)     { t << "\\begin{Desc}\n\\item["; }
     void endDescList()       { t << "\\end{Desc}" << endl; }
-    void startSimpleSect(SectionTypes,const char *,const char *,const char *);
-    void endSimpleSect();
+    void startExamples();
+    void endExamples();
     void startParamList(ParamListTypes,const char *title);
     void endParamList();
     void startDescForItem()     { t << "\\par" << endl; }

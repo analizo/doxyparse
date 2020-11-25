@@ -35,7 +35,7 @@ PageDef::PageDef(const char *f,int l,const char *n,
   m_pageScope = 0;
   m_nestingLevel = 0;
   m_fileName = ::convertNameToFile(n,FALSE,TRUE);
-  m_showToc = FALSE;
+  m_showLineNo = FALSE;
 }
 
 PageDef::~PageDef()
@@ -187,10 +187,12 @@ void PageDef::writeDocumentation(OutputList &ol)
   ol.pushGeneratorState();
   //2.{
   ol.disable(OutputGenerator::Latex);
+  ol.disable(OutputGenerator::Docbook);
   ol.disable(OutputGenerator::RTF);
   ol.disable(OutputGenerator::Man);
   if (!title().isEmpty() && !name().isEmpty() && si!=0)
   {
+    ol.startPageDoc(si->title);
     //ol.startSection(si->label,si->title,si->type);
     startTitle(ol,getOutputFileBase(),this);
     ol.generateDoc(docFile(),docLine(),this,0,si->title,TRUE,FALSE,0,TRUE,FALSE);
@@ -200,16 +202,19 @@ void PageDef::writeDocumentation(OutputList &ol)
     //ol.endSection(si->label,si->type);
     endTitle(ol,getOutputFileBase(),name());
   }
+  else
+    ol.startPageDoc("");
   ol.startContents();
   ol.popGeneratorState();
   //2.}
 
-  if (m_showToc && hasSections())
+  if ((m_localToc.isHtmlEnabled() || m_localToc.isLatexEnabled() || m_localToc.isDocbookEnabled()) && hasSections())
   {
-    writeToc(ol);
+    writeToc(ol, m_localToc);
   }
 
   writePageDocumentation(ol);
+  ol.endPageDoc();
 
   if (generateTreeView && getOuterScope()!=Doxygen::globalScope && !Config_getBool(DISABLE_INDEX))
   {
@@ -265,6 +270,7 @@ void PageDef::writePageDocumentation(OutputList &ol)
     ol.pushGeneratorState();
     ol.disableAll();
     ol.enable(OutputGenerator::Latex);
+    ol.enable(OutputGenerator::Docbook);
     ol.enable(OutputGenerator::RTF);
 
     PageSDict::Iterator pdi(*m_subPageDict);
@@ -322,8 +328,17 @@ void PageDef::setNestingLevel(int l)
   m_nestingLevel = l;
 }
 
-void PageDef::setShowToc(bool b)
+void PageDef::setLocalToc(const LocalToc &lt)
 {
-  m_showToc |= b;
+  m_localToc = lt;
 }
 
+void PageDef::setShowLineNo(bool b)
+{
+  m_showLineNo = b;
+}
+
+bool PageDef::showLineNo() const
+{
+  return m_showLineNo;
+}

@@ -208,7 +208,7 @@ void MainWindow::updateWorkingDir()
 
 void MainWindow::manual()
 {
-  QDesktopServices::openUrl(QUrl(QString::fromLatin1("http://www.doxygen.org/manual.html")));
+  QDesktopServices::openUrl(QUrl(QString::fromLatin1("http://www.doxygen.org/manual/index.html")));
 }
 
 void MainWindow::about()
@@ -267,7 +267,7 @@ void MainWindow::saveConfig(const QString &fileName)
 {
   if (fileName.isEmpty()) return;
   QFile f(fileName);
-  if (!f.open(QIODevice::WriteOnly)) 
+  if (!f.open(QIODevice::WriteOnly | QIODevice::Text ))
   {
     QMessageBox::warning(this,
         tr("Error saving"),

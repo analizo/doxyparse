@@ -175,7 +175,7 @@ class HtmlGenerator : public OutputGenerator
     void endMemberSections();
     void startHeaderSection();
     void endHeaderSection();
-    void startMemberHeader(const char *);
+    void startMemberHeader(const char *, int);
     void endMemberHeader();
     void startMemberSubtitle();
     void endMemberSubtitle();
@@ -200,7 +200,8 @@ class HtmlGenerator : public OutputGenerator
     void endMemberGroup(bool);
 
     void insertMemberAlign(bool);
-    void startMemberDescription(const char *anchor,const char *inheritId);
+    void insertMemberAlignLeft(int,bool);
+    void startMemberDescription(const char *anchor,const char *inheritId, bool typ);
     void endMemberDescription();
     void startMemberDeclaration() {}
     void endMemberDeclaration(const char *anchor,const char *inheritId);
@@ -245,13 +246,10 @@ class HtmlGenerator : public OutputGenerator
     void endCenter()          { t << "</center>" << endl; }
     void startSmall()         { t << "<small>" << endl; }
     void endSmall()           { t << "</small>" << endl; }
-    //void startDescList(SectionTypes)      { t << "<dl compact><dt><b>" << endl; }
-    //void endDescList()        { t << "</dl>"; }
-    void startSimpleSect(SectionTypes,const char *,const char *,const char *);
-    void endSimpleSect();
+    void startExamples();
+    void endExamples();
     void startParamList(ParamListTypes,const char *);
     void endParamList();
-    //void writeDescItem()      { t << "<dd>" << endl; }
     void startSection(const char *,const char *,SectionInfo::SectionType);
     void endSection(const char *,SectionInfo::SectionType);
     void addIndexItem(const char *,const char *);
@@ -271,6 +269,8 @@ class HtmlGenerator : public OutputGenerator
     void writeSummaryLink(const char *file,const char *anchor,const char *title,bool first);
     void startContents();
     void endContents();
+    void startPageDoc(const char *pageTitle);
+    void endPageDoc();
     void writeNonBreakableSpace(int);
 
     void startDescTable(const char *title);

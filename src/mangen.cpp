@@ -34,7 +34,7 @@
 static QCString getExtension()
 {
   /*
-   * [.][nuber][rest]
+   * [.][number][rest]
    * in case of . missing, just ignore it
    * in case number missing, just place a 3 in front of it
    */
@@ -283,7 +283,7 @@ void ManGenerator::endGroupHeader(int)
   upperCase=FALSE;
 }
 
-void ManGenerator::startMemberHeader(const char *)
+void ManGenerator::startMemberHeader(const char *,int)
 {
   if (!firstCol) t << endl;
   t << ".SS \"";
@@ -619,9 +619,9 @@ void ManGenerator::startSection(const char *,const char *,SectionInfo::SectionTy
     {
       case SectionInfo::Page:          startGroupHeader(FALSE); break;
       case SectionInfo::Section:       startGroupHeader(FALSE); break;
-      case SectionInfo::Subsection:    startMemberHeader(0); break;
-      case SectionInfo::Subsubsection: startMemberHeader(0); break;
-      case SectionInfo::Paragraph:     startMemberHeader(0); break;
+      case SectionInfo::Subsection:    startMemberHeader(0, -1); break;
+      case SectionInfo::Subsubsection: startMemberHeader(0, -1); break;
+      case SectionInfo::Paragraph:     startMemberHeader(0, -1); break;
       default: ASSERT(0); break;
     }
   }
@@ -650,8 +650,25 @@ void ManGenerator::endSection(const char *,SectionInfo::SectionType type)
   }
 }
 
-void ManGenerator::startSimpleSect(SectionTypes,const char *,
-                                   const char *,const char *title)
+void ManGenerator::startExamples()
+{
+  if (!firstCol) 
+  { t << endl << ".PP" << endl; 
+    firstCol=TRUE; paragraph=TRUE; 
+    col=0;
+  }
+  paragraph=FALSE;
+  startBold();
+  docify(theTranslator->trExamples());
+  endBold();
+  paragraph=TRUE;
+}
+
+void ManGenerator::endExamples()
+{
+}
+
+void ManGenerator::startDescTable(const char *title)
 {
   if (!firstCol) 
   { t << endl << ".PP" << endl; 
@@ -663,10 +680,12 @@ void ManGenerator::startSimpleSect(SectionTypes,const char *,
   docify(title);
   endBold();
   paragraph=TRUE;
+  startDescForItem();
 }
 
-void ManGenerator::endSimpleSect()
+void ManGenerator::endDescTable()
 {
+  endDescForItem();
 }
 
 void ManGenerator::startParamList(ParamListTypes,const char *title)

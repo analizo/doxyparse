@@ -23,7 +23,6 @@
 #include <qstack.h>
 #include <qcstring.h>
 #include <qlist.h>
-//#include <qmap.h>
 
 class FTextStream;
 class CodeOutputInterface;
@@ -43,6 +42,7 @@ class LatexDocVisitor : public DocVisitor
     void visit(DocLinkedWord *);
     void visit(DocWhiteSpace *);
     void visit(DocSymbol *);
+    void visit(DocEmoji *);
     void visit(DocURL *);
     void visit(DocLineBreak *);
     void visit(DocHorRuler *);

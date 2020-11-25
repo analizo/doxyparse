@@ -24,6 +24,7 @@
 #include <qthread.h>
 #include <qmutex.h>
 #include <qwaitcondition.h>
+#include <qregexp.h>
 
 #include "dot.h"
 #include "doxygen.h"
@@ -139,7 +140,7 @@ static const char svgZoomFooter[] =
 "                  <path fill=\"none\" stroke=\"white\" stroke-width=\"1.5\" d=\"M0,-3.0v7 M-2.5,-0.5L0,-3.0L2.5,-0.5\"/>\n"
 "                </g>\n"
 "        </g>\n"
-// link to orginial SVG
+// link to original SVG
 "        <svg viewBox=\"0 0 15 15\" width=\"100%\" height=\"30px\" preserveAspectRatio=\"xMaxYMin meet\">\n"
 "         <g id=\"arrow_out\" transform=\"scale(0.3 0.3)\">\n"
 "          <a xlink:href=\"$orgname\" target=\"_base\">\n"
@@ -266,6 +267,7 @@ static void writeGraphHeader(FTextStream &t,const QCString &title=QCString())
   {
     t << " // INTERACTIVE_SVG=YES\n";
   }
+  t << " // LATEX_PDF_SIZE\n"; // write placeholder for LaTeX PDF bounding box size repacement
   if (Config_getBool(DOT_TRANSPARENT))
   {
     t << "  bgcolor=\"transparent\";" << endl;
@@ -375,6 +377,7 @@ static bool convertMapFile(FTextStream &t,const char *mapName,
                            const QCString &context=QCString())
 {
   QFile f(mapName);
+  static QRegExp re("id=\"node[0-9]*\"");
   if (!f.open(IO_ReadOnly)) 
   {
     err("problems opening map file %s for inclusion in the docs!\n"
@@ -393,7 +396,7 @@ static bool convertMapFile(FTextStream &t,const char *mapName,
 
       if (buf.left(5)=="<area")
       {
-        t << replaceRef(buf,relPath,urlOnly,context);
+        t << replaceRef(buf,relPath,urlOnly,context).replace(re,"");
       }
     }
   }
@@ -437,6 +440,55 @@ static void unsetDotFontPath()
   g_dotFontPath="";
 }
 
+static bool resetPDFSize(const int width,const int height, const char *base)
+{
+  QString tmpName = QString::fromUtf8(QCString(base)+".tmp");
+  QString patchFile = QString::fromUtf8(QCString(base)+".dot");
+  if (!QDir::current().rename(patchFile,tmpName))
+  {
+    err("Failed to rename file %s to %s!\n",patchFile.data(),tmpName.data());
+    return FALSE;
+  }
+  QFile fi(tmpName);
+  QFile fo(patchFile);
+  if (!fi.open(IO_ReadOnly)) 
+  {
+    err("problem opening file %s for patching!\n",tmpName.data());
+    QDir::current().rename(tmpName,patchFile);
+    return FALSE;
+  }
+  if (!fo.open(IO_WriteOnly))
+  {
+    err("problem opening file %s for patching!\n",patchFile.data());
+    QDir::current().rename(tmpName,patchFile);
+    fi.close();
+    return FALSE;
+  }
+  FTextStream t(&fo);
+  const int maxLineLen=100*1024;
+  while (!fi.atEnd()) // foreach line
+  {
+    QCString line(maxLineLen);
+    int numBytes = fi.readLine(line.rawData(),maxLineLen);
+    if (numBytes<=0)
+    {
+      break;
+    }
+    line.resize(numBytes+1);
+    if (line.find("LATEX_PDF_SIZE") != -1)
+    {
+      double scale = (width > height ? width : height)/double(MAX_LATEX_GRAPH_INCH);
+      t << "  size=\""<<width/scale << "," <<height/scale <<"\";\n";
+    }
+    else
+      t << line;
+  }
+  fi.close();
+  fo.close();
+  // remove temporary file
+  QDir::current().remove(tmpName);
+  return TRUE;
+}
 static bool readBoundingBox(const char *fileName,int *width,int *height,bool isEps)
 {
   QCString bb = isEps ? QCString("%%PageBoundingBox:") : QCString("/MediaBox [");
@@ -765,10 +817,10 @@ DotRunner::DotRunner(const QCString &file,const QCString &path,
   m_jobs.setAutoDelete(TRUE);
 }
 
-void DotRunner::addJob(const char *format,const char *output)
+void DotRunner::addJob(const char *format,const char *output, const char *base)
 {
   QCString args = QCString("-T")+format+" -o \""+output+"\"";
-  m_jobs.append(new DotConstString(args));
+  m_jobs.append(new DotConstString(args, base));
 }
 
 void DotRunner::addPostProcessing(const char *cmd,const char *args)
@@ -780,6 +832,7 @@ void DotRunner::addPostProcessing(const char *cmd,const char *args)
 bool DotRunner::run()
 {
   int exitCode=0;
+  int width=0,height=0;
 
   QCString dotArgs;
   QListIterator<DotConstString> li(m_jobs);
@@ -792,9 +845,26 @@ bool DotRunner::run()
       dotArgs+=' ';
       dotArgs+=s->data();
     }
-    if ((exitCode=portable_system(m_dotExe.data(),dotArgs,FALSE))!=0)
+    if ((exitCode=portable_system(m_dotExe.data(),dotArgs,FALSE))!=0) goto error;
+    dotArgs=QCString("\"")+m_file.data()+"\"";
+    bool redo = FALSE;
+    for (li.toFirst();(s=li.current());++li)
     {
-      goto error;
+      if (s->pdfData())
+      {
+        if (!readBoundingBox(QCString(s->pdfData())+".pdf",&width,&height,FALSE)) goto error;
+	if ((width > MAX_LATEX_GRAPH_SIZE) || (height > MAX_LATEX_GRAPH_SIZE))
+	{
+	  if (!resetPDFSize(width,height,s->pdfData())) goto error;
+          dotArgs+=' ';
+          dotArgs+=s->data();
+          redo = TRUE;
+        }
+      }
+    }
+    if (redo)
+    {
+      if ((exitCode=portable_system(m_dotExe.data(),dotArgs,FALSE))!=0) goto error;
     }
   }
   else
@@ -802,9 +872,15 @@ bool DotRunner::run()
     for (li.toFirst();(s=li.current());++li)
     {
       dotArgs=QCString("\"")+m_file.data()+"\" "+s->data();
-      if ((exitCode=portable_system(m_dotExe.data(),dotArgs,FALSE))!=0)
+      if ((exitCode=portable_system(m_dotExe.data(),dotArgs,FALSE))!=0) goto error;
+      if (s->pdfData())
       {
-        goto error;
+        if (!readBoundingBox(QCString(s->pdfData())+".pdf",&width,&height,FALSE)) goto error;
+	if ((width > MAX_LATEX_GRAPH_SIZE) || (height > MAX_LATEX_GRAPH_SIZE))
+	{
+	  if (!resetPDFSize(width,height,s->pdfData())) goto error;
+          if ((exitCode=portable_system(m_dotExe.data(),dotArgs,FALSE))!=0) goto error;
+        }
       }
     }
   }
@@ -1034,12 +1110,18 @@ bool DotFilePatcher::run()
       int n = sscanf(line.data()+i,"<!-- MAP %d",&mapId);
       if (n==1 && mapId>=0 && mapId<(int)m_maps.count())
       {
+        QGString result;
+        FTextStream tt(&result);
         Map *map = m_maps.at(mapId);
         //printf("patching MAP %d in file %s with contents of %s\n",
         //   mapId,m_patchFile.data(),map->mapFile.data());
-        t << "<map name=\"" << map->label << "\" id=\"" << map->label << "\">" << endl;
-        convertMapFile(t,map->mapFile,map->relPath,map->urlOnly,map->context);
-        t << "</map>" << endl;
+        convertMapFile(tt,map->mapFile,map->relPath,map->urlOnly,map->context);
+        if (!result.isEmpty())
+        {
+          t << "<map name=\"" << map->label << "\" id=\"" << map->label << "\">" << endl;
+          t << result;
+          t << "</map>" << endl;
+        }
       }
       else // error invalid map id!
       {
@@ -1309,6 +1391,11 @@ bool DotManager::run()
     setDotFontPath(Config_getString(RTF_OUTPUT));
     setPath=TRUE;
   }
+  else if (Config_getBool(GENERATE_DOCBOOK))
+  {
+    setDotFontPath(Config_getString(DOCBOOK_OUTPUT));
+    setPath=TRUE;
+  }
   portable_sysTimerStart();
   // fill work queue with dot operations
   DotRunner *dr;
@@ -1428,6 +1515,7 @@ DotNode::DotNode(int n,const char *lab,const char *tip, const char *url,
   , m_visible(FALSE)
   , m_truncated(Unknown)
   , m_distance(1000)
+  , m_renumbered(false)
 {
 }
 
@@ -1524,21 +1612,21 @@ void DotNode::setDistance(int distance)
 
 static QCString convertLabel(const QCString &l)
 {
-  QCString result;
-  QCString bBefore("\\_/<({[: =-+@%#~?$"); // break before character set
-  QCString bAfter(">]),:;|");              // break after  character set
-  const char *p=l.data();
-  if (p==0) return result;
-  char c,pc=0;
-  char cs[2];
-  cs[1]=0;
-  int len=l.length();
+  QString bBefore("\\_/<({[: =-+@%#~?$"); // break before character set
+  QString bAfter(">]),:;|");              // break after  character set
+  QString p(l);
+  if (p.isEmpty()) return QCString();
+  QString result;
+  QChar c,pc=0;
+  uint idx = 0;
+  int len=p.length();
   int charsLeft=len;
   int sinceLast=0;
   int foldLen=17; // ideal text length
-  while ((c=*p++))
+  while (idx < p.length())
   {
-    QCString replacement;
+    c = p[idx++];
+    QString replacement;
     switch(c)
     {
       case '\\': replacement="\\\\"; break;
@@ -1549,7 +1637,7 @@ static QCString convertLabel(const QCString &l)
       case '{':  replacement="\\{"; break;
       case '}':  replacement="\\}"; break;
       case '"':  replacement="\\\""; break;
-      default:   cs[0]=c; replacement=cs; break;
+      default:   replacement=c; break;
     }
     // Some heuristics to insert newlines to prevent too long
     // boxes and at the same time prevent ugly breaks
@@ -1567,14 +1655,14 @@ static QCString convertLabel(const QCString &l)
       sinceLast=1;
     }
     else if (charsLeft>1+foldLen/4 && sinceLast>foldLen+foldLen/3 && 
-            !isupper(c) && isupper(*p))
+            !isupper(c) && p[idx].category()==QChar::Letter_Uppercase)
     {
       result+=replacement;
       result+="\\l";
       foldLen = (foldLen+sinceLast+1)/2;
       sinceLast=0;
     }
-    else if (charsLeft>foldLen/3 && sinceLast>foldLen && bAfter.contains(c) && (c!=':' || *p!=':'))
+    else if (charsLeft>foldLen/3 && sinceLast>foldLen && bAfter.contains(c) && (c!=':' || p[idx]!=':'))
     {
       result+=replacement;
       result+="\\l";
@@ -1589,7 +1677,7 @@ static QCString convertLabel(const QCString &l)
     charsLeft--;
     pc=c;
   }
-  return result;
+  return result.utf8();
 }
 
 static QCString escapeTooltip(const QCString &tooltip)
@@ -1804,10 +1892,14 @@ void DotNode::writeBox(FTextStream &t,
           << m_url.right(m_url.length()-anchorPos) << "\"";
       }
     }
-    if (!m_tooltip.isEmpty())
-    {
-      t << ",tooltip=\"" << escapeTooltip(m_tooltip) << "\"";
-    }
+  }
+  if (!m_tooltip.isEmpty())
+  {
+    t << ",tooltip=\"" << escapeTooltip(m_tooltip) << "\"";
+  }
+  else
+  {
+    t << ",tooltip=\" \""; // space in tooltip is required otherwise still something like 'Node0' is used
   }
   t << "];" << endl; 
 }
@@ -2196,7 +2288,11 @@ void DotNode::renumberNodes(int &number)
     DotNode *cn;
     for (dnlic.toFirst();(cn=dnlic.current());++dnlic)
     {
-      cn->renumberNodes(number);
+      if (!cn->m_renumbered)
+      {
+        cn->m_renumbered = true;
+        cn->renumberNodes(number);
+      }
     }
   }
 }
@@ -2245,7 +2341,10 @@ void DotGfxHierarchyTable::createGraph(DotNode *n,FTextStream &out,
   QCString baseName;
   QCString imgExt = getDotImageExtension();
   QCString imgFmt = Config_getEnum(DOT_IMAGE_FORMAT);
-  baseName.sprintf("inherit_graph_%d",id);
+  if (m_prefix.isEmpty())
+    baseName.sprintf("inherit_graph_%d",id);
+  else
+    baseName.sprintf("%sinherit_graph_%d",m_prefix.data(),id);
   QCString imgName = baseName+"."+ imgExt;
   QCString mapName = baseName+".map";
   QCString absImgName = QCString(d.absPath().data())+"/"+imgName;
@@ -2437,6 +2536,7 @@ void DotGfxHierarchyTable::addHierarchy(DotNode *n,ClassDef *cd,bool hideSuper)
 
 void DotGfxHierarchyTable::addClassList(ClassSDict *cl)
 {
+  static bool sliceOpt = Config_getBool(OPTIMIZE_OUTPUT_SLICE);
   ClassSDict::Iterator cli(*cl);
   ClassDef *cd;
   for (cli.toLast();(cd=cli.current());--cli)
@@ -2445,6 +2545,10 @@ void DotGfxHierarchyTable::addClassList(ClassSDict *cl)
     if (cd->getLanguage()==SrcLangExt_VHDL &&
         (VhdlDocGen::VhdlClasses)cd->protection()!=VhdlDocGen::ENTITYCLASS
        )
+    {
+      continue;
+    }
+    if (sliceOpt && cd->compoundType() != m_classType)
     {
       continue;
     }
@@ -2480,7 +2584,10 @@ void DotGfxHierarchyTable::addClassList(ClassSDict *cl)
   }
 }
 
-DotGfxHierarchyTable::DotGfxHierarchyTable() : m_curNodeNumber(1)
+DotGfxHierarchyTable::DotGfxHierarchyTable(const char *prefix,ClassDef::CompoundType ct)
+  : m_prefix(prefix)
+  , m_classType(ct)
+  , m_curNodeNumber(1)
 {
   m_rootNodes = new QList<DotNode>;
   m_usedNodes = new QDict<DotNode>(1009); 
@@ -2993,7 +3100,7 @@ DotClassGraph::~DotClassGraph()
 QCString computeMd5Signature(DotNode *root,
                    DotNode::GraphType gt,
                    GraphOutputFormat format,
-                   bool lrRank,
+                   const QCString &rank, // either "LR", "RL", or ""
                    bool renderParents,
                    bool backArrows,
                    const QCString &title,
@@ -3004,9 +3111,9 @@ QCString computeMd5Signature(DotNode *root,
   QGString buf;
   FTextStream md5stream(&buf);
   writeGraphHeader(md5stream,title);
-  if (lrRank)
+  if (!rank.isEmpty())
   {
-    md5stream << "  rankdir=\"LR\";" << endl;
+    md5stream << "  rankdir=\"" << rank << "\";" << endl;
   }
   root->clearWriteFlag();
   root->write(md5stream, 
@@ -3055,7 +3162,7 @@ static bool updateDotGraph(DotNode *root,
                            DotNode::GraphType gt,
                            const QCString &baseName,
                            GraphOutputFormat format,
-                           bool lrRank,
+                           const QCString &rank,
                            bool renderParents,
                            bool backArrows,
                            const QCString &title=QCString()
@@ -3064,7 +3171,7 @@ static bool updateDotGraph(DotNode *root,
   QCString theGraph;
   // TODO: write graph to theGraph, then compute md5 checksum
   QCString md5 = computeMd5Signature(
-                   root,gt,format,lrRank,renderParents,
+                   root,gt,format,rank,renderParents,
                    backArrows,title,theGraph);
   QFile f(baseName+".dot");
   if (f.open(IO_WriteOnly))
@@ -3125,7 +3232,7 @@ QCString DotClassGraph::writeGraph(FTextStream &out,
                  m_graphType,
                  absBaseName,
                  graphFormat,
-                 m_lrRank,
+                 m_lrRank ? "LR" : "",
                  m_graphType==DotNode::Inheritance,
                  TRUE,
                  m_startNode->label()
@@ -3150,7 +3257,7 @@ QCString DotClassGraph::writeGraph(FTextStream &out,
       DotRunner *dotRun = new DotRunner(absDotName,d.absPath().data(),FALSE);
       if (usePDFLatex)
       {
-        dotRun->addJob("pdf",absPdfName);
+        dotRun->addJob("pdf",absPdfName,absBaseName);
       }
       else
       {
@@ -3164,29 +3271,15 @@ QCString DotClassGraph::writeGraph(FTextStream &out,
   if (graphFormat==GOF_BITMAP && textFormat==EOF_DocBook)
   {
     out << "<para>" << endl;
-    out << "    <figure>" << endl;
-    out << "        <title>";
-    switch (m_graphType)
-    {
-      case DotNode::Collaboration:
-        out << "Collaboration graph";
-        break;
-      case DotNode::Inheritance:
-        out << "Inheritance graph";
-        break;
-      default:
-        ASSERT(0);
-        break;
-    }
-    out << "</title>" << endl;
+    out << "    <informalfigure>" << endl;
     out << "        <mediaobject>" << endl;
     out << "            <imageobject>" << endl;
     out << "                <imagedata";
-    out << " width=\"50%\" align=\"center\" valign=\"middle\" scalefit=\"1\" fileref=\"" << relPath << baseName << "." << imgExt << "\">";
+    out << " width=\"50%\" align=\"center\" valign=\"middle\" scalefit=\"0\" fileref=\"" << relPath << baseName << "." << imgExt << "\">";
     out << "</imagedata>" << endl;
     out << "            </imageobject>" << endl;
     out << "        </mediaobject>" << endl;
-    out << "    </figure>" << endl;
+    out << "    </informalfigure>" << endl;
     out << "</para>" << endl;
   }
   else if (graphFormat==GOF_BITMAP && generateImageMap) // produce HTML to include the image
@@ -3409,9 +3502,10 @@ DotInclDepGraph::DotInclDepGraph(FileDef *fd,bool inverse)
   m_inclDepFileName   = fd->includeDependencyGraphFileName();
   m_inclByDepFileName = fd->includedByDependencyGraphFileName();
   QCString tmp_url=fd->getReference()+"$"+fd->getOutputFileBase();
+  QCString tooltip = fd->briefDescriptionAsTooltip();
   m_startNode = new DotNode(m_curNodeNumber++,
                             fd->docName(),
-                            "",
+                            tooltip,
                             tmp_url.data(),
                             TRUE     // root node
                            );
@@ -3484,7 +3578,7 @@ QCString DotInclDepGraph::writeGraph(FTextStream &out,
                  DotNode::Dependency,
                  absBaseName,
                  graphFormat,
-                 FALSE,        // lrRank
+                 "",           // lrRank
                  FALSE,        // renderParents
                  m_inverse,    // backArrows
                  m_startNode->label()
@@ -3508,7 +3602,7 @@ QCString DotInclDepGraph::writeGraph(FTextStream &out,
       DotRunner *dotRun = new DotRunner(absDotName,d.absPath().data(),FALSE);
       if (usePDFLatex)
       {
-        dotRun->addJob("pdf",absPdfName);
+        dotRun->addJob("pdf",absPdfName,absBaseName);
       }
       else
       {
@@ -3522,17 +3616,15 @@ QCString DotInclDepGraph::writeGraph(FTextStream &out,
   if (graphFormat==GOF_BITMAP && textFormat==EOF_DocBook)
   {
     out << "<para>" << endl;
-    out << "    <figure>" << endl;
-    out << "        <title>Dependency diagram";
-    out << "</title>" << endl;
+    out << "    <informalfigure>" << endl;
     out << "        <mediaobject>" << endl;
     out << "            <imageobject>" << endl;
     out << "                <imagedata";
-    out << " width=\"50%\" align=\"center\" valign=\"middle\" scalefit=\"1\" fileref=\"" << relPath << baseName << "." << imgExt << "\">";
+    out << " width=\"50%\" align=\"center\" valign=\"middle\" scalefit=\"0\" fileref=\"" << relPath << baseName << "." << imgExt << "\">";
     out << "</imagedata>" << endl;
     out << "            </imageobject>" << endl;
     out << "        </mediaobject>" << endl;
-    out << "    </figure>" << endl;
+    out << "    </informalfigure>" << endl;
     out << "</para>" << endl;
   }
   else if (graphFormat==GOF_BITMAP && generateImageMap)
@@ -3738,9 +3830,10 @@ DotCallGraph::DotCallGraph(MemberDef *md,bool inverse)
   {
     name = md->qualifiedName();
   }
+  QCString tooltip = md->briefDescriptionAsTooltip();
   m_startNode = new DotNode(m_curNodeNumber++,
                             linkToText(md->getLanguage(),name,FALSE),
-                            "",
+                            tooltip,
                             uniqueId.data(),
                             TRUE     // root node
                            );
@@ -3796,11 +3889,12 @@ QCString DotCallGraph::writeGraph(FTextStream &out, GraphOutputFormat graphForma
   QCString absImgName  = absBaseName+"."+imgExt;
 
   bool regenerate = FALSE;
+
   if (updateDotGraph(m_startNode,
                  DotNode::CallGraph,
                  absBaseName,
                  graphFormat,
-                 TRUE,         // lrRank
+                 m_inverse ? "RL" : "LR",   // lrRank
                  FALSE,        // renderParents
                  m_inverse,    // backArrows
                  m_startNode->label()
@@ -3826,7 +3920,7 @@ QCString DotCallGraph::writeGraph(FTextStream &out, GraphOutputFormat graphForma
       DotRunner *dotRun = new DotRunner(absDotName,d.absPath().data(),FALSE);
       if (usePDFLatex)
       {
-        dotRun->addJob("pdf",absPdfName);
+        dotRun->addJob("pdf",absPdfName,absBaseName);
       }
       else
       {
@@ -3841,17 +3935,15 @@ QCString DotCallGraph::writeGraph(FTextStream &out, GraphOutputFormat graphForma
   if (graphFormat==GOF_BITMAP && textFormat==EOF_DocBook)
   {
     out << "<para>" << endl;
-    out << "    <figure>" << endl;
-    out << "        <title>Call diagram";
-    out << "</title>" << endl;
+    out << "    <informalfigure>" << endl;
     out << "        <mediaobject>" << endl;
     out << "            <imageobject>" << endl;
     out << "                <imagedata";
-    out << " width=\"50%\" align=\"center\" valign=\"middle\" scalefit=\"1\" fileref=\"" << relPath << baseName << "." << imgExt << "\">";
+    out << " width=\"50%\" align=\"center\" valign=\"middle\" scalefit=\"0\" fileref=\"" << relPath << baseName << "." << imgExt << "\">";
     out << "</imagedata>" << endl;
     out << "            </imageobject>" << endl;
     out << "        </mediaobject>" << endl;
-    out << "    </figure>" << endl;
+    out << "    </informalfigure>" << endl;
     out << "</para>" << endl;
   }
   else if (graphFormat==GOF_BITMAP && generateImageMap)
@@ -3992,7 +4084,7 @@ QCString DotDirDeps::writeGraph(FTextStream &out,
       DotRunner *dotRun = new DotRunner(absDotName,d.absPath().data(),FALSE);
       if (usePDFLatex)
       {
-        dotRun->addJob("pdf",absPdfName);
+        dotRun->addJob("pdf",absPdfName,absBaseName);
       }
       else
       {
@@ -4006,17 +4098,15 @@ QCString DotDirDeps::writeGraph(FTextStream &out,
   if (graphFormat==GOF_BITMAP && textFormat==EOF_DocBook)
   {
     out << "<para>" << endl;
-    out << "    <figure>" << endl;
-    out << "        <title>Directory Dependency diagram";
-    out << "</title>" << endl;
+    out << "    <informalfigure>" << endl;
     out << "        <mediaobject>" << endl;
     out << "            <imageobject>" << endl;
     out << "                <imagedata";
-    out << " width=\"50%\" align=\"center\" valign=\"middle\" scalefit=\"1\" fileref=\"" << relPath << baseName << "." << imgExt << "\">";
+    out << " width=\"50%\" align=\"center\" valign=\"middle\" scalefit=\"0\" fileref=\"" << relPath << baseName << "." << imgExt << "\">";
     out << "</imagedata>" << endl;
     out << "            </imageobject>" << endl;
     out << "        </mediaobject>" << endl;
-    out << "    </figure>" << endl;
+    out << "    </informalfigure>" << endl;
     out << "</para>" << endl;
   }
   else if (graphFormat==GOF_BITMAP && generateImageMap)
@@ -4170,7 +4260,7 @@ void writeDotGraphFromFile(const char *inFile,const char *outDir,
   {
     if (Config_getBool(USE_PDFLATEX))
     {
-      dotRun.addJob("pdf",absOutFile+".pdf");
+      dotRun.addJob("pdf",absOutFile+".pdf",absOutFile);
     }
     else
     {
@@ -4238,13 +4328,18 @@ void writeDotImageMapFromFile(FTextStream &t,
   }
   else // bitmap graphics
   {
+    QGString result;
+    FTextStream tt(&result);
+
     t << "<img src=\"" << relPath << imgName << "\" alt=\""
-      << imgName << "\" border=\"0\" usemap=\"#" << mapName << "\"/>" << endl
-      << "<map name=\"" << mapName << "\" id=\"" << mapName << "\">";
-
-    convertMapFile(t, absOutFile, relPath ,TRUE, context);
-
-    t << "</map>" << endl;
+      << imgName << "\" border=\"0\" usemap=\"#" << mapName << "\"/>" << endl;
+    convertMapFile(tt, absOutFile, relPath ,TRUE, context);
+    if (!result.isEmpty())
+    {
+      t << "<map name=\"" << mapName << "\" id=\"" << mapName << "\">";
+      t << result;
+      t << "</map>" << endl;
+    }
   }
   d.remove(absOutFile);
 }
@@ -4262,7 +4357,8 @@ DotGroupCollaboration::DotGroupCollaboration(GroupDef* gd)
 {
     QCString tmp_url = gd->getReference()+"$"+gd->getOutputFileBase();
     m_usedNodes = new QDict<DotNode>(1009);
-    m_rootNode = new DotNode(m_curNodeNumber++, gd->groupTitle(), "", tmp_url, TRUE );
+    QCString tooltip = gd->briefDescriptionAsTooltip();
+    m_rootNode = new DotNode(m_curNodeNumber++, gd->groupTitle(), tooltip, tmp_url, TRUE );
     m_rootNode->markAsVisible();
     m_usedNodes->insert(gd->name(), m_rootNode );
     m_edges.setAutoDelete(TRUE);
@@ -4555,7 +4651,7 @@ QCString DotGroupCollaboration::writeGraph( FTextStream &t,
       DotRunner *dotRun = new DotRunner(absDotName,d.absPath().data(),FALSE);
       if (usePDFLatex)
       {
-        dotRun->addJob("pdf",absPdfName);
+        dotRun->addJob("pdf",absPdfName,absBaseName);
       }
       else
       {
@@ -4568,17 +4664,15 @@ QCString DotGroupCollaboration::writeGraph( FTextStream &t,
   if (graphFormat==GOF_BITMAP && textFormat==EOF_DocBook)
   {
     t << "<para>" << endl;
-    t << "    <figure>" << endl;
-    t << "        <title>Group Collaboration diagram";
-    t << "</title>" << endl;
+    t << "    <informalfigure>" << endl;
     t << "        <mediaobject>" << endl;
     t << "            <imageobject>" << endl;
     t << "                <imagedata";
-    t << " width=\"50%\" align=\"center\" valign=\"middle\" scalefit=\"1\" fileref=\"" << relPath << baseName << "." << imgExt << "\">";
+    t << " width=\"50%\" align=\"center\" valign=\"middle\" scalefit=\"0\" fileref=\"" << relPath << baseName << "." << imgExt << "\">";
     t << "</imagedata>" << endl;
     t << "            </imageobject>" << endl;
     t << "        </mediaobject>" << endl;
-    t << "    </figure>" << endl;
+    t << "    </informalfigure>" << endl;
     t << "</para>" << endl;
   }
   else if (graphFormat==GOF_BITMAP && writeImageMap)
@@ -4715,7 +4809,7 @@ void DotGroupCollaboration::writeGraphHeader(FTextStream &t,
   }
   t << "  edge [fontname=\"" << FONTNAME << "\",fontsize=\"" << FONTSIZE << "\","
     "labelfontname=\"" << FONTNAME << "\",labelfontsize=\"" << FONTSIZE << "\"];\n";
-  t << "  node [fontname=\"" << FONTNAME << "\",fontsize=\"" << FONTSIZE << "\",shape=record];\n";
+  t << "  node [fontname=\"" << FONTNAME << "\",fontsize=\"" << FONTSIZE << "\",shape=box];\n";
   t << "  rankdir=LR;\n";
 }
 

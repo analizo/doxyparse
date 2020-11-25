@@ -76,7 +76,7 @@
 // so for example *bla (*.txt) is cool*
 #define ignoreCloseEmphChar(i) \
   (data[i]=='('  || data[i]=='{' || data[i]=='[' || data[i]=='<' || \
-   data[i]=='='  || data[i]=='+' || data[i]=='-' || data[i]=='\\' || \
+   data[i]=='\\' || \
    data[i]=='@')
 
 //----------
@@ -240,7 +240,7 @@ static QCString isBlockCommand(const char *data,int offset,int size)
     {
       return "f]";
     }
-    else if (data[end]=='}')
+    else if (data[end]=='{')
     {
       return "f}";
     }
@@ -396,9 +396,11 @@ static int processEmphasis2(GrowBuf &out, const char *data, int size, char c)
         data[i-1]!='\n'
        )
     {
-      out.addStr("<strong>");
+      if (c == '~') out.addStr("<strike>");
+      else out.addStr("<strong>");
       processInline(out,data,i);
-      out.addStr("</strong>");
+      if (c == '~') out.addStr("</strike>");
+      else out.addStr("</strong>");
       return i + 2;
     }
     i++;
@@ -406,7 +408,7 @@ static int processEmphasis2(GrowBuf &out, const char *data, int size, char c)
   return 0;
 }
 
-/** Parsing tripple emphasis.
+/** Parsing triple emphasis.
  *  Finds the first closing tag, and delegates to the other emph 
  */
 static int processEmphasis3(GrowBuf &out, const char *data, int size, char c)
@@ -483,6 +485,8 @@ static int processNmdash(GrowBuf &out,const char *data,int off,int size)
   {
     count++;
   }
+  if (count==2 && off>=2 && qstrncmp(data-2,"<!",2)==0) return 0; // start HTML comment
+  if (count==2 && (data[2]=='>')) return 0; // end HTML comment
   if (count==2 && (off<8 || qstrncmp(data-8,"operator",8)!=0)) // -- => ndash
   {
     out.addStr("&ndash;");
@@ -614,7 +618,7 @@ static int processEmphasis(GrowBuf &out,const char *data,int offset,int size)
 
   char c = data[0];
   int ret;
-  if (size>2 && data[1]!=c) // _bla or *bla
+  if (size>2 && c!='~' && data[1]!=c) // _bla or *bla
   {
     // whitespace cannot follow an opening emphasis
     if (data[1]==' ' || data[1]=='\n' || 
@@ -633,7 +637,7 @@ static int processEmphasis(GrowBuf &out,const char *data,int offset,int size)
     }
     return ret+2;
   }
-  if (size>4 && data[1]==c && data[2]==c && data[3]!=c) // ___bla or ***bla
+  if (size>4 && c!='~' && data[1]==c && data[2]==c && data[3]!=c) // ___bla or ***bla
   {
     if (data[3]==' ' || data[3]=='\n' || 
         (ret = processEmphasis3(out, data+3, size-3, c)) == 0)
@@ -643,6 +647,27 @@ static int processEmphasis(GrowBuf &out,const char *data,int offset,int size)
     return ret+3;
   }
   return 0;
+}
+
+static void writeMarkdownImage(GrowBuf &out, const char *fmt, bool explicitTitle, QCString title, QCString content, QCString link, FileDef *fd)
+{
+  out.addStr("@image ");
+  out.addStr(fmt);
+  out.addStr(" ");
+  out.addStr(link.mid(fd ? 0 : 5));
+  if (!explicitTitle && !content.isEmpty())
+  {
+    out.addStr(" \"");
+    out.addStr(content);
+    out.addStr("\"");
+  }
+  else if ((content.isEmpty() || explicitTitle) && !title.isEmpty())
+  {
+    out.addStr(" \"");
+    out.addStr(title);
+    out.addStr("\"");
+  }
+  out.addStr("\n");
 }
 
 static int processLink(GrowBuf &out,const char *data,int,int size)
@@ -842,7 +867,15 @@ static int processLink(GrowBuf &out,const char *data,int,int size)
   }
   if (isToc) // special case for [TOC]
   {
-    if (g_current) g_current->stat=TRUE;
+    int level = Config_getInt(TOC_INCLUDE_HEADINGS);
+    if (level > 0 && level <=5)
+    {
+      char levStr[10];
+      sprintf(levStr,"%d",level);
+      out.addStr("@tableofcontents{html:");
+      out.addStr(levStr);
+      out.addStr("}");
+    }
   }
   else if (isImageLink) 
   {
@@ -852,20 +885,10 @@ static int processLink(GrowBuf &out,const char *data,int,int size)
         (fd=findFileDef(Doxygen::imageNameDict,link,ambig))) 
         // assume doxygen symbol link or local image link
     {
-      out.addStr("@image html ");
-      out.addStr(link.mid(fd ? 0 : 5));
-      if (!explicitTitle && !content.isEmpty())
-      {
-        out.addStr(" \"");
-        out.addStr(content);
-        out.addStr("\"");
-      }
-      else if ((content.isEmpty() || explicitTitle) && !title.isEmpty())
-      {
-        out.addStr(" \"");
-        out.addStr(title);
-        out.addStr("\"");
-      }
+      writeMarkdownImage(out, "html", explicitTitle, title, content, link, fd);
+      writeMarkdownImage(out, "latex", explicitTitle, title, content, link, fd);
+      writeMarkdownImage(out, "rtf", explicitTitle, title, content, link, fd);
+      writeMarkdownImage(out, "docbook", explicitTitle, title, content, link, fd);
     }
     else
     {
@@ -1588,15 +1611,15 @@ static int writeTableBlock(GrowBuf &out,const char *data,int size)
   int columns,start,end,cc;
 
   i = findTableColumns(data,size,start,end,columns);
-  
+
+  int headerStart = start;
+  int headerEnd = end;
+
 #ifdef USE_ORIGINAL_TABLES
   out.addStr("<table>");
 
   // write table header, in range [start..end]
   out.addStr("<tr>");
-
-  int headerStart = start;
-  int headerEnd = end;
 #endif
     
   // read cell alignments
@@ -1710,9 +1733,6 @@ static int writeTableBlock(GrowBuf &out,const char *data,int size)
   QVector<QVector<TableCell> > tableContents;
   tableContents.setAutoDelete(TRUE);
 
-  int headerStart = start;
-  int headerEnd = end;
-
   int m=headerStart;
   QVector<TableCell> *headerContents = new QVector<TableCell>(columns);
   headerContents->setAutoDelete(TRUE);
@@ -1781,22 +1801,20 @@ static int writeTableBlock(GrowBuf &out,const char *data,int size)
   QCString cellTag("th"), cellClass("class=\"markdownTableHead");
   for (unsigned row = 0; row < tableContents.size(); row++)
   {
-    out.addStr("  <tr class=\"markdownTable");
     if (row)
     {
-      out.addStr("Body\"");
       if (row % 2)
       {
-        out.addStr(" class=\"markdownTableRowOdd\">\n");
+        out.addStr("<tr class=\"markdownTableRowOdd\">\n");
       }
       else
       {
-        out.addStr(" class=\"markdownTableRowEven\">\n");
+        out.addStr("<tr class=\"markdownTableRowEven\">\n");
       }
     }
     else
     {
-      out.addStr("Head\">\n");
+      out.addStr("  <tr class=\"markdownTableHead\">\n");
     }
     for (int c = 0; c < columns; c++)
     {
@@ -1882,7 +1900,7 @@ void writeOneLineHeaderOrRuler(GrowBuf &out,const char *data,int size)
   QCString id;
   if (isHRuler(data,size))
   {
-    out.addStr("<hr>\n");
+    out.addStr("\n<hr>\n");
   }
   else if ((level=isAtxHeader(data,size,header,id)))
   {
@@ -1911,27 +1929,6 @@ void writeOneLineHeaderOrRuler(GrowBuf &out,const char *data,int size)
       out.addStr(" ");
       out.addStr(header);
       out.addStr("\n");
-      SectionInfo *si = Doxygen::sectionDict->find(id);
-      if (si)
-      {
-        if (si->lineNr != -1)
-        {
-          warn(g_fileName,g_lineNr,"multiple use of section label '%s', (first occurrence: %s, line %d)",header.data(),si->fileName.data(),si->lineNr);
-        }
-        else
-        {
-          warn(g_fileName,g_lineNr,"multiple use of section label '%s', (first occurrence: %s)",header.data(),si->fileName.data());
-        }
-      }
-      else
-      {
-        si = new SectionInfo(g_fileName,g_lineNr,id,header,type,level);
-        if (g_current)
-        {
-          g_current->anchors->append(si);
-        }
-        Doxygen::sectionDict->append(id,si);
-      }
     }
     else
     {
@@ -1950,7 +1947,7 @@ void writeOneLineHeaderOrRuler(GrowBuf &out,const char *data,int size)
     out.addStr(data,size);
     if (hasLineBreak(data,size))
     {
-      out.addStr("<br>");
+      out.addStr("\n");
     }
   }
 }
@@ -2061,7 +2058,7 @@ static int writeCodeBlock(GrowBuf &out,const char *data,int size,int refIndent)
 }
 
 // start searching for the end of the line start at offset \a i
-// keeping track of possible blocks that need to to skipped.
+// keeping track of possible blocks that need to be skipped.
 static void findEndOfLine(GrowBuf &out,const char *data,int size,
                           int &pi,int&i,int &end)
 {
@@ -2317,7 +2314,7 @@ static QCString processBlocks(const QCString &s,int indent)
         }
         else
         {
-          out.addStr("<hr>\n");
+          out.addStr("\n<hr>\n");
         }
         pi=-1;
         i=end;
@@ -2516,6 +2513,7 @@ QCString processMarkdown(const QCString &fileName,const int lineNr,Entry *e,cons
     // setup callback table for special characters
     g_actions[(unsigned int)'_']=processEmphasis;
     g_actions[(unsigned int)'*']=processEmphasis;
+    g_actions[(unsigned int)'~']=processEmphasis;
     g_actions[(unsigned int)'`']=processCodeSpan;
     g_actions[(unsigned int)'\\']=processSpecialCommand;
     g_actions[(unsigned int)'@']=processSpecialCommand;
@@ -2548,7 +2546,7 @@ QCString processMarkdown(const QCString &fileName,const int lineNr,Entry *e,cons
   // finally process the inline markup (links, emphasis and code spans)
   processInline(out,s,s.length());
   out.addChar(0);
-  Debug::print(Debug::Markdown,0,"======== Markdown =========\n---- input ------- \n%s\n---- output -----\n%s\n---------\n",qPrint(input),qPrint(out.get()));
+  Debug::print(Debug::Markdown,0,"======== Markdown =========\n---- input ------- \n%s\n---- output -----\n%s\n=========\n",qPrint(input),qPrint(out.get()));
   return out.get();
 }
 
