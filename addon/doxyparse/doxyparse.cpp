@@ -453,7 +453,7 @@ int main(int argc,char **argv) {
     exit(1);
   }
   if (qstrcmp(&argv[1][2], "version") == 0) {
-    printf("%s\n", versionString);
+    printf("%s~fix-kdelibs\n", versionString);
     exit(0);
   }
 
